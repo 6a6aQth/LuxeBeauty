@@ -46,16 +46,27 @@ function dayParts(date: string) {
   }
 }
 
-function ServiceChips({ names }: { names: string[] }) {
+function TicketStub({ visit }: { visit: Visit }) {
+  const when = dayParts(visit.date)
   return (
-    <ul className="mt-4 flex flex-wrap gap-2">
-      {names.map((name, index) => (
-        <li key={`${name}-${index}`} className="rounded-full border border-pink-200 bg-pink-50 px-3 py-1 text-xs tracking-wide text-pink-900">
-          {name}
-        </li>
-      ))}
-    </ul>
+    <div className="flex items-center gap-4 bg-stone-950 px-4 py-4 text-white">
+      <div className="w-14 shrink-0 text-center">
+        <p className="text-[10px] uppercase tracking-[0.22em] text-brand-pink">{when.month}</p>
+        <p className="font-serif text-3xl leading-none">{when.day}</p>
+        <p className="mt-1 text-[10px] uppercase tracking-wide text-white/60">{when.weekday.slice(0, 3)}</p>
+      </div>
+      <div className="h-14 border-l border-dashed border-white/25" />
+      <div className="min-w-0 flex-1">
+        <p className="truncate font-serif text-lg leading-tight">{visit.name}</p>
+        <p className="mt-1 text-xs text-white/75">{formatTime(visit.timeSlot)}</p>
+        <p className="mt-1 truncate text-[11px] uppercase tracking-[0.16em] text-white/45">{visit.ticketId}</p>
+      </div>
+    </div>
   )
+}
+
+function ServiceLine({ names }: { names: string[] }) {
+  return <p className="mt-2 text-sm leading-relaxed text-stone-600">{names.join(" · ")}</p>
 }
 
 export default function AccountPage() {
@@ -123,18 +134,18 @@ export default function AccountPage() {
   return (
     <div className="min-h-[70vh] bg-[#fdf6f8]">
       <div className="bg-stone-950">
-        <div className="mx-auto flex max-w-5xl items-center justify-between gap-8 px-4 py-10 md:py-12">
-          <div>
+        <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-7 sm:gap-8 sm:py-10 md:py-12">
+          <div className="min-w-0">
             <p className="text-[11px] uppercase tracking-[0.32em] text-brand-pink">Your studio</p>
-            <h1 className="mt-3 font-serif text-4xl text-white md:text-5xl">
+            <h1 className="mt-2 font-serif text-3xl text-white sm:mt-3 sm:text-4xl md:text-5xl">
               {firstName ? `Hi, ${firstName}` : "Your account"}
             </h1>
-            {payload && <p className="mt-2 text-sm text-white/70">Visits for {payload.phone}</p>}
+            {payload && <p className="mt-2 truncate text-sm text-white/70">Visits for {payload.phone}</p>}
           </div>
           <img
             src="/llogo-mark.png"
             alt="Lauryn Luxe Beauty Studio"
-            className="hidden h-28 w-auto max-w-[46%] shrink-0 object-contain sm:block md:h-32"
+            className="h-[4.5rem] w-auto max-w-[42%] shrink-0 object-contain sm:h-28 sm:max-w-[46%] md:h-32"
           />
         </div>
       </div>
@@ -147,6 +158,7 @@ export default function AccountPage() {
         {!payload && !error && <p className="mt-10 text-sm text-stone-500">Loading your visits…</p>}
 
         {payload && (
+          <>
           <div className="grid gap-10 lg:grid-cols-[260px_1fr]">
             <aside className="h-fit rounded-2xl border border-pink-100 bg-white p-6 shadow-sm">
               <p className="text-[11px] uppercase tracking-[0.28em] text-brand-pink">Loyalty</p>
@@ -191,41 +203,40 @@ export default function AccountPage() {
                     {payload.upcoming.map((visit) => {
                       return (
                         <li key={visit.id} className="overflow-hidden rounded-2xl border border-pink-100 bg-white shadow-sm">
-                          <div className="flex flex-col sm:flex-row">
-                            <div className="relative h-64 overflow-hidden border-b border-pink-100 bg-gray-200 sm:h-auto sm:w-52 sm:border-b-0 sm:border-r">
-                              <div className="pointer-events-none absolute left-1/2 top-3 origin-top -translate-x-1/2 scale-[0.5]">
-                                <TicketFace details={ticketDetails(visit)} serviceNames={visit.serviceNames} />
-                              </div>
-                              <div className="pointer-events-none fixed left-[-4000px] top-0">
-                                <TicketFace
-                                  ref={(node) => {
-                                    if (node) ticketNodes.current.set(visit.id, node)
-                                    else ticketNodes.current.delete(visit.id)
-                                  }}
-                                  details={ticketDetails(visit)}
-                                  serviceNames={visit.serviceNames}
-                                />
-                              </div>
+                          <div className="pointer-events-none fixed left-[-4000px] top-0" aria-hidden>
+                            <TicketFace
+                              ref={(node) => {
+                                if (node) ticketNodes.current.set(visit.id, node)
+                                else ticketNodes.current.delete(visit.id)
+                              }}
+                              details={ticketDetails(visit)}
+                              serviceNames={visit.serviceNames}
+                            />
+                          </div>
+                          <TicketStub visit={visit} />
+                          <div className="px-5 py-5">
+                            <div className="flex flex-wrap items-baseline justify-between gap-2">
+                              <p className="font-serif text-lg text-stone-900">
+                                {dayParts(visit.date).weekday}, {dayParts(visit.date).full}
+                              </p>
+                              <p className="text-sm text-stone-500">{formatTime(visit.timeSlot)}</p>
                             </div>
-                            <div className="flex-1 px-5 py-5">
-                              <p className="text-sm tracking-wide text-stone-800">{formatTime(visit.timeSlot)}</p>
-                              <ServiceChips names={visit.serviceNames} />
-                              <div className="mt-5 flex flex-wrap gap-3">
-                                <Button
-                                  className="rounded-md bg-brand-pink text-white hover:bg-brand-pink/90"
-                                  disabled={downloadingId === visit.id}
-                                  onClick={() => downloadVisit(visit)}
-                                >
-                                  {downloadingId === visit.id ? "Preparing…" : "Download Ticket"}
+                            <ServiceLine names={visit.serviceNames} />
+                            <div className="mt-5 flex flex-wrap gap-3">
+                              <Button
+                                className="rounded-md bg-brand-pink text-white hover:bg-brand-pink/90"
+                                disabled={downloadingId === visit.id}
+                                onClick={() => downloadVisit(visit)}
+                              >
+                                {downloadingId === visit.id ? "Preparing…" : "Download Ticket"}
+                              </Button>
+                              {visit.rescheduleCount < 1 && (
+                                <Button asChild variant="outline" className="rounded-md border-stone-300 text-stone-800 hover:bg-stone-50">
+                                  <Link href={`/reschedule?ticketId=${encodeURIComponent(visit.ticketId)}&source=account`}>
+                                    Reschedule
+                                  </Link>
                                 </Button>
-                                {visit.rescheduleCount < 1 && (
-                                  <Button asChild variant="outline" className="rounded-md border-pink-200 text-pink-900 hover:bg-pink-50">
-                                    <Link href={`/reschedule?ticketId=${encodeURIComponent(visit.ticketId)}&source=account`}>
-                                      Reschedule
-                                    </Link>
-                                  </Button>
-                                )}
-                              </div>
+                              )}
                             </div>
                           </div>
                         </li>
@@ -234,50 +245,58 @@ export default function AccountPage() {
                   </ul>
                 )}
               </section>
-
-              <section>
-                <div className="flex items-end justify-between border-b border-pink-100 pb-3">
-                  <h2 className="font-serif text-3xl text-stone-900">
-                    {payload.pastTotal === 1 ? "Past Booking" : "Past Bookings"}
-                  </h2>
-                  <span className="text-xs uppercase tracking-[0.2em] text-pink-400">{payload.pastTotal}</span>
-                </div>
-                {payload.pastTotal === 0 ? (
-                  <p className="mt-6 text-sm text-stone-500">No past visits yet.</p>
-                ) : (
-                  <>
-                    <ul className="mt-4 divide-y divide-pink-50 overflow-hidden rounded-2xl border border-pink-100 bg-white">
-                      {payload.past.map((visit) => {
-                        const when = dayParts(visit.date)
-                        return (
-                          <li key={visit.id} className="px-5 py-5">
-                            <div className="flex flex-wrap items-baseline justify-between gap-2">
-                              <p className="font-serif text-lg text-stone-900">{when.weekday}, {when.full}</p>
-                              <p className="text-sm text-stone-500">{formatTime(visit.timeSlot)}</p>
-                            </div>
-                            <ServiceChips names={visit.serviceNames} />
-                          </li>
-                        )
-                      })}
-                    </ul>
-                    {payload.pastHasMore && (
-                      <button
-                        type="button"
-                        disabled={loadingMore}
-                        onClick={() => {
-                          setLoadingMore(true)
-                          setPastPage((page) => page + 1)
-                        }}
-                        className="mt-4 text-sm tracking-wide text-brand-pink underline underline-offset-4 hover:text-pink-700"
-                      >
-                        {loadingMore ? "Loading…" : `Show earlier visits (${payload.past.length} of ${payload.pastTotal})`}
-                      </button>
-                    )}
-                  </>
-                )}
-              </section>
             </div>
           </div>
+
+          <section className="mt-12">
+            <div className="flex items-end justify-between border-b border-stone-200 pb-3">
+              <h2 className="font-serif text-3xl text-stone-900">
+                {payload.pastTotal === 1 ? "Past Booking" : "Past Bookings"}
+              </h2>
+              <span className="text-xs uppercase tracking-[0.2em] text-stone-400">{payload.pastTotal}</span>
+            </div>
+            {payload.pastTotal === 0 ? (
+              <p className="mt-6 text-sm text-stone-500">No past visits yet.</p>
+            ) : (
+              <>
+                <ul className="mt-4 overflow-hidden rounded-2xl border border-stone-200 bg-white">
+                  {payload.past.map((visit) => {
+                    const when = dayParts(visit.date)
+                    return (
+                      <li key={visit.id} className="flex gap-4 border-b border-stone-100 px-4 py-4 last:border-b-0 sm:px-5">
+                        <div className="flex w-14 shrink-0 flex-col items-center justify-center rounded-xl bg-stone-950 py-2 text-white">
+                          <span className="text-[10px] uppercase tracking-[0.16em] text-brand-pink">{when.month}</span>
+                          <span className="font-serif text-2xl leading-none">{when.day}</span>
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-baseline justify-between gap-3">
+                            <p className="font-serif text-lg text-stone-900">{when.weekday}</p>
+                            <p className="shrink-0 text-sm text-stone-500">{formatTime(visit.timeSlot)}</p>
+                          </div>
+                          <p className="text-xs text-stone-400">{when.full}</p>
+                          <ServiceLine names={visit.serviceNames} />
+                        </div>
+                      </li>
+                    )
+                  })}
+                </ul>
+                {payload.pastHasMore && (
+                  <button
+                    type="button"
+                    disabled={loadingMore}
+                    onClick={() => {
+                      setLoadingMore(true)
+                      setPastPage((page) => page + 1)
+                    }}
+                    className="mt-4 text-sm tracking-wide text-stone-700 underline underline-offset-4 hover:text-stone-950"
+                  >
+                    {loadingMore ? "Loading…" : `Show earlier visits (${payload.past.length} of ${payload.pastTotal})`}
+                  </button>
+                )}
+              </>
+            )}
+          </section>
+          </>
         )}
       </div>
     </div>

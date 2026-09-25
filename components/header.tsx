@@ -14,7 +14,7 @@ import {
 import { MenuIcon, UserRound } from "lucide-react"
 import Logo from "@/components/logo"
 import { authClient } from "@/lib/auth/client"
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 
 const navLinks = [
   { href: "/", label: "Home" },
@@ -29,7 +29,26 @@ const navLinks = [
 
 function AccountMenu({ signedIn, onNavigate }: { signedIn: boolean; onNavigate?: () => void }) {
   const router = useRouter()
+  const menuRef = useRef<HTMLDivElement>(null)
   const [open, setOpen] = useState(false)
+  const [canHover, setCanHover] = useState(false)
+
+  useEffect(() => {
+    const query = window.matchMedia("(hover: hover) and (pointer: fine)")
+    const update = () => setCanHover(query.matches)
+    update()
+    query.addEventListener("change", update)
+    return () => query.removeEventListener("change", update)
+  }, [])
+
+  useEffect(() => {
+    if (!open) return
+    function closeOnOutside(event: PointerEvent) {
+      if (!menuRef.current?.contains(event.target as Node)) setOpen(false)
+    }
+    document.addEventListener("pointerdown", closeOnOutside)
+    return () => document.removeEventListener("pointerdown", closeOnOutside)
+  }, [open])
 
   async function signOut() {
     setOpen(false)
@@ -50,13 +69,22 @@ function AccountMenu({ signedIn, onNavigate }: { signedIn: boolean; onNavigate?:
   }
 
   return (
-    <div className="relative" onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)}>
+    <div
+      ref={menuRef}
+      className="relative"
+      onMouseEnter={() => {
+        if (canHover) setOpen(true)
+      }}
+      onMouseLeave={() => {
+        if (canHover) setOpen(false)
+      }}
+    >
       <button
         type="button"
         aria-label="Account menu"
         aria-expanded={open}
         onClick={() => setOpen((value) => !value)}
-        className="flex h-10 w-10 items-center justify-center rounded-full border border-gray-300 bg-white text-gray-700 hover:border-pink-400 hover:text-pink-600"
+        className="flex h-11 w-11 items-center justify-center rounded-full border border-gray-300 bg-white text-gray-700 hover:border-pink-400 hover:text-pink-600"
       >
         <UserRound className="h-5 w-5" />
       </button>
