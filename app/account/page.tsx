@@ -1,15 +1,12 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { format, parseISO } from "date-fns"
-import { CalendarDays, Sparkles } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { BookingTicket } from "@/components/booking-ticket"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { TicketFace, downloadTicketPng, TicketDetails } from "@/components/booking-ticket"
 import { formatTime } from "@/lib/time-slots"
-import { Service } from "@/types/types"
 
 type Visit = {
   id: string
@@ -18,6 +15,7 @@ type Visit = {
   date: string
   timeSlot: string
   services: string[]
+  serviceNames: string[]
   discountApplied: boolean
   rescheduleCount: number
   originalDate: string | null
@@ -26,32 +24,53 @@ type Visit = {
 type VisitsPayload = {
   name: string
   phone: string
+  pastTotal: number
+  pastHasMore: boolean
   loyalty: {
     copy: string
     successfulCount: number
-    nextVisitIsDiscount: boolean
+    visitsUntilDiscount: number
   }
   upcoming: Visit[]
   past: Visit[]
 }
 
-function visitDate(date: string) {
+function dayParts(date: string) {
   const parsed = parseISO(date)
-  if (Number.isNaN(parsed.getTime())) return date
-  return format(parsed, "EEEE, MMMM d, yyyy")
+  if (Number.isNaN(parsed.getTime())) return { month: "", day: date, weekday: "" }
+  return {
+    month: format(parsed, "MMM"),
+    day: format(parsed, "d"),
+    weekday: format(parsed, "EEEE"),
+    full: format(parsed, "MMMM d, yyyy"),
+  }
+}
+
+function ServiceChips({ names }: { names: string[] }) {
+  return (
+    <ul className="mt-4 flex flex-wrap gap-2">
+      {names.map((name, index) => (
+        <li key={`${name}-${index}`} className="rounded-full border border-pink-200 bg-pink-50 px-3 py-1 text-xs tracking-wide text-pink-900">
+          {name}
+        </li>
+      ))}
+    </ul>
+  )
 }
 
 export default function AccountPage() {
   const router = useRouter()
   const [payload, setPayload] = useState<VisitsPayload | null>(null)
   const [error, setError] = useState("")
-  const [openTicket, setOpenTicket] = useState<Visit | null>(null)
-  const [services, setServices] = useState<Service[]>([])
+  const [pastPage, setPastPage] = useState(1)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [downloadingId, setDownloadingId] = useState<string | null>(null)
+  const ticketNodes = useRef(new Map<string, HTMLDivElement>())
 
   useEffect(() => {
     let cancelled = false
     async function load() {
-      const response = await fetch("/api/account/visits")
+      const response = await fetch(`/api/account/visits?pastPage=${pastPage}`)
       if (response.status === 401) {
         router.replace("/sign-in")
         return
@@ -66,46 +85,74 @@ export default function AccountPage() {
         return
       }
       if (!cancelled) setPayload(data)
-      const servicesResponse = await fetch("/api/services")
-      if (servicesResponse.ok && !cancelled) setServices(await servicesResponse.json())
+      if (!cancelled) setLoadingMore(false)
     }
     load()
     return () => {
       cancelled = true
     }
-  }, [router])
+  }, [router, pastPage])
 
-  function serviceNames(ids: string[]) {
-    return ids.map((id) => services.find((service) => service.id === id)?.name || id)
+  function ticketDetails(visit: Visit): TicketDetails {
+    return {
+      name: visit.name,
+      date: visit.date,
+      timeSlot: visit.timeSlot,
+      services: visit.services,
+      fee: visit.rescheduleCount > 0 ? "Rescheduled - No Additional Charge" : "K10,000 (Paid)",
+      ticketId: visit.ticketId,
+      discountApplied: visit.discountApplied,
+      isReschedule: visit.rescheduleCount > 0,
+      originalDate: visit.originalDate,
+    }
   }
 
+  async function downloadVisit(visit: Visit) {
+    const node = ticketNodes.current.get(visit.id)
+    if (!node) return
+    setDownloadingId(visit.id)
+    try {
+      await downloadTicketPng(node, visit.ticketId)
+    } finally {
+      setDownloadingId(null)
+    }
+  }
   const firstName = payload?.name.split(" ")[0] || ""
-  const filled = (payload?.loyalty.successfulCount ?? 0) % 6
+  const filled = payload ? 6 - payload.loyalty.visitsUntilDiscount : 0
 
   return (
-    <div className="min-h-[70vh] bg-[#faf7f8]">
-      <div className="mx-auto max-w-5xl px-4 py-10 md:py-14">
-        <p className="text-xs uppercase tracking-[0.28em] text-brand-pink">Your studio</p>
-        <h1 className="mt-2 font-serif text-4xl text-gray-900 md:text-5xl">
-          {firstName ? `Hello, ${firstName}` : "Your account"}
-        </h1>
-        {payload && <p className="mt-2 text-sm text-gray-500">Visits for {payload.phone}</p>}
+    <div className="min-h-[70vh] bg-[#fdf6f8]">
+      <div className="bg-stone-950">
+        <div className="mx-auto flex max-w-5xl items-center justify-between gap-8 px-4 py-10 md:py-12">
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.32em] text-brand-pink">Your studio</p>
+            <h1 className="mt-3 font-serif text-4xl text-white md:text-5xl">
+              {firstName ? `Hi, ${firstName}` : "Your account"}
+            </h1>
+            {payload && <p className="mt-2 text-sm text-white/70">Visits for {payload.phone}</p>}
+          </div>
+          <img
+            src="/llogo-mark.png"
+            alt="Lauryn Luxe Beauty Studio"
+            className="hidden h-28 w-auto max-w-[46%] shrink-0 object-contain sm:block md:h-32"
+          />
+        </div>
+      </div>
+
+      <div className="mx-auto max-w-5xl px-4 py-10 md:pb-16">
 
         {error && (
           <p className="mt-8 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>
         )}
-        {!payload && !error && <p className="mt-10 text-sm text-gray-500">Loading your visits…</p>}
+        {!payload && !error && <p className="mt-10 text-sm text-stone-500">Loading your visits…</p>}
 
         {payload && (
-          <div className="mt-10 grid gap-8 lg:grid-cols-[280px_1fr]">
+          <div className="grid gap-10 lg:grid-cols-[260px_1fr]">
             <aside className="h-fit rounded-2xl border border-pink-100 bg-white p-6 shadow-sm">
-              <div className="flex items-center gap-2 text-brand-pink">
-                <Sparkles className="h-4 w-4" />
-                <p className="text-xs uppercase tracking-[0.22em]">Loyalty</p>
-              </div>
-              <p className="mt-4 font-serif text-2xl leading-snug text-gray-900">{payload.loyalty.copy}</p>
-              <p className="mt-2 text-sm text-gray-500">
-                {payload.loyalty.successfulCount} successful {payload.loyalty.successfulCount === 1 ? "visit" : "visits"} on this phone.
+              <p className="text-[11px] uppercase tracking-[0.28em] text-brand-pink">Loyalty</p>
+              <p className="mt-4 font-serif text-[1.65rem] leading-snug text-stone-900">{payload.loyalty.copy}</p>
+              <p className="mt-3 text-sm text-stone-500">
+                {payload.loyalty.successfulCount} successful {payload.loyalty.successfulCount === 1 ? "visit" : "visits"}
               </p>
               <div className="mt-6 grid grid-cols-6 gap-2">
                 {Array.from({ length: 6 }, (_, index) => {
@@ -119,7 +166,7 @@ export default function AccountPage() {
                             ? "border-brand-pink bg-brand-pink"
                             : reward
                               ? "border-brand-pink bg-pink-50"
-                              : "border-gray-200 bg-white"
+                              : "border-pink-200 bg-white"
                         }`}
                       />
                       {reward && <span className="text-[10px] font-medium text-brand-pink">30%</span>}
@@ -129,85 +176,110 @@ export default function AccountPage() {
               </div>
             </aside>
 
-            <div className="space-y-10">
+            <div className="space-y-12">
               <section>
-                <h2 className="font-serif text-3xl text-gray-900">Upcoming</h2>
+                <div className="flex items-end justify-between border-b border-pink-100 pb-3">
+                  <h2 className="font-serif text-3xl text-stone-900">
+                    {payload.upcoming.length === 1 ? "Upcoming Booking" : "Upcoming Bookings"}
+                  </h2>
+                  <span className="text-xs uppercase tracking-[0.2em] text-pink-400">{payload.upcoming.length}</span>
+                </div>
                 {payload.upcoming.length === 0 ? (
-                  <div className="mt-4 rounded-2xl border border-dashed border-pink-200 bg-white px-6 py-10 text-center">
-                    <CalendarDays className="mx-auto h-6 w-6 text-brand-pink" />
-                    <p className="mt-3 font-medium text-gray-800">No upcoming visits</p>
-                    <p className="mt-1 text-sm text-gray-500">Your next appointment shows here after payment.</p>
-                  </div>
+                  <p className="mt-6 text-sm text-stone-500">No upcoming visits. The next confirmed appointment will appear here.</p>
                 ) : (
-                  <ul className="mt-4 space-y-4">
-                    {payload.upcoming.map((visit) => (
-                      <li key={visit.id} className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-                        <p className="font-serif text-xl text-gray-900">{visitDate(visit.date)}</p>
-                        <p className="mt-1 text-sm text-gray-600">{formatTime(visit.timeSlot)}</p>
-                        <p className="mt-3 text-sm text-gray-800">{serviceNames(visit.services).join(", ") || "Services on file"}</p>
-                        <div className="mt-4 flex flex-wrap gap-3">
-                          <Button className="rounded-lg" onClick={() => setOpenTicket(visit)}>View ticket</Button>
-                          {visit.rescheduleCount < 1 && (
-                            <Button asChild variant="outline" className="rounded-lg">
-                              <Link href={`/reschedule?ticketId=${encodeURIComponent(visit.ticketId)}&source=account`}>
-                                Reschedule
-                              </Link>
-                            </Button>
-                          )}
-                        </div>
-                      </li>
-                    ))}
+                  <ul className="mt-6 space-y-5">
+                    {payload.upcoming.map((visit) => {
+                      return (
+                        <li key={visit.id} className="overflow-hidden rounded-2xl border border-pink-100 bg-white shadow-sm">
+                          <div className="flex flex-col sm:flex-row">
+                            <div className="relative h-64 overflow-hidden border-b border-pink-100 bg-gray-200 sm:h-auto sm:w-52 sm:border-b-0 sm:border-r">
+                              <div className="pointer-events-none absolute left-1/2 top-3 origin-top -translate-x-1/2 scale-[0.5]">
+                                <TicketFace details={ticketDetails(visit)} serviceNames={visit.serviceNames} />
+                              </div>
+                              <div className="pointer-events-none fixed left-[-4000px] top-0">
+                                <TicketFace
+                                  ref={(node) => {
+                                    if (node) ticketNodes.current.set(visit.id, node)
+                                    else ticketNodes.current.delete(visit.id)
+                                  }}
+                                  details={ticketDetails(visit)}
+                                  serviceNames={visit.serviceNames}
+                                />
+                              </div>
+                            </div>
+                            <div className="flex-1 px-5 py-5">
+                              <p className="text-sm tracking-wide text-stone-800">{formatTime(visit.timeSlot)}</p>
+                              <ServiceChips names={visit.serviceNames} />
+                              <div className="mt-5 flex flex-wrap gap-3">
+                                <Button
+                                  className="rounded-md bg-brand-pink text-white hover:bg-brand-pink/90"
+                                  disabled={downloadingId === visit.id}
+                                  onClick={() => downloadVisit(visit)}
+                                >
+                                  {downloadingId === visit.id ? "Preparing…" : "Download Ticket"}
+                                </Button>
+                                {visit.rescheduleCount < 1 && (
+                                  <Button asChild variant="outline" className="rounded-md border-pink-200 text-pink-900 hover:bg-pink-50">
+                                    <Link href={`/reschedule?ticketId=${encodeURIComponent(visit.ticketId)}&source=account`}>
+                                      Reschedule
+                                    </Link>
+                                  </Button>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </li>
+                      )
+                    })}
                   </ul>
                 )}
               </section>
 
               <section>
-                <h2 className="font-serif text-3xl text-gray-900">Past</h2>
-                {payload.past.length === 0 ? (
-                  <p className="mt-4 text-sm text-gray-500">No past visits yet.</p>
+                <div className="flex items-end justify-between border-b border-pink-100 pb-3">
+                  <h2 className="font-serif text-3xl text-stone-900">
+                    {payload.pastTotal === 1 ? "Past Booking" : "Past Bookings"}
+                  </h2>
+                  <span className="text-xs uppercase tracking-[0.2em] text-pink-400">{payload.pastTotal}</span>
+                </div>
+                {payload.pastTotal === 0 ? (
+                  <p className="mt-6 text-sm text-stone-500">No past visits yet.</p>
                 ) : (
-                  <ul className="mt-4 divide-y divide-gray-200 overflow-hidden rounded-2xl border border-gray-200 bg-white">
-                    {[...payload.past].reverse().map((visit) => (
-                      <li key={visit.id} className="flex flex-col gap-1 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-                        <div>
-                          <p className="font-medium text-gray-900">{visitDate(visit.date)}</p>
-                          <p className="text-sm text-gray-500">{formatTime(visit.timeSlot)}</p>
-                        </div>
-                        <p className="text-sm text-gray-600">{serviceNames(visit.services).join(", ")}</p>
-                      </li>
-                    ))}
-                  </ul>
+                  <>
+                    <ul className="mt-4 divide-y divide-pink-50 overflow-hidden rounded-2xl border border-pink-100 bg-white">
+                      {payload.past.map((visit) => {
+                        const when = dayParts(visit.date)
+                        return (
+                          <li key={visit.id} className="px-5 py-5">
+                            <div className="flex flex-wrap items-baseline justify-between gap-2">
+                              <p className="font-serif text-lg text-stone-900">{when.weekday}, {when.full}</p>
+                              <p className="text-sm text-stone-500">{formatTime(visit.timeSlot)}</p>
+                            </div>
+                            <ServiceChips names={visit.serviceNames} />
+                          </li>
+                        )
+                      })}
+                    </ul>
+                    {payload.pastHasMore && (
+                      <button
+                        type="button"
+                        disabled={loadingMore}
+                        onClick={() => {
+                          setLoadingMore(true)
+                          setPastPage((page) => page + 1)
+                        }}
+                        className="mt-4 text-sm tracking-wide text-brand-pink underline underline-offset-4 hover:text-pink-700"
+                      >
+                        {loadingMore ? "Loading…" : `Show earlier visits (${payload.past.length} of ${payload.pastTotal})`}
+                      </button>
+                    )}
+                  </>
                 )}
               </section>
             </div>
           </div>
         )}
       </div>
-
-      <Dialog open={Boolean(openTicket)} onOpenChange={(open) => !open && setOpenTicket(null)}>
-        <DialogContent className="max-h-[90vh] max-w-md overflow-y-auto border-0 bg-gray-200 sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="font-serif">Your ticket</DialogTitle>
-            <DialogDescription>Show this at the studio, or download a copy.</DialogDescription>
-          </DialogHeader>
-          {openTicket && (
-            <BookingTicket
-              details={{
-                name: openTicket.name,
-                date: openTicket.date,
-                timeSlot: openTicket.timeSlot,
-                services: openTicket.services,
-                fee: openTicket.rescheduleCount > 0 ? "Rescheduled - No Additional Charge" : "K10,000 (Paid)",
-                ticketId: openTicket.ticketId,
-                discountApplied: openTicket.discountApplied,
-                isReschedule: openTicket.rescheduleCount > 0,
-                originalDate: openTicket.originalDate,
-              }}
-              serviceNames={serviceNames(openTicket.services)}
-            />
-          )}
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }

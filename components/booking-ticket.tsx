@@ -1,6 +1,6 @@
 "use client"
 
-import { useRef } from "react"
+import { forwardRef, useRef } from "react"
 import Logo from "@/components/logo"
 import { formatTime } from "@/lib/time-slots"
 import { format, parseISO } from "date-fns"
@@ -18,31 +18,13 @@ export type TicketDetails = {
   originalDate?: string | null
 }
 
-export function BookingTicket({
-  details,
-  serviceNames,
-}: {
-  details: TicketDetails
-  serviceNames: string[]
-}) {
-  const ticketRef = useRef<HTMLDivElement>(null)
-
-  const handleDownload = async () => {
-    const { default: html2canvas } = await import("html2canvas")
-    if (!ticketRef.current) return
-    const canvas = await html2canvas(ticketRef.current, { scale: 2 })
-    const link = document.createElement("a")
-    link.href = canvas.toDataURL("image/png")
-    link.download = `booking-ticket-${details.ticketId}.png`
-    link.click()
-  }
-
-  return (
-    <div>
-      <div ref={ticketRef} className="relative rounded-xl bg-white shadow-2xl">
-        <div className="absolute -top-6 left-1/2 h-12 w-12 -translate-x-1/2 rounded-full bg-gray-300" />
+export const TicketFace = forwardRef<HTMLDivElement, { details: TicketDetails; serviceNames: string[] }>(
+  function TicketFace({ details, serviceNames }, ref) {
+    return (
+      <div ref={ref} className="relative w-[320px] rounded-xl bg-white shadow-2xl">
+        <div className="absolute -top-6 left-1/2 h-12 w-12 -translate-x-1/2 rounded-full bg-gray-200" />
         <div className="p-8 text-center">
-          <div className="mb-8 flex justify-center">
+          <div className="mb-6 flex justify-center">
             <Logo />
           </div>
           {details.discountApplied && (
@@ -55,7 +37,7 @@ export function BookingTicket({
               Rescheduled Appointment
             </div>
           )}
-          <div className="space-y-4 text-gray-700">
+          <div className="space-y-3 text-sm text-gray-700">
             <p><strong>Name:</strong> {details.name}</p>
             <p><strong>Date:</strong> {details.date}</p>
             <p><strong>Time:</strong> {formatTime(details.timeSlot)}</p>
@@ -65,15 +47,43 @@ export function BookingTicket({
               <p><strong>Originally Scheduled:</strong> {format(parseISO(details.originalDate), "MMMM dd, yyyy")}</p>
             )}
           </div>
-          <div className="mt-8">
+          <div className="mt-6">
             <p className="text-sm font-semibold text-gray-800">Ticket ID: {details.ticketId}</p>
             <p className="mt-1 text-xs text-gray-500">Show this ticket at the studio for your appointment.</p>
           </div>
         </div>
-        <div className="absolute -bottom-6 left-1/2 h-12 w-12 -translate-x-1/2 rounded-full bg-gray-300" />
+        <div className="absolute -bottom-6 left-1/2 h-12 w-12 -translate-x-1/2 rounded-full bg-gray-200" />
       </div>
+    )
+  }
+)
+
+export async function downloadTicketPng(node: HTMLElement, ticketId: string) {
+  const { default: html2canvas } = await import("html2canvas")
+  const canvas = await html2canvas(node, { scale: 2, backgroundColor: "#e5e7eb" })
+  const link = document.createElement("a")
+  link.href = canvas.toDataURL("image/png")
+  link.download = `booking-ticket-${ticketId}.png`
+  link.click()
+}
+
+export function BookingTicket({
+  details,
+  serviceNames,
+}: {
+  details: TicketDetails
+  serviceNames: string[]
+}) {
+  const ticketRef = useRef<HTMLDivElement>(null)
+
+  return (
+    <div>
+      <TicketFace ref={ticketRef} details={details} serviceNames={serviceNames} />
       <div className="mt-10 flex justify-center">
-        <Button onClick={handleDownload} className="bg-black text-white hover:ring-black">
+        <Button
+          onClick={() => ticketRef.current && downloadTicketPng(ticketRef.current, details.ticketId)}
+          className="bg-black text-white hover:ring-black"
+        >
           Download Ticket
         </Button>
       </div>

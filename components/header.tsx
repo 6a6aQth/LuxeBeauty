@@ -41,7 +41,7 @@ function AccountMenu({ signedIn, onNavigate }: { signedIn: boolean; onNavigate?:
 
   if (!signedIn) {
     return (
-      <Button asChild variant="outline" className="rounded-lg">
+      <Button asChild className="rounded-lg bg-brand-pink text-white hover:bg-brand-pink/90">
         <Link href="/sign-in" onClick={() => onNavigate?.()}>
           Sign in
         </Link>

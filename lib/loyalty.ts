@@ -9,10 +9,7 @@ export function nextVisitIsDiscount(successfulCount: number): boolean {
 }
 
 export function loyaltyProgressCopy(successfulCount: number): string {
-  if (nextVisitIsDiscount(successfulCount)) {
-    return "Your next visit is the 30% visit"
-  }
   const remaining = visitsUntilDiscount(successfulCount)
-  const noun = remaining === 1 ? "visit" : "visits"
-  return `${remaining} ${noun} until the 30% visit`
+  if (remaining === 1) return "1 more visit until a 30% discount"
+  return `${remaining} more visits until a 30% discount`
 }
