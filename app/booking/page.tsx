@@ -7,37 +7,14 @@ import type React from "react"
 
 import { useState, useEffect, useMemo, useRef, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Textarea } from "@/components/ui/textarea"
 import { toast } from "@/hooks/use-toast"
 import { parseISO, format, isValid } from "date-fns"
-import { Calendar as CalendarIcon } from "lucide-react"
-import { cn } from "@/lib/utils"
-import { Calendar } from "@/components/ui/calendar"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { getSlotsForDate, formatTime } from "@/lib/time-slots"
-import { Checkbox } from "@/components/ui/checkbox"
-import { StudioPolicies } from "@/components/studio-policies"
-import { AnimatedSection } from "@/components/ui/animated-section"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import BookingStatus from "@/components/booking-status"
 import { PageHeader } from "@/components/page-header"
 import { MultiStepLoader } from "@/components/ui/multi-step-loader"
-import { FileUpload } from "@/components/ui/file-upload"
 import { BookingForm } from "@/components/booking-form"
 import useSWR from 'swr';
-import Link from 'next/link';
-
-declare global {
-  interface Window {
-    PaychanguCheckout?: any;
-  }
-}
 
 const loadingStates = [
   { text: "Processing Payment" },
@@ -45,45 +22,6 @@ const loadingStates = [
   { text: "Generating Ticket" },
   { text: "Appointment Confirmed" },
 ]
-
-// Helper to get tomorrow's date in yyyy-mm-dd format
-function getMinBookingDate() {
-  const d = new Date()
-  d.setDate(d.getDate() + 1)
-  return d.toISOString().split('T')[0]
-}
-
-// Helper to get max booking date (e.g., 1 year from now)
-function getMaxBookingDate() {
-  const d = new Date()
-  d.setFullYear(d.getFullYear() + 1)
-  return d.toISOString().split('T')[0]
-}
-
-interface Booking {
-  id: string;
-  date: string;
-  timeSlot: string;
-}
-
-async function verifyPaymentWithRetry(tx_ref: string, formData: any, retries = 3, delay = 2000) {
-  for (let i = 0; i < retries; i++) {
-    const res = await fetch('/api/verify-payment', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tx_ref, formData }),
-    });
-    if (res.ok) {
-      const data = await res.json();
-      if (data.status === 'success' || data.status === 'paid' || data.success) {
-        return data;
-      }
-    }
-    await new Promise(r => setTimeout(r, delay));
-  }
-  throw new Error('Payment verification failed after multiple attempts.');
-}
-
 
 // Wrap the client component that uses useSearchParams in Suspense to satisfy Next.js CSR bailout
 export default function Booking() {
@@ -114,8 +52,6 @@ function BookingContent() {
   const [agreedToTerms, setAgreedToTerms] = useState(false)
   const [loading, setLoading] = useState(false)
   const bookingFormRef = useRef<HTMLDivElement>(null);
-  const [paymentStarted, setPaymentStarted] = useState(false);
-  const [paymentCancelled, setPaymentCancelled] = useState(false);
   const [loyaltyDiscountEligible, setLoyaltyDiscountEligible] = useState(false);
   const [isReschedule, setIsReschedule] = useState(false);
   const [rescheduleTicketId, setRescheduleTicketId] = useState('');
@@ -394,7 +330,6 @@ function BookingContent() {
   };
 
   const handlePayment = async () => {
-    setPaymentStarted(true);
     setLoading(true);
     setIsPaying(true); // Indicate payment process has started
 
@@ -432,47 +367,8 @@ function BookingContent() {
         description: error.message || "Could not initiate payment. Please try again.",
         variant: "destructive",
       });
-      setPaymentStarted(false); // Reset payment state
       setLoading(false);
       setIsPaying(false);
-      // setPaymentCancelled(true); // You might want to explicitly set this if there's a specific UI for cancelled payments
-    }
-  };
-
-  const handleFileChange = async (files: File[]) => {
-    if (files.length === 0) return;
-    const file = files[0];
-
-    toast({ title: "Uploading...", description: "Your inspiration photo is being uploaded." });
-
-    try {
-      const response = await fetch(
-        `/api/bookings/upload?filename=${file.name}`,
-        {
-          method: 'POST',
-          body: file,
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error('Upload failed');
-      }
-
-      const newBlob = await response.json();
-      setFormData((prev) => ({
-        ...prev,
-        inspirationPhotos: [...prev.inspirationPhotos, newBlob.url],
-      }));
-
-      toast({ title: "Success!", description: "Photo uploaded successfully." });
-
-    } catch (error) {
-      console.error(error);
-      toast({
-        title: "Upload Failed",
-        description: "Could not upload your photo. Please try again.",
-        variant: "destructive",
-      });
     }
   };
 
@@ -523,26 +419,6 @@ function BookingContent() {
           </div>
         </DialogContent>
       </Dialog>
-
-      {paymentCancelled && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-          <div className="bg-white p-8 rounded shadow text-center">
-            <h2 className="text-xl font-bold mb-4 text-red-600">Payment Cancelled</h2>
-            <p className="mb-6">You cancelled the payment. Would you like to try booking again?</p>
-            <button
-              className="bg-brand-pink text-white px-4 py-2 rounded"
-              onClick={() => {
-                setPaymentCancelled(false);
-                setPaymentStarted(false);
-                setStep('form'); // Reset to booking form step
-                // Optionally reset formData here if you want a full reset
-              }}
-            >
-              Try Booking Again
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
