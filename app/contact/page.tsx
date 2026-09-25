@@ -132,13 +132,13 @@ export default function Contact() {
                 <div className="mt-8">
                   <h3 className="font-medium mb-4">Business Hours</h3>
                   <div className="space-y-2 text-gray-700">
-                    <div className="flex justify-between">
-                      <span>Monday - Thursday</span>
-                      <span>8:30 AM - 4:30 PM</span>
+                    <div className="flex justify-between items-center text-gray-700">
+                      <span className="font-medium text-gray-900">Monday - Thursday</span>
+                      <span>10:00 AM - 4:30 PM</span>
                     </div>
-                    <div className="flex justify-between">
-                      <span>Friday</span>
-                      <span>8:30 AM - 3:00 PM</span>
+                    <div className="flex justify-between items-center text-gray-700 pt-2 border-t border-gray-100">
+                      <span className="font-medium text-gray-900">Friday</span>
+                      <span>10:00 AM - 3:00 PM</span>
                     </div>
                     <div className="flex justify-between">
                       <span>Saturday</span>
@@ -164,9 +164,9 @@ export default function Contact() {
             <div
               className="aspect-[16/9] w-full rounded-lg shadow-soft overflow-hidden relative flex flex-col items-center justify-center"
             >
-              <Image 
-                src="/MapPlace.png" 
-                alt="Map showing location of Lauryn Luxe Beauty Studio" 
+              <Image
+                src="/MapPlace.png"
+                alt="Map showing location of Lauryn Luxe Beauty Studio"
                 fill
                 className="object-cover"
                 priority
