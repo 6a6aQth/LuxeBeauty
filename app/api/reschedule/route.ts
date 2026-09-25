@@ -2,11 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { logPaymentEvent } from '@/lib/paymentLogger';
 import { parseISO, isAfter, subDays, isValid } from 'date-fns';
-import { rejectOtherPhone, sessionPhoneForAccount } from '@/lib/account-reschedule';
 
 export async function POST(req: NextRequest) {
   try {
-    const { ticketId, newDate, newTimeSlot, newServices, fromAccount } = await req.json();
+    const { ticketId, newDate, newTimeSlot, newServices } = await req.json();
 
     console.log('🔄 [RESCHEDULE] Starting reschedule process:', {
       ticketId,
@@ -40,11 +39,6 @@ export async function POST(req: NextRequest) {
         error: 'Booking not found with this ticket ID' 
       }, { status: 404 });
     }
-
-    const accountGate = await sessionPhoneForAccount(Boolean(fromAccount));
-    if (!accountGate.ok) return accountGate.response;
-    const phoneRejected = rejectOtherPhone(booking.phone, accountGate.phone);
-    if (phoneRejected) return phoneRejected;
 
     // Check if booking is successful (only successful bookings can be rescheduled)
     if (booking.status !== 'successful') {
@@ -219,7 +213,6 @@ export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const ticketId = searchParams.get('ticketId');
-    const fromAccount = searchParams.get('source') === 'account';
 
     if (!ticketId) {
       return NextResponse.json({ 
@@ -236,11 +229,6 @@ export async function GET(req: NextRequest) {
         error: 'Booking not found with this ticket ID' 
       }, { status: 404 });
     }
-
-    const accountGate = await sessionPhoneForAccount(fromAccount);
-    if (!accountGate.ok) return accountGate.response;
-    const phoneRejected = rejectOtherPhone(booking.phone, accountGate.phone);
-    if (phoneRejected) return phoneRejected;
 
     // Check if booking is successful
     if (booking.status !== 'successful') {

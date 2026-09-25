@@ -1,12 +1,16 @@
 "use client"
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button as PrimitiveButton } from '@/components/ui/button'
+import Logo from '@/components/logo'
+import { serviceLabel, formatTime } from '@/lib/time-slots'
 import { toast } from '@/hooks/use-toast'
 import Link from 'next/link'
-import { BookingTicket } from '@/components/booking-ticket'
+import { Button } from '@/components/ui/animated-download-button'
+import { Mail, Phone, Home } from 'lucide-react'
 import { Service } from '@/types/types';
+import { format, parseISO } from 'date-fns'
 
 interface BookingDetails {
   id: string
@@ -28,6 +32,8 @@ export default function BookingConfirmationPage() {
   const [bookingDetails, setBookingDetails] = useState<BookingDetails | null>(null);
   const [isClient, setIsClient] = useState(false);
   const [allServices, setAllServices] = useState<Service[]>([]);
+  const ticketRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     setIsClient(true);
 
@@ -106,6 +112,17 @@ export default function BookingConfirmationPage() {
     });
   };
 
+  const handleDownloadTicket = async () => {
+    const { default: html2canvas } = await import('html2canvas')
+    if (ticketRef.current) {
+      const canvas = await html2canvas(ticketRef.current, { scale: 2 })
+      const link = document.createElement('a')
+      link.href = canvas.toDataURL('image/png')
+      link.download = `booking-ticket-${bookingDetails?.ticketId}.png`
+      link.click()
+    }
+  }
+
   const handleSubscribe = async () => {
     if (!bookingDetails?.email) {
       toast({
@@ -179,24 +196,72 @@ export default function BookingConfirmationPage() {
         </p>
 
         <div className="max-w-md mx-auto">
-          <BookingTicket
-            details={{
-              name: bookingDetails.name,
-              date: bookingDetails.date,
-              timeSlot: bookingDetails.timeSlot,
-              services: bookingDetails.services,
-              fee: bookingDetails.fee,
-              ticketId: bookingDetails.ticketId,
-              discountApplied: bookingDetails.discountApplied,
-              isReschedule: bookingDetails.isReschedule,
-              originalDate: bookingDetails.originalDate,
-            }}
-            serviceNames={getServiceNames(bookingDetails.services)}
-          />
-          <div className="mt-6 text-center">
-            <PrimitiveButton asChild>
-              <Link href="/?scroll_to=newsletter-signup">Subscribe to Newsletter</Link>
-            </PrimitiveButton>
+          <div
+            ref={ticketRef}
+            className="bg-white rounded-xl shadow-2xl relative"
+          >
+            <div className="absolute -top-6 left-1/2 -translate-x-1/2 w-12 h-12 bg-gray-300 rounded-full"></div>
+            
+            <div className="p-8">
+              <div className="text-center mb-8">
+                <Logo />
+              </div>
+              {bookingDetails.discountApplied && (
+                <div className="inline-block mb-4 px-4 py-2 rounded-full bg-green-100 text-green-800 font-semibold text-sm border border-green-300">
+                  30% Loyalty Discount Applied
+                </div>
+              )}
+              {bookingDetails.isReschedule && (
+                <div className="inline-block mb-4 px-4 py-2 rounded-full bg-blue-100 text-blue-800 font-semibold text-sm border border-blue-300">
+                  Rescheduled Appointment
+                </div>
+              )}
+              <div className="space-y-4 text-center text-gray-700">
+                <p>
+                  <strong>Name:</strong> {bookingDetails.name}
+                </p>
+                <p>
+                  <strong>Date:</strong> {bookingDetails.date}
+                </p>
+                <p>
+                  <strong>Time:</strong> {formatTime(bookingDetails.timeSlot)}
+                </p>
+                <p>
+                  <strong>Services:</strong>{' '}
+                  {getServiceNames(bookingDetails.services).join(', ')}
+                </p>
+                <p>
+                  <strong>Booking Fee:</strong> {bookingDetails.fee}
+                </p>
+                {bookingDetails.isReschedule && bookingDetails.originalDate && (
+                  <p>
+                    <strong>Originally Scheduled:</strong> {format(parseISO(bookingDetails.originalDate), 'MMMM dd, yyyy')}
+                  </p>
+                )}
+              </div>
+              <div className="mt-8 text-center">
+                <p className="text-sm font-semibold text-gray-800">
+                  Ticket ID: {bookingDetails.ticketId}
+                </p>
+                {/* Original Ticket line removed per request */}
+                <p className="text-xs text-gray-500 mt-1">
+                  Show this ticket at the studio for your appointment.
+                </p>
+              </div>
+            </div>
+
+            <div data-html2canvas-ignore="true" className="p-8 border-t border-gray-200 text-center">
+                <div className="space-y-3">
+                    <PrimitiveButton asChild>
+                        <Link href="/?scroll_to=newsletter-signup">Subscribe to Newsletter</Link>
+                    </PrimitiveButton>
+                </div>
+                <p className="text-xs text-gray-500 mt-4 max-w-xs mx-auto">
+                    Stay updated with our latest offers and news.
+                </p>
+            </div>
+
+            <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 w-12 h-12 bg-gray-300 rounded-full"></div>
           </div>
         </div>
       </div>
@@ -207,6 +272,11 @@ export default function BookingConfirmationPage() {
             Thank you for booking with Lauryn Luxe Beauty Studio. We have
             received your appointment details.
         </p>
+        <div className="flex justify-center mb-8">
+          <Button onClick={handleDownloadTicket} className="bg-black text-white hover:ring-black">
+            Download Ticket
+          </Button>
+        </div>
       </div>
     </div>
   )

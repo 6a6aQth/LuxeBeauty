@@ -8,7 +8,6 @@ import type React from "react"
 import { useState, useEffect, useMemo, useRef, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { toast } from "@/hooks/use-toast"
-import { canonicalPhone } from "@/lib/phone"
 import { parseISO, format, isValid } from "date-fns"
 import { getSlotsForDate, formatTime } from "@/lib/time-slots"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -16,7 +15,6 @@ import { PageHeader } from "@/components/page-header"
 import { MultiStepLoader } from "@/components/ui/multi-step-loader"
 import { BookingForm } from "@/components/booking-form"
 import useSWR from 'swr';
-import { authClient } from "@/lib/auth/client"
 
 const loadingStates = [
   { text: "Processing Payment" },
@@ -55,8 +53,6 @@ function BookingContent() {
   const [loading, setLoading] = useState(false)
   const bookingFormRef = useRef<HTMLDivElement>(null);
   const [loyaltyDiscountEligible, setLoyaltyDiscountEligible] = useState(false);
-  const { data: session } = authClient.useSession()
-  const signedIn = Boolean(session?.user)
   const [isReschedule, setIsReschedule] = useState(false);
   const [rescheduleTicketId, setRescheduleTicketId] = useState('');
 
@@ -235,27 +231,6 @@ function BookingContent() {
     checkLoyalty();
   }, [step, formData.phone]);
 
-  useEffect(() => {
-    if (!session?.user) return
-    let cancelled = false
-    fetch("/api/account/profile")
-      .then(async (response) => {
-        if (!response.ok) return
-        const profile = await response.json()
-        if (cancelled) return
-        setFormData((prev) => ({
-          ...prev,
-          name: profile.name,
-          phone: profile.phone,
-          email: profile.email,
-        }))
-      })
-      .catch(() => {})
-    return () => {
-      cancelled = true
-    }
-  }, [session?.user])
-
   const handleSelectChange = (name: string, value: string) => {
     setFormData((prev) => ({ ...prev, [name]: value }))
   }
@@ -268,14 +243,6 @@ function BookingContent() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (formData.phone && !canonicalPhone(formData.phone)) {
-      toast({
-        title: "Phone number",
-        description: "That phone number format is not okay.",
-        variant: "destructive",
-      });
-      return;
-    }
     if (!formData.date || !formData.name || !formData.phone || !formData.email || formData.services.length === 0 || !formData.timeSlot) {
       toast({
         title: "Missing Information",
@@ -378,7 +345,6 @@ function BookingContent() {
         body: JSON.stringify({
           formData,
           loyaltyDiscountEligible,
-          useSession: signedIn,
           // The amount should ideally be calculated on the server-side for security
           // but for now, we'll pass the hardcoded deposit amount
           amount: 10000,
@@ -413,7 +379,7 @@ function BookingContent() {
       <PageHeader
         title="Book an Appointment"
         description="Schedule your visit to Lauryn Luxe Beauty Studio and treat yourself to a luxurious beauty experience."
-        backgroundImage="/images/nails-1.jpeg"
+        backgroundImage="/IMG_7410.png"
       />
 
       <div className="container mx-auto py-12 px-4" ref={bookingFormRef}>
@@ -436,7 +402,6 @@ function BookingContent() {
           handlePayment={handlePayment}
           setStep={setStep}
           loyaltyDiscountEligible={loyaltyDiscountEligible}
-          hideContact={signedIn}
           isReschedule={isReschedule}
         />
       </div>

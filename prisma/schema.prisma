@@ -83,13 +83,3 @@ model SiteSettings {
   id           String @id @default(cuid())
   priceListUrl String
 }
-
-/// App-owned customer record. Neon Auth holds the password. Bookings stay keyed by phone.
-model CustomerProfile {
-  id         String   @id @default(cuid())
-  neonUserId String   @unique
-  name       String
-  email      String   @unique
-  phone      String   @unique
-  createdAt  DateTime @default(now())
-}

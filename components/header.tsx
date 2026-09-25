@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname, useRouter } from "next/navigation"
+import { usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import {
   Sheet,
@@ -11,9 +11,8 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet"
-import { MenuIcon, UserRound } from "lucide-react"
+import { MenuIcon } from "lucide-react"
 import Logo from "@/components/logo"
-import { authClient } from "@/lib/auth/client"
 import { useState } from "react"
 
 const navLinks = [
@@ -27,75 +26,9 @@ const navLinks = [
   { href: "/policies", label: "Policies" },
 ]
 
-function AccountMenu({ signedIn, onNavigate }: { signedIn: boolean; onNavigate?: () => void }) {
-  const router = useRouter()
-  const [open, setOpen] = useState(false)
-
-  async function signOut() {
-    setOpen(false)
-    onNavigate?.()
-    await authClient.signOut()
-    router.push("/")
-    router.refresh()
-  }
-
-  if (!signedIn) {
-    return (
-      <Button asChild variant="outline" className="rounded-lg">
-        <Link href="/sign-in" onClick={() => onNavigate?.()}>
-          Sign in
-        </Link>
-      </Button>
-    )
-  }
-
-  return (
-    <div
-      className="relative"
-      onMouseEnter={() => setOpen(true)}
-      onMouseLeave={() => setOpen(false)}
-    >
-      <button
-        type="button"
-        aria-label="Account menu"
-        aria-expanded={open}
-        onClick={() => setOpen((value) => !value)}
-        className="flex h-10 w-10 items-center justify-center rounded-full border border-gray-300 bg-white text-gray-700 transition-colors hover:border-pink-400 hover:text-pink-600"
-      >
-        <UserRound className="h-5 w-5" />
-      </button>
-      {open && (
-        <div className="absolute right-0 top-full z-50 pt-2">
-          <div className="w-40 rounded-xl border border-gray-200 bg-white p-2 shadow-lg">
-            <Link
-              href="/account"
-              onClick={() => {
-                setOpen(false)
-                onNavigate?.()
-              }}
-              className="block rounded-md px-3 py-2 text-sm font-medium text-gray-800 hover:bg-pink-50 hover:text-pink-600"
-            >
-              Profile
-            </Link>
-            <button
-              type="button"
-              onClick={signOut}
-              className="block w-full rounded-md px-3 py-2 text-left text-sm font-medium text-gray-800 hover:bg-pink-50 hover:text-pink-600"
-            >
-              Sign out
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
-
 const Header = () => {
   const pathname = usePathname()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
-  const { data: session, isPending } = authClient.useSession()
-  const signedIn = Boolean(session?.user)
 
   const isAdminPage = pathname.startsWith('/admin')
 
@@ -129,20 +62,14 @@ const Header = () => {
               <span className="font-semibold text-pink-600">Admin</span>
             </div>
           ) : (
-            <div className="flex items-center gap-6">
-              {!isPending && <AccountMenu signedIn={signedIn} />}
-              <Button asChild className="rounded-lg">
-                <Link href="/booking">Book Appointment</Link>
-              </Button>
-            </div>
+            <Button asChild className="rounded-none">
+              <Link href="/booking">Book Appointment</Link>
+            </Button>
           )}
         </div>
 
         {/* Mobile Navigation */}
-        <div className="flex items-center gap-2 md:hidden">
-          {!isAdminPage && !isPending && (
-            <AccountMenu signedIn={signedIn} onNavigate={() => setIsMobileMenuOpen(false)} />
-          )}
+        <div className="md:hidden">
           <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
             <SheetTrigger asChild>
               <Button variant="outline" size="icon">

@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import Image from "next/image";
 import {
   Card,
   CardContent,
@@ -39,7 +38,6 @@ import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/compone
 import { StudioPoliciesContent } from "@/components/studio-policies";
 import useSWR from 'swr';
 import { toast } from '@/hooks/use-toast';
-import { sanitizePhoneInput } from '@/lib/phone';
 
 export function BookingForm({
   formData,
@@ -61,7 +59,6 @@ export function BookingForm({
   setStep,
   loyaltyDiscountEligible,
   isReschedule,
-  hideContact,
 }: BookingFormProps) {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [showPoliciesDialog, setShowPoliciesDialog] = useState(false);
@@ -155,8 +152,7 @@ export function BookingForm({
 
   const handleChange = (e: any) => {
     const { name, value } = e.target;
-    const next = name === "phone" ? sanitizePhoneInput(value) : value;
-    setFormData((prev: any) => ({ ...prev, [name]: next }));
+    setFormData((prev: any) => ({ ...prev, [name]: value }));
   };
 
   const handleRemoveImage = (idx: number) => {
@@ -205,14 +201,12 @@ export function BookingForm({
       <Card className="max-w-4xl mx-auto border-none overflow-hidden shadow-soft">
         <div className="grid md:grid-cols-2">
           <div className="relative bg-gray-100 p-8">
-            <Image
-              src="/images/nails-6.jpeg"
-              alt="Nail art at Lauryn Luxe Beauty Studio"
-              fill
-              className="object-cover"
-              sizes="(max-width: 768px) 100vw, 50vw"
-            />
-            <div className="absolute inset-0 bg-black/40" />
+            <div
+              className="absolute inset-0 bg-cover bg-center"
+              style={{ backgroundImage: "url('/IMG_9067.png')" }}
+            >
+              <div className="absolute inset-0 bg-black opacity-40"></div>
+            </div>
             <div className="relative z-10 text-white">
               <h3 className="text-3xl font-serif mb-6">Business Hours</h3>
               <div className="space-y-3 text-lg font-light">
@@ -260,8 +254,6 @@ export function BookingForm({
             <CardContent className="p-0">
               {step === "form" ? (
                 <form onSubmit={handleSubmit} className="space-y-6">
-                  {!hideContact && (
-                  <div className="space-y-4">
                   <div className="grid sm:grid-cols-2 gap-4">
                     <Input
                       id="name"
@@ -277,8 +269,6 @@ export function BookingForm({
                       name="phone"
                       placeholder="Phone Number"
                       required
-                      inputMode="tel"
-                      autoComplete="tel"
                       value={formData.phone}
                       onChange={handleChange}
                       className="bg-gray-50 border-gray-300 text-gray-900 rounded-md focus:ring-brand-pink focus:border-brand-pink"
@@ -294,8 +284,6 @@ export function BookingForm({
                     onChange={handleChange}
                     className="bg-gray-50 border-gray-300 text-gray-900 rounded-md focus:ring-brand-pink focus:border-brand-pink"
                   />
-                  </div>
-                  )}
 
                   <div className="space-y-4 pt-4 border-t border-gray-200">
                     <Label className="text-base font-medium text-gray-900">
@@ -542,8 +530,6 @@ export function BookingForm({
                     </div>
                   )}
                   <div className="space-y-3 rounded-lg border border-gray-200 bg-gray-50 p-4">
-                    {!hideContact && (
-                      <>
                     <div className="flex justify-between">
                       <span className="font-medium">Full Name:</span>
                       <span className="text-gray-900 font-semibold">{formData.name}</span>
@@ -552,8 +538,6 @@ export function BookingForm({
                       <span className="font-medium">Phone:</span>
                       <span className="text-gray-900 font-semibold">{formData.phone}</span>
                     </div>
-                      </>
-                    )}
                     <div className="flex justify-between">
                       <span className="font-medium">Date:</span>
                       <span className="text-gray-900 font-semibold">{formData.date ? format(new Date(formData.date), "PPP") : ""}</span>
