@@ -50,7 +50,7 @@ export default function ServicesPage() {
     <div>
       <PageHeader
         title="Our Services"
-        description="Discover our range of premium nail care services, each delivered with meticulous attention to detail and using only the finest products."
+        description="Discover our nails, lamination, and eyelash services, each delivered with meticulous attention to detail and using only the finest products."
       />
 
       <section className="bg-gray-100 py-20">

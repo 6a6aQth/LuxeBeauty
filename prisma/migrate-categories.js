@@ -6,23 +6,23 @@ const prisma = new PrismaClient();
 const categoryMetadata = {
   manicure: {
     description: "Our manicure services are designed to enhance the natural beauty of your hands while ensuring nail health and longevity.",
-    imageUrl: "/IMG_7410.png",
+    imageUrl: "/images/nails-1.jpeg",
   },
   pedicure: {
     description: "Pamper your feet with our luxurious pedicure treatments that combine relaxation with expert nail care.",
-    imageUrl: "/pedicure.jpg",
+    imageUrl: "/images/nails-8.jpeg",
   },
   refills: {
     description: "Maintain your beautiful nails with our professional refill services, extending the life of your manicure.",
-    imageUrl: "/IMG_7435.png",
+    imageUrl: "/images/nails-4.jpeg",
   },
   'nail-art': {
     description: "Express your personality with our creative nail art options, from subtle elegance to bold statements.",
-    imageUrl: "/IMG_5656.png",
+    imageUrl: "/images/nails-5.jpeg",
   },
   'soak-off': {
     description: "Our gentle soak-off services ensure safe removal of previous applications without damaging your natural nails.",
-    imageUrl: "/IMG_5922.png",
+    imageUrl: "/images/nails-7.jpeg",
   },
 };
 

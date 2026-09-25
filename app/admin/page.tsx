@@ -1355,7 +1355,7 @@ export default function AdminPage() {
               }
             />
             <Input
-              placeholder="Image URL (e.g. /IMG_7410.png)"
+              placeholder="Image URL (e.g. /images/nails-1.jpeg)"
               value={editingCategory?.imageUrl || ""}
               onChange={(e) =>
                 setEditingCategory((c) =>

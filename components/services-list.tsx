@@ -26,11 +26,16 @@ export function ServicesList({ groupedServices }: ServicesListProps) {
     }
 
     const serviceImages: Record<string, string> = {
-        manicure: "/IMG_7410.png",
-        pedicure: "/pedicure.jpg",
-        refills: "/IMG_7435.png",
-        'nail-art': "/IMG_5656.png",
-        'soak-off': "/IMG_5922.png",
+        manicure: "/images/nails-1.jpeg",
+        pedicure: "/images/nails-8.jpeg",
+        refills: "/images/nails-4.jpeg",
+        'nail-art': "/images/nails-5.jpeg",
+        'soak-off': "/images/nails-7.jpeg",
+        nails: "/images/nails-2.jpeg",
+        lamination: "/images/lamination-2.jpeg",
+        'brow-lamination': "/images/lamination-1.jpeg",
+        eyelashes: "/images/eyelashes-2.jpeg",
+        lashes: "/images/eyelashes-1.jpeg",
     }
 
     const categoryDescriptions: Record<string, string> = {
@@ -38,7 +43,12 @@ export function ServicesList({ groupedServices }: ServicesListProps) {
         pedicure: "Pamper your feet with our luxurious pedicure treatments that combine relaxation with expert nail care.",
         refills: "Maintain your beautiful nails with our professional refill services, extending the life of your manicure.",
         'nail-art': "Express your personality with our creative nail art options, from subtle elegance to bold statements.",
-        'soak-off': "Our gentle soak-off services ensure safe removal of previous applications without damaging your natural nails."
+        'soak-off': "Our gentle soak-off services ensure safe removal of previous applications without damaging your natural nails.",
+        nails: "From classic manicures to detailed nail art, each set is finished with care and precision.",
+        lamination: "Brow lamination lifts and sets the brows for a groomed shape that stays in place.",
+        'brow-lamination': "Brow lamination lifts and sets the brows for a groomed shape that stays in place.",
+        eyelashes: "Lash treatments add length and fullness while keeping the look soft and natural.",
+        lashes: "Lash treatments add length and fullness while keeping the look soft and natural.",
     };
     
     return (
@@ -76,10 +86,11 @@ export function ServicesList({ groupedServices }: ServicesListProps) {
                     <div className="sticky top-24">
                       <div className="aspect-square relative overflow-hidden rounded-lg shadow-lg mb-6">
                         <Image
-                          src={serviceImages[category] || '/placeholder.jpg'}
-                          alt={`${category} services`}
+                          src={serviceImages[category] || '/images/nails-3.jpeg'}
+                          alt={`${category.replace(/-/g, " ")} services`}
                           fill
                           className="object-cover"
+                          sizes="(max-width: 768px) 100vw, 50vw"
                         />
                       </div>
                       <p className="text-gray-600 text-sm italic">

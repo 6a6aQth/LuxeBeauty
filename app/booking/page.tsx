@@ -483,7 +483,7 @@ function BookingContent() {
       <PageHeader
         title="Book an Appointment"
         description="Schedule your visit to Lauryn Luxe Beauty Studio and treat yourself to a luxurious beauty experience."
-        backgroundImage="/IMG_7410.png"
+        backgroundImage="/images/nails-1.jpeg"
       />
 
       <div className="container mx-auto py-12 px-4" ref={bookingFormRef}>

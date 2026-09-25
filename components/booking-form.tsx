@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
+import Image from "next/image";
 import {
   Card,
   CardContent,
@@ -201,12 +202,14 @@ export function BookingForm({
       <Card className="max-w-4xl mx-auto border-none overflow-hidden shadow-soft">
         <div className="grid md:grid-cols-2">
           <div className="relative bg-gray-100 p-8">
-            <div
-              className="absolute inset-0 bg-cover bg-center"
-              style={{ backgroundImage: "url('/IMG_9067.png')" }}
-            >
-              <div className="absolute inset-0 bg-black opacity-40"></div>
-            </div>
+            <Image
+              src="/images/nails-6.jpeg"
+              alt="Nail art at Lauryn Luxe Beauty Studio"
+              fill
+              className="object-cover"
+              sizes="(max-width: 768px) 100vw, 50vw"
+            />
+            <div className="absolute inset-0 bg-black/40" />
             <div className="relative z-10 text-white">
               <h3 className="text-3xl font-serif mb-6">Business Hours</h3>
               <div className="space-y-3 text-lg font-light">

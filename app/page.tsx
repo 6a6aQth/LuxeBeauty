@@ -94,8 +94,8 @@ function HomeContent() {
             <div className="order-1 md:order-2">
               <div className="aspect-square relative overflow-hidden rounded-lg shadow-glow">
                 <Image 
-                  src="/IMG_7186.png" 
-                  alt="Lauryn Luxe Beauty Studio Interior" 
+                  src="/images/nails-1.jpeg" 
+                  alt="Glossy black manicure in progress at Lauryn Luxe" 
                   fill 
                   className="object-cover"
                   priority
@@ -113,27 +113,27 @@ function HomeContent() {
           <div className="text-center mb-16">
             <h2 className="text-3xl font-serif mb-4">Our Services</h2>
             <p className="text-gray-700 max-w-2xl mx-auto">
-              Discover our range of premium nail care services, each delivered with meticulous attention to detail and
-              using only the finest products.
+              Discover our nails, lamination, and eyelash services, each delivered with meticulous attention to detail
+              and using only the finest products.
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {[
               {
-                title: "Manicure",
-                image: "/IMG_7410.png",
-                description: "Rejuvenate your hands with our signature manicure treatments.",
+                title: "Nails",
+                image: "/images/nails-5.jpeg",
+                description: "Manicures, nail art, and polished finishes shaped with precision.",
               },
               {
-                title: "Pedicure",
-                image: "/pedicure.jpg",
-                description: "Pamper your feet with our luxurious pedicure experiences.",
+                title: "Lamination",
+                image: "/images/lamination-2.jpeg",
+                description: "Brow lamination for a lifted, groomed shape that lasts.",
               },
               {
-                title: "Nail Art",
-                image: "/IMG_7435.png",
-                description: "Express yourself with our creative and elegant nail art designs.",
+                title: "Eyelashes",
+                image: "/images/eyelashes-2.jpeg",
+                description: "Lash treatments that open the eyes with a soft, full finish.",
               },
             ].map((service, index) => (
               <Card
@@ -236,19 +236,19 @@ function HomeContent() {
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {[
-              "/IMG_5656.png",
-              "/IMG_5922.png",
-              "/IMG_6004.png",
-              "/IMG_6056.png",
-              "/IMG_6721.png",
-              "/IMG_8819.png",
-              "/IMG_9067.png",
-              "/IMG_9745.png"
-            ].map((image, index) => (
-              <div key={index} className="aspect-square relative overflow-hidden rounded-lg group">
+              { src: "/images/nails-2.jpeg", alt: "Floral nail art with gold accents" },
+              { src: "/images/nails-3.jpeg", alt: "Nail design from Lauryn Luxe" },
+              { src: "/images/nails-4.jpeg", alt: "Detailed nail art set" },
+              { src: "/images/nails-6.jpeg", alt: "Finished manicure at Lauryn Luxe" },
+              { src: "/images/nails-8.jpeg", alt: "Glossy nail set" },
+              { src: "/images/nails-9.jpeg", alt: "Classic red manicure" },
+              { src: "/images/lamination-1.jpeg", alt: "Brow lamination result" },
+              { src: "/images/eyelashes-1.jpeg", alt: "Eyelash treatment at Lauryn Luxe" },
+            ].map((image) => (
+              <div key={image.src} className="aspect-square relative overflow-hidden rounded-lg group">
                 <Image
-                  src={image}
-                  alt={`Instagram post ${index + 1}`}
+                  src={image.src}
+                  alt={image.alt}
                   fill
                   className="object-cover group-hover:scale-110 transition-transform duration-300"
                   sizes="(max-width: 768px) 50vw, 25vw"
