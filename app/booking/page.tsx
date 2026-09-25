@@ -8,6 +8,7 @@ import type React from "react"
 import { useState, useEffect, useMemo, useRef, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { toast } from "@/hooks/use-toast"
+import { canonicalPhone } from "@/lib/phone"
 import { parseISO, format, isValid } from "date-fns"
 import { getSlotsForDate, formatTime } from "@/lib/time-slots"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -276,6 +277,14 @@ function BookingContent() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (formData.phone && !canonicalPhone(formData.phone)) {
+      toast({
+        title: "Phone number",
+        description: "That phone number format is not okay.",
+        variant: "destructive",
+      });
+      return;
+    }
     if (!formData.date || !formData.name || !formData.phone || !formData.email || formData.services.length === 0 || !formData.timeSlot) {
       toast({
         title: "Missing Information",
@@ -377,6 +386,7 @@ function BookingContent() {
         },
         body: JSON.stringify({
           formData,
+          useSession: Boolean(session?.user),
           loyaltyDiscountEligible,
           // The amount should ideally be calculated on the server-side for security
           // but for now, we'll pass the hardcoded deposit amount

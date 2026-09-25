@@ -38,6 +38,7 @@ import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/compone
 import { StudioPoliciesContent } from "@/components/studio-policies";
 import useSWR from 'swr';
 import { toast } from '@/hooks/use-toast';
+import { sanitizePhoneInput } from '@/lib/phone';
 
 export function BookingForm({
   formData,
@@ -153,7 +154,8 @@ export function BookingForm({
 
   const handleChange = (e: any) => {
     const { name, value } = e.target;
-    setFormData((prev: any) => ({ ...prev, [name]: value }));
+    const next = name === "phone" ? sanitizePhoneInput(value) : value;
+    setFormData((prev: any) => ({ ...prev, [name]: next }));
   };
 
   const handleRemoveImage = (idx: number) => {
@@ -279,6 +281,8 @@ export function BookingForm({
                           name="phone"
                           placeholder="Phone Number"
                           required
+                          inputMode="tel"
+                          autoComplete="tel"
                           value={formData.phone}
                           onChange={handleChange}
                           className="bg-gray-50 border-gray-300 text-gray-900 rounded-md focus:ring-brand-pink focus:border-brand-pink"

@@ -2,10 +2,41 @@ import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { logPaymentEvent } from '@/lib/paymentLogger';
 import { getSlotsForDate } from '@/lib/time-slots';
+import { canonicalPhone } from '@/lib/phone';
+import { getSessionUser } from '@/lib/auth/session';
 
 export async function POST(req: Request) {
   try {
-    const { formData, loyaltyDiscountEligible, amount, callback_url, return_url } = await req.json();
+    const { formData, loyaltyDiscountEligible, amount, callback_url, return_url, useSession } = await req.json();
+
+    if (!formData) {
+      return NextResponse.json({ message: 'Booking details are required.' }, { status: 400 });
+    }
+
+    if (useSession) {
+      const session = await getSessionUser();
+      if (!session.configured) {
+        return NextResponse.json({ message: 'Neon Auth is not configured.' }, { status: 503 });
+      }
+      if (!session.user) {
+        return NextResponse.json({ message: 'Sign in required.' }, { status: 401 });
+      }
+      const profile = await prisma.customerProfile.findUnique({
+        where: { neonUserId: session.user.id },
+      });
+      if (!profile) {
+        return NextResponse.json({ message: 'Finish your account details before booking.' }, { status: 409 });
+      }
+      formData.name = profile.name;
+      formData.email = profile.email;
+      formData.phone = profile.phone;
+    }
+
+    const phone = canonicalPhone(String(formData.phone ?? ""));
+    if (!phone) {
+      return NextResponse.json({ message: "That phone number format is not okay." }, { status: 400 });
+    }
+    formData.phone = phone;
 
     // SERVER-SIDE VALIDATION: Ensure the requested time slot is actually valid for the selected date
     // This prevents "ghost" slots like Friday 3PM which don't exist in the system logic.

@@ -1,12 +1,13 @@
 # Lauryn Luxe Beauty Studio — System Design Document
 
 > **Generated via M.A.S.T.E.R. Framework Forensic Analysis**
-> Version: **4** | Date: 2026-09-25 | Status: **Current**
+> Version: **5** | Date: 2026-09-25 | Status: **Current**
 
 ## Changelog
 
 | Version | Date | Summary |
 |---------|------|---------|
+| 5 | 2026-09-25 | Booking payment leaves PayChangu hosted checkout. The booking flow collects TNM Mpamba or Airtel Money on the site, starts a Direct Charge, and confirms only after PayChangu verify succeeds. That confirm writes the booking, shows the ticket, and emails it through Resend. The webhook stays a backup and does not confirm anything until its secret exists. The studio deposit stays K10,000. This integration test charges MWK 100. |
 | 4 | 2026-09-25 | Phone inputs accept a Malawi local number or an international number that starts with `+`. Stored value is E.164. Malawi `08`/`09` forms still collapse to `+265` plus 9 digits. Other countries, such as `+256`, stay their own loyalty key. Names and junk are rejected on input. |
 | 3 | 2026-09-25 | Loyalty, visits, and account phone checks use one Malawi number: `+265` plus 9 digits. Local `0`, bare `265`, `+265`, and spacing are the same phone. The 30% rule and the K10,000 PayChangu deposit are unchanged. |
 | 2 | 2026-09-25 | Optional customer accounts via Neon Auth. Guests still book without an account. Signed-in customers skip name, phone, and email on the booking form, see upcoming and past visits for their phone, open the existing ticket, and reschedule under the existing once / 24-hour / no-payment rules. Loyalty stays keyed to the phone number; the account shows progress toward the next 30% visit. |
@@ -36,9 +37,9 @@ Lauryn Luxe Beauty Studio is a **customer-facing beauty booking platform** for a
 
 | ID | Requirement | Status | Source |
 |----|-------------|--------|--------|
-| FR-01 | **Booking Creation** — Customers create bookings by paying a non-refundable K10,000 MWK deposit via PayChangu. Booking is created with `pending` status during checkout and updated to `successful` upon payment verification. | ✅ Implemented | `paychangu-checkout/route.ts`, `verify-payment/route.ts` |
-| FR-02 | **Payment Verification** — Dual-path: client-side polling (up to 10 retries × 3s) via `/api/verify-payment`, plus server-side webhook via `/api/webhook/paychangu` with HMAC-SHA256 signature verification. | ✅ Implemented | `verify-payment/route.ts`, `webhook/paychangu/route.ts` |
-| FR-03 | **Loyalty Program** — Every 6th successful booking for one stored phone receives a 30% discount, stored as `discountApplied`. The stored phone is E.164 (`+` and digits only). A Malawi local number (`0999123456`, `999123456`, `265999123456`, `+265 999 123 456`, or `+2650999123456`) is stored as `+265` plus 9 digits and those forms count together. An international number is accepted only when it already starts with `+` and a country code, for example `+256772123456`, and it does not count with a Malawi number. PayChangu is still charged the K10,000 deposit; the 30% is a studio flag, not a smaller charge. The flag is also sent to PayChangu as metadata. Verification counts the phone stored on the booking. | 🔲 Specified (v4) | Loyalty, checkout, verification |
+| FR-01 | **Booking Creation** — Customers create bookings by paying a non-refundable deposit with PayChangu Direct Charge. There is no hosted checkout page and no redirect. The booking is created `pending` when the charge is initialized and becomes `successful` only after PayChangu verify reports success. The studio deposit remains K10,000 MWK. While this integration is under test, the server charges MWK 100 and ignores any amount sent by the browser. | 🔲 Specified (v5) | Direct Charge, booking flow |
+| FR-02 | **Payment Verification** — The page the customer is on polls the server, and the server calls PayChangu `GET /mobile-money/payments/{chargeId}/verify`. Success from that call is what updates the booking, shows the ticket, and sends the ticket email. The PayChangu webhook remains a backup: it must re-verify the same charge before it changes a booking, and it must reject the request when `PAYCHANGU_WEBHOOK_SECRET` is missing. An unsigned webhook never confirms a payment. | 🔲 Specified (v5) | Verify poll, webhook |
+| FR-03 | **Loyalty Program** — Every 6th successful booking for one stored phone receives a 30% discount, stored as `discountApplied`. The stored phone is E.164 (`+` and digits only). A Malawi local number (`0999123456`, `999123456`, `265999123456`, `+265 999 123 456`, or `+2650999123456`) is stored as `+265` plus 9 digits and those forms count together. An international number is accepted only when it already starts with `+` and a country code, for example `+256772123456`, and it does not count with a Malawi number. PayChangu is charged the current deposit amount (MWK 100 during this test, K10,000 once the test amount is restored). The 30% is a studio flag, not a smaller charge. The flag is also sent to PayChangu as metadata. Verification counts the phone stored on the booking. | 🔲 Specified (v4) | Loyalty, checkout, verification |
 | FR-04 | **Rescheduling** — Confirmed bookings can be rescheduled once, with 24-hour notice before appointment, no payment required. Conflict checking against existing bookings. | ✅ Implemented | `reschedule/route.ts` |
 | FR-05 | **Booking Lookup** — Customers retrieve booking details via Ticket ID and initiate reschedule if eligible. | ✅ Implemented | `lookup/page.tsx` |
 | FR-06 | **SMS Confirmation** — Twilio sends booking confirmation SMS with ticket ID, date, time, and services. The recipient is the stored E.164 phone from FR-03. | 🔲 Specified (v4) | `lib/sms.ts` |
@@ -57,6 +58,8 @@ Lauryn Luxe Beauty Studio is a **customer-facing beauty booking platform** for a
 | FR-19 | **Account visits** — A signed-in customer has an account page with a **Visits** section: **Upcoming** and **Past**, listing successful bookings whose canonical phone equals the profile phone. No ticket-id search. Opening an upcoming visit shows the same downloadable ticket as `/booking/confirmation`. Past visits are appointments whose Blantyre date/time is already over. | 🔲 Specified (v3) | Account page |
 | FR-20 | **Reschedule from a visit** — Reschedule started from an upcoming visit uses the existing rules (FR-04): once, at least 24 hours before the appointment, no extra payment, conflict check unchanged. The server accepts it only when that booking's phone is the session phone. | 🔲 Specified (v2) | Reschedule |
 | FR-21 | **Loyalty progress** — The 30% rule is unchanged (FR-03): every 6th successful booking for that canonical phone. The account only displays progress from that count, for example "two visits until the 30% visit" when four successful bookings already exist (`6 - (count % 6)` visits remaining; `0` means the next booking is the discounted one). | 🔲 Specified (v3) | Account page |
+| FR-22 | **On-site mobile money** — After the existing booking details, the customer picks TNM Mpamba or Airtel Money on the studio booking flow. TNM Mpamba accepts a Malawi number that starts with `08`. Airtel Money accepts a Malawi number that starts with `09`. That number is sent to PayChangu as the local mobile-money number. It does not replace the stored loyalty phone from FR-03. The operator id comes from PayChangu's operator list. The charge id is generated by the server, stored as `Booking` payment reference (`txRef` on `PaymentEvent`), and is new on every attempt. The screen stays on the site and tells the customer to approve the PIN prompt on their phone. The sample checkout screen in the Direct Charge guide is not used. | 🔲 Specified (v5) | Booking payment step |
+| FR-23 | **Ticket email** — When verify marks a booking successful and that booking has an email, Resend sends the ticket details to that address. The on-screen ticket and PNG download stay. A failed email does not undo the successful booking, same as a failed SMS. | 🔲 Specified (v5) | Resend, confirmation |
 
 ### 1.3 Non-Functional Requirements (Inferred)
 
@@ -94,9 +97,9 @@ Lauryn Luxe Beauty Studio is a **customer-facing beauty booking platform** for a
 │  │   Pages (14)      │    │   API Routes (21)         │   │
 │  │                   │    │                           │   │
 │  │  / (homepage)     │    │  /api/bookings            │   │
-│  │  /booking         │◄──►│  /api/paychangu-checkout  │   │
-│  │  /booking/verify  │    │  /api/verify-payment      │   │
-│  │  /booking/confirm │    │  /api/webhook/paychangu   │   │
+│  │  /booking         │◄──►│  /api/paychangu/direct-charge │ │
+│  │  /booking/confirm │    │  /api/verify-payment      │   │
+│  │                   │    │  /api/webhook/paychangu   │   │
 │  │  /booking/status  │    │  /api/reschedule          │   │
 │  │  /lookup          │    │  /api/services            │   │
 │  │  /reschedule      │    │  /api/categories          │   │
@@ -211,43 +214,43 @@ sequenceDiagram
     participant DB as PostgreSQL
     participant TW as Twilio
 
-    C->>BF: Fill form + select services/date/time
-    BF->>API: POST /api/paychangu-checkout
-    API->>DB: Create Booking (status: pending)
-    API->>PC: Create checkout session
-    PC-->>API: checkout_url
-    API-->>BF: Redirect to checkout_url
-    C->>PC: Complete payment
-    PC-->>C: Redirect to /booking/verifying?tx_ref=xxx
+    C->>BF: Fill form, pick services/date/time, pick TNM or Airtel, enter 08 or 09 number
+    BF->>API: POST direct charge
+    API->>DB: Create Booking (status: pending, charge id stored)
+    API->>PC: POST /mobile-money/payments/initialize (amount 100 during test)
+    PC-->>API: pending (PIN prompt sent to the phone)
+    API-->>BF: Stay on site: check your phone
 
-    loop Up to 10 retries (3s interval)
-        C->>API: POST /api/verify-payment {tx_ref}
-        API->>PC: GET /mobile-money/verify/{tx_ref}
-        alt Payment Confirmed
-            API->>DB: Update booking → successful
-            API->>DB: Check loyalty (every 6th)
+    loop Poll while the customer is on the page
+        BF->>API: Verify this charge id
+        API->>PC: GET /mobile-money/payments/{chargeId}/verify
+        alt Verify status is success
+            API->>DB: Update booking → successful, loyalty flag
             API->>TW: Send SMS confirmation
-            API-->>C: Booking confirmed
-        else Still Processing
-            API-->>C: 202 (retry)
+            API->>API: Email ticket through Resend when email exists
+            API-->>BF: Show downloadable ticket
+        else Still pending
+            API-->>BF: Keep waiting
+        else Failed
+            API-->>BF: Show failed status, allow a new charge id
         end
     end
 
-    Note over PC,API: Async webhook (backup)
+    Note over PC,API: Webhook is backup only, and only after the secret exists
     PC->>API: POST /api/webhook/paychangu
-    API->>API: Verify HMAC-SHA256 signature
-    API->>DB: Idempotent update (if not already successful)
+    API->>API: Reject unless Signature matches PAYCHANGU_WEBHOOK_SECRET
+    API->>PC: Verify the charge again before any database write
 ```
 
-Signed-in checkout uses this same sequence. The only difference is that name, phone, and email are taken from `CustomerProfile` instead of form fields. Guest and signed-in checkout store the canonical Malawi phone. Loyalty counts successful bookings by the phone stored on the booking.
+Signed-in booking uses this same sequence. The only difference is that name, phone, and email are taken from `CustomerProfile` instead of form fields. The mobile-money number on the payment step is still entered for the selected operator. Guest and signed-in booking store the canonical phone from FR-03. Loyalty counts successful bookings by the phone stored on the booking. Hosted checkout (`checkout_url`, return redirect, and the PayChangu public key) is removed from this flow.
 
 ### 2.5 Page Routing Map
 
 | Route | Type | Purpose | Auth |
 |-------|------|---------|------|
 | `/` | Public | Landing page with hero, services preview, newsletter signup | None |
-| `/booking` | Public | Multi-step booking form + payment initiation | None |
-| `/booking/verifying` | Public | Payment verification polling page | None |
+| `/booking` | Public | Multi-step booking form, on-site mobile money, and in-page verify | None |
+| `/booking/verifying` | Public | Legacy redirect target. Direct Charge does not send the customer here. | None |
 | `/booking/confirmation` | Public | Ticket display + download | None |
 | `/booking/status` | Public | Failed/cancelled payment status page | None |
 | `/lookup` | Public | Booking lookup by Ticket ID + reschedule | None |
@@ -334,7 +337,8 @@ The admin dashboard fetches ALL bookings on load. The booking page fetches ALL s
 | TD-05 | **Payment deposit hardcoded** at K10,000 | Fixed pricing model | Cannot adjust without code change; no admin UI for deposit amount |
 | TD-06 | **sessionStorage for page-to-page state transfer** | Avoid server-side sessions | State lost on browser restart; fragile — depends on exact navigation flow |
 | TD-07 | **Disabled ESLint and TypeScript checks** in production builds | Bypass build errors | Type errors and linting issues ship to production undetected |
-| TD-08 | **Dual verification: polling + webhook** | Redundancy for payment reliability | Good pattern, but loyalty logic is duplicated between both paths |
+| TD-08 | **Dual verification: polling + webhook** | Redundancy for payment reliability | Good pattern, but loyalty logic is duplicated between both paths. [SUPERSEDED BY TD-12] |
+| TD-12 | **Direct Charge on the studio booking flow** (v5) | Hosted checkout's redirect can show a wrong result after a real debit. The site collects TNM Mpamba (`08`) or Airtel Money (`09`), initializes the charge, and trusts only a later verify call. The guide's sample checkout UI is not used. The webhook cannot confirm a booking until its secret is set. MWK 100 is the test charge only; the studio deposit stays K10,000. | The customer must stay for the PIN prompt. A closed tab leaves the booking `pending` until a later verify or a signed webhook runs the same confirm path. |
 | TD-09 | **1-second SWR polling** for real-time availability | Ensure users see up-to-date slots | Excessive server load; unnecessary for a low-volume studio |
 | TD-10 | **Single admin page (1,597 lines)** | All management in one place | Unmaintainable; no lazy loading; full re-render on any state change |
 | TD-11 | **Optional Neon Auth; E.164 phone remains the customer key** (v4) | Guests must keep booking with no account. Loyalty and tickets are stored by phone, not by user id. Malawi local forms collapse to `+265` plus 9 digits. Any other country is stored only when typed with `+` and its country code, and stays a separate customer. | Email/password live in Neon Auth. The app stores name, email, and the E.164 phone on `CustomerProfile`. Visits match that phone. One stored phone, one account. The customer cannot edit it. Guest ticket lookup stays. Two profiles that canonicalize to one number are not merged. |
@@ -509,7 +513,15 @@ Malawi entry, with or without spaces, dashes, or brackets: leading `0` plus 9 di
 
 International entry must already start with `+` and a country code, for example `+256772123456` or `+44 7471 224556`. Strip spaces, dashes, and brackets, then save `+` plus the digits. Do not invent a country code. `07740971277` is not rewritten to `+44`.
 
-The booking, signup, and admin phone boxes accept only characters that can become one of those forms, and they refuse submit until the value canonicalizes. The server applies the same rule and rejects names and other junk. Rewrite existing `Booking.phone` values that canonicalize, including international numbers that already start with `+`. Leave names, junk, and country-less non-Malawi numbers unchanged. `CustomerProfile` has no rows yet. If two profiles ever collapse to one number, stop and report them; do not merge the accounts. SMS uses the stored value. The 30% rule and the K10,000 deposit stay as they are.
+The booking, signup, and admin phone boxes accept only characters that can become one of those forms, and they refuse submit until the value canonicalizes. The server applies the same rule and rejects names and other junk. Rewrite existing `Booking.phone` values that canonicalize, including international numbers that already start with `+`. Leave names, junk, and country-less non-Malawi numbers unchanged. `CustomerProfile` has no rows yet. If two profiles ever collapse to one number, stop and report them; do not merge the accounts. SMS uses the stored value. The 30% rule stays as it is. The studio deposit stays K10,000; the Direct Charge test in section 5.7 charges MWK 100 until that test amount is restored.
+
+### 5.7 Direct Charge instead of hosted checkout (SDD v5)
+
+Remove PayChangu hosted checkout from booking. Keep the existing `Booking` and `PaymentEvent` models. Do not add the guide's `Order` / `Payment` models, and do not build the guide's sample checkout screen.
+
+On the booking payment step the customer chooses TNM Mpamba or Airtel Money and enters the payer number (`08…` or `09…`). The server creates a pending booking, generates a new charge id, and calls `POST /mobile-money/payments/initialize` for MWK 100. The browser never leaves the site. It polls until verify returns success, failed, or the customer retries with a new charge id.
+
+One shared confirm path, used by the poll and later by the webhook, marks the booking successful, applies loyalty, sends the SMS, emails the ticket through Resend when `email` is present, and returns the ticket for display and PNG download. If `PAYCHANGU_WEBHOOK_SECRET` is unset, the webhook returns 401 and writes nothing. `PAYCHANGU_PUBLIC_KEY` is not used. Restore the charged amount to K10,000 before this flow is used for real deposits.
 
 ---
 
@@ -519,8 +531,8 @@ The booking, signup, and admin phone boxes accept only characters that can becom
 
 | ID | Failure Mode | Current Handling | Risk |
 |----|-------------|------------------|------|
-| FM-01 | **PayChangu API down** during checkout | API returns error; user sees toast notification | 🟡 User must retry manually |
-| FM-02 | **Payment succeeds but verification fails** | Webhook provides backup path; verify page shows "check email" message after 10 retries | 🟢 Acceptable — webhook is idempotent |
+| FM-01 | **PayChangu API down** during charge initialize | API returns the PayChangu message; user stays on the booking payment step and can retry with a new charge id | 🟡 User must retry manually |
+| FM-02 | **PIN succeeds but the page never sees verify success** | The booking stays `pending`. A later verify of the same charge id, or a signed webhook that re-verifies, runs the same confirm path once. Until the webhook secret exists, only the verify poll can confirm. | 🟡 A closed tab is not recovered until something calls verify again |
 | FM-03 | **Twilio SMS fails** | SMS send is fire-and-forget; booking still succeeds | 🟢 Acceptable — SMS is informational |
 | FM-04 | **Database connection drops** | Prisma will throw; API returns 500 | 🟡 No circuit breaker; no retry |
 | FM-05 | **sessionStorage cleared** between booking and verification | Verification page shows error "booking data not found" | 🟡 User must rebook — no recovery from persistent store |
@@ -545,8 +557,8 @@ The `PaymentEvent` table provides excellent audit coverage. Events logged:
 
 | Stage | Event Types |
 |-------|-------------|
-| Checkout | `checkout_initiated`, `booking_created`, `paychangu_api_call`, `checkout_url_generated` |
-| Verification | `verification_started`, `paychangu_api_response`, `booking_updated`, `sms_sent` |
+| Direct Charge | `charge_initiated`, `booking_created`, `paychangu_initialize`, `awaiting_pin` |
+| Verification | `verification_started`, `paychangu_verify_response`, `booking_updated`, `sms_sent`, `ticket_email_sent` |
 | Webhook | `webhook_received`, `signature_verified`, `booking_confirmed` |
 | Admin | `admin_verify_started`, `admin_verify_result` |
 
@@ -592,12 +604,12 @@ The `PaymentEvent` table provides excellent audit coverage. Events logged:
 | Variable | Purpose | Security Level |
 |----------|---------|---------------|
 | `DATABASE_URL` | Neon PostgreSQL connection string | 🔴 Secret |
-| `RESEND_API_KEY` | Email sending API key | 🔴 Secret |
+| `RESEND_API_KEY` | Newsletter and booking ticket email | 🔴 Secret |
 | `TWILIO_ACCOUNT_SID` | Twilio account identifier | 🔴 Secret |
 | `TWILIO_AUTH_TOKEN` | Twilio authentication token | 🔴 Secret |
 | `TWILIO_PHONE_NUMBER` | SMS sender phone number | 🟡 Semi-public |
-| `PAYCHANGU_SECRET_KEY` | Payment API authentication | 🔴 Secret |
-| `PAYCHANGU_WEBHOOK_SECRET` | Webhook signature verification | 🔴 Secret |
+| `PAYCHANGU_SECRET_KEY` | Direct Charge initialize and verify | 🔴 Secret |
+| `PAYCHANGU_WEBHOOK_SECRET` | Webhook signature. Absent until provided; webhook must not confirm without it | 🔴 Secret |
 | `ADMIN_PASSWORD` | Admin dashboard access | 🔴 Secret (also hardcoded in client!) |
 | `NEXT_PUBLIC_SITE_URL` | Frontend URL | 🟢 Public |
 | `BLOB_READ_WRITE_TOKEN` | Vercel Blob file operations | 🔴 Secret |

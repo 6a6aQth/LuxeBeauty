@@ -42,11 +42,11 @@ This file combines the planned development roadmap and the reactive work log (fi
 - [x] 5.3 Upload up to five inspiration photos to Vercel Blob and store the URLs on the booking
 - [x] 5.4 Show a confirmation ticket and let the customer download it as a PNG
 - [x] 5.5 Show a failed or cancelled payment status page
-- [x] 5.6 Poll payment verification from the verifying page after PayChangu redirects back
+- [x] 5.6 Poll payment verification from the verifying page after PayChangu redirects back [SUPERSEDED BY 16.0]
 - [ ] 5.7 Enforce file type and size limits on inspiration-photo uploads
 - [ ] 5.8 Load the in-progress booking from the database by transaction reference on the verifying page, so a cleared browser session can still finish
 
-6.0 PayChangu Payments (generated against SDD v1)
+6.0 PayChangu Payments (generated against SDD v1) [SUPERSEDED BY 16.0]
 - [x] 6.1 Create a PayChangu checkout session and redirect the customer to it
 - [x] 6.2 Verify a payment from the client, with retries, and mark the booking successful when PayChangu confirms it
 - [x] 6.3 Accept the PayChangu webhook, verify the HMAC signature, and confirm the booking only once
@@ -94,5 +94,60 @@ This file combines the planned development roadmap and the reactive work log (fi
 - [ ] 13.1 Prevent two successful bookings from occupying the same date and time slot, including under concurrent checkout
 - [ ] 13.2 Add error monitoring so production payment and SMS failures are visible without reading server logs
 
+14.0 Customer Accounts (generated against SDD v2)
+- [x] 14.1 Add Neon Auth (`createNeonAuth`, auth route handler, `NEON_AUTH_BASE_URL`, `NEON_AUTH_COOKIE_SECRET`) and read the customer session on the server. Leave guest booking, lookup, payment, and webhook routes public.
+- [x] 14.2 Add a `CustomerProfile` with unique `neonUserId`, name, unique email, and unique phone stored in the same string form bookings already use. Create it during signup. Do not add a user foreign key on `Booking`. [SUPERSEDED BY 15.0]
+- [x] 14.3 Build sign-up (name, email, password, phone) and sign-in (email, password), plus sign-out. Reject a phone that already belongs to an account.
+- [x] 14.4 In the header, show Sign in when there is no session and Account when there is one. A guest can still open booking and complete checkout with no session.
+- [x] 14.5 When a session exists, do not show name, phone, or email on the booking form. Submit the profile values on the booking. Guests still type those three fields.
+- [x] 14.6 Add `/account` with a Visits section split into Upcoming and Past: successful bookings whose phone equals the profile phone, using Africa/Blantyre for the split. Require a session. Do not offer ticket-id search on this page.
+- [x] 14.7 Opening an upcoming visit shows the same downloadable ticket the confirmation page already renders.
+- [x] 14.8 Reschedule from that upcoming visit uses the existing once / 24-hour notice / no extra payment rules, and the server rejects the request unless the booking phone is the session phone.
+- [x] 14.9 On the account page, show loyalty progress from the count of successful bookings for that phone. The discount rule stays every 6th booking at 30%. Example copy: "two visits until the 30% visit".
+- [x] 14.10 After signup, bookings already stored under that phone appear in Visits. Do not move bookings that use a different phone. [SUPERSEDED BY 15.0]
+
+15.0 Canonical Malawi phone for loyalty and visits (generated against SDD v3)
+- [ ] 15.1 Add one normalizer: strip spaces and dashes; accept `0` plus 9 digits, 9 digits, `265` plus 9 digits, or `+265` plus 9 digits; reject anything else; return `+265` plus 9 digits. [SUPERSEDED BY 15.8]
+- [x] 15.2 Save that value on guest checkout, signed-in checkout, signup, and admin phone edit. Signup uniqueness uses the canonical value.
+- [x] 15.3 Loyalty preview, payment verification, and the PayChangu webhook count successful bookings for that phone, including rows still stored in an equivalent form. Verification uses the phone stored on the booking.
+- [x] 15.4 Account visits and account reschedule compare canonical phones.
+- [x] 15.5 Rewrite existing `Booking.phone` and `CustomerProfile.phone` values that canonicalize. If two profiles collapse to one number, stop and report them; do not merge accounts.
+- [x] 15.6 Send confirmation SMS to that same canonical number.
+- [x] 15.7 Replace the signup note that says visits and loyalty match the number exactly as written.
+- [x] 15.8 Replace the Malawi-only normalizer. Save E.164. Collapse Malawi local forms, including brackets, an extra `0` after `+265`, and a leading letter `O`, to `+265` plus 9 digits. Accept any other number that already starts with `+` and a country code, such as `+256`. Do not invent a country code for `07…`. Reject names and junk.
+- [x] 15.9 On the booking, signup, and admin phone boxes, block letters and refuse submit until the value canonicalizes. Show that a Malawi number can be typed locally and every other country needs `+` and its country code. The server enforces the same rule.
+- [x] 15.10 When rewriting `Booking.phone`, also store already-international `+` numbers as digits-only E.164. Leave names, junk, and country-less non-Malawi numbers unchanged.
+
+16.0 Direct Charge booking payment (generated against SDD v5)
+- [ ] 16.1 Remove hosted PayChangu checkout from the booking flow: no checkout URL, no redirect, and no use of the public key
+- [ ] 16.2 Add a booking payment step that offers TNM Mpamba (`08`) and Airtel Money (`09`), in the studio UI, and stays on the site
+- [ ] 16.3 Initialize a Direct Charge for MWK 100 with a new server-generated charge id, create the booking as pending, and ignore any amount from the browser
+- [ ] 16.4 Poll PayChangu verify from that same page. On success, mark the booking successful, apply loyalty, send the SMS, show the ticket, and allow the PNG download
+- [ ] 16.5 Email the ticket through Resend when the booking has an email. A failed send does not undo the booking
+- [ ] 16.6 Keep the webhook route, reject it while `PAYCHANGU_WEBHOOK_SECRET` is missing, and when the secret exists require a valid `Signature` plus a fresh verify before the shared confirm path runs
+- [ ] 16.7 Log initialize, verify, confirm, ticket email, and webhook attempts on `PaymentEvent`
+- [ ] 16.8 Restore the charged amount to K10,000 before this flow is used for real deposits
+
 ## Recent Activity Index
+- 25 Sept 2026 — 16.0 Direct Charge booking payment
+- 25 Sept 2026 — 16.1 Remove hosted checkout
+- 25 Sept 2026 — 16.2 On-site TNM and Airtel payment step
+- 25 Sept 2026 — 16.3 Initialize MWK 100 Direct Charge
+- 25 Sept 2026 — 16.4 Verify, then ticket and database
+- 25 Sept 2026 — 16.5 Email the ticket with Resend
+- 25 Sept 2026 — 16.6 Webhook backup gated on secret
+- 25 Sept 2026 — 16.7 Payment event log
+- 25 Sept 2026 — 16.8 Restore K10,000 after the test
+- 25 Sept 2026 — 15.8 E.164 storage, Malawi collapse, international `+` numbers
+- 25 Sept 2026 — 15.9 Phone boxes reject messy input
+- 25 Sept 2026 — 15.10 Rewrite keeps foreign `+` numbers and leaves junk
+- 25 Sept 2026 — 15.0 Canonical Malawi phone for loyalty and visits
+- 25 Sept 2026 — 15.1 Shared phone normalizer
+- 25 Sept 2026 — 15.2 Save canonical phone on checkout, signup, and admin edit
+- 25 Sept 2026 — 15.3 Loyalty counts equivalent phone forms
+- 25 Sept 2026 — 15.4 Account visits and reschedule use the canonical phone
+- 25 Sept 2026 — 15.5 Rewrite stored phones; do not merge colliding profiles
+- 25 Sept 2026 — 15.6 SMS uses the canonical number
+- 25 Sept 2026 — 15.7 Signup copy no longer says the raw string is the match
+- 25 Sept 2026 — 14.0 Customer accounts with optional Neon Auth sign-in
 - 25 Sept 2026 — Initial roadmap generated (13 parent tasks, against SDD v1)
