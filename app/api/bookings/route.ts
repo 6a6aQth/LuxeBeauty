@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { phonesMatch } from '@/lib/phone';
 
 export async function GET(req: NextRequest) {
   try {
@@ -25,10 +26,6 @@ export async function GET(req: NextRequest) {
         whereClause = { status: statusFilter };
       }
 
-      // Add phone filter if provided
-      if (phoneFilter) {
-        whereClause = { ...whereClause, phone: phoneFilter };
-      }
     }
 
     const bookings = await prisma.booking.findMany({
@@ -76,7 +73,10 @@ export async function GET(req: NextRequest) {
       return NextResponse.json([updatedBooking]);
     }
 
-    return NextResponse.json(bookings);
+    const matched = phoneFilter
+      ? bookings.filter((booking) => phonesMatch(booking.phone, phoneFilter))
+      : bookings;
+    return NextResponse.json(matched);
   } catch (error) {
     console.error('Failed to fetch bookings:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });

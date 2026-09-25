@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { createHmac } from 'crypto';
 import { sendBookingSMS } from '@/lib/sms';
+import { successfulBookingsForPhone } from '@/lib/booking-phones';
 import { logPaymentEvent } from '@/lib/paymentLogger';
 
 export async function POST(req: NextRequest) {
@@ -163,13 +164,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Calculate loyalty discount
-    const existingCount = await prisma.booking.count({
-      where: {
-        phone: existing.phone,
-        status: 'successful',
-        NOT: { ticketId: tx_ref }
-      }
-    });
+    const existingCount = (await successfulBookingsForPhone(existing.phone, tx_ref)).length;
     const isEligibleForDiscount = (existingCount + 1) % 6 === 0;
 
     // Update to successful

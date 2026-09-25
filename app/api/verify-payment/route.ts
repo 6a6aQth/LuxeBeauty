@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { sendBookingSMS } from '@/lib/sms';
 import { logPaymentEvent } from '@/lib/paymentLogger';
+import { successfulBookingsForPhone } from '@/lib/booking-phones';
 
 export async function POST(req: NextRequest) {
   try {
@@ -191,16 +192,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Booking not found for this transaction reference.' }, { status: 404 });
     }
 
-    // Calculate loyalty discount eligibility - count existing successful bookings for this phone
-    // Exclude the current booking from the count since it's not yet marked as successful
-    const existingSuccessfulBookingsCount = await prisma.booking.count({
-      where: {
-        phone: formData.phone,
-        status: 'successful',
-        // Exclude the current booking from the count
-        NOT: { ticketId: tx_ref }
-      }
-    });
+    // Count successful bookings for the phone stored on the booking, including equivalent spellings.
+    const existingSuccessfulBookingsCount = (await successfulBookingsForPhone(booking.phone, tx_ref)).length;
     const isEligibleForDiscount = (existingSuccessfulBookingsCount + 1) % 6 === 0;
 
     console.log(`🎯 [PAYCHANGU-VERIFY] Loyalty discount calculation for tx_ref: ${tx_ref}`, {
@@ -239,7 +232,7 @@ export async function POST(req: NextRequest) {
     // Send SMS confirmation (non-blocking)
     try {
       await sendBookingSMS(
-        formData.phone,
+        booking.phone,
         `Thank you for booking with Lauryn Luxe! Your appointment is confirmed for ${formData.date} at ${formData.timeSlot}.`
       );
       console.log(`📱 [PAYCHANGU-VERIFY] SMS confirmation sent for tx_ref: ${tx_ref}`, {

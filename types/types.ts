@@ -27,4 +27,5 @@ export interface BookingFormProps {
   setStep: React.Dispatch<React.SetStateAction<'form' | 'payment'>>;
   loyaltyDiscountEligible?: boolean;
   isReschedule?: boolean;
+  hideContact?: boolean;
 } 

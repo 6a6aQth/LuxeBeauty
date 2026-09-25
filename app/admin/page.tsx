@@ -20,6 +20,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
 import { getSlotsForDate, formatTime, generateTimeSlots } from "@/lib/time-slots"
+import { canonicalPhone, sanitizePhoneInput } from "@/lib/phone"
 import Logo from "@/components/logo";
 import NewsletterForm from '@/components/newsletter-form';
 import { Separator } from "@/components/ui/separator";
@@ -628,6 +629,15 @@ export default function AdminPage() {
   const handleSaveBooking = async () => {
     if (!editingBookingData || !isEditingBooking) {
       console.error('Missing booking data or editing state');
+      return;
+    }
+
+    if (!canonicalPhone(editingBookingData.phone)) {
+      toast({
+        title: 'Check the phone number',
+        description: 'That phone number format is not okay.',
+        variant: 'destructive',
+      });
       return;
     }
 
@@ -1466,8 +1476,10 @@ export default function AdminPage() {
                   <Label htmlFor="edit-phone">Phone *</Label>
                   <Input
                     id="edit-phone"
+                    inputMode="tel"
+                    autoComplete="tel"
                     value={editingBookingData.phone}
-                    onChange={(e) => setEditingBookingData(prev => prev ? { ...prev, phone: e.target.value } : null)}
+                    onChange={(e) => setEditingBookingData(prev => prev ? { ...prev, phone: sanitizePhoneInput(e.target.value) } : null)}
                     placeholder="Phone number"
                   />
                 </div>

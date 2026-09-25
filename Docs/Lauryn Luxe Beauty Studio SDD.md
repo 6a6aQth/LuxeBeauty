@@ -1,7 +1,16 @@
 # Lauryn Luxe Beauty Studio — System Design Document
 
 > **Generated via M.A.S.T.E.R. Framework Forensic Analysis**
-> Date: 2026-02-11 | Status: **Current-State Baseline**
+> Version: **4** | Date: 2026-09-25 | Status: **Current**
+
+## Changelog
+
+| Version | Date | Summary |
+|---------|------|---------|
+| 4 | 2026-09-25 | Phone inputs accept a Malawi local number or an international number that starts with `+`. Stored value is E.164. Malawi `08`/`09` forms still collapse to `+265` plus 9 digits. Other countries, such as `+256`, stay their own loyalty key. Names and junk are rejected on input. |
+| 3 | 2026-09-25 | Loyalty, visits, and account phone checks use one Malawi number: `+265` plus 9 digits. Local `0`, bare `265`, `+265`, and spacing are the same phone. The 30% rule and the K10,000 PayChangu deposit are unchanged. |
+| 2 | 2026-09-25 | Optional customer accounts via Neon Auth. Guests still book without an account. Signed-in customers skip name, phone, and email on the booking form, see upcoming and past visits for their phone, open the existing ticket, and reschedule under the existing once / 24-hour / no-payment rules. Loyalty stays keyed to the phone number; the account shows progress toward the next 30% visit. |
+| 1 | 2026-02-11 | Current-state forensic baseline. |
 
 ---
 
@@ -29,10 +38,10 @@ Lauryn Luxe Beauty Studio is a **customer-facing beauty booking platform** for a
 |----|-------------|--------|--------|
 | FR-01 | **Booking Creation** — Customers create bookings by paying a non-refundable K10,000 MWK deposit via PayChangu. Booking is created with `pending` status during checkout and updated to `successful` upon payment verification. | ✅ Implemented | `paychangu-checkout/route.ts`, `verify-payment/route.ts` |
 | FR-02 | **Payment Verification** — Dual-path: client-side polling (up to 10 retries × 3s) via `/api/verify-payment`, plus server-side webhook via `/api/webhook/paychangu` with HMAC-SHA256 signature verification. | ✅ Implemented | `verify-payment/route.ts`, `webhook/paychangu/route.ts` |
-| FR-03 | **Loyalty Program** — Every 6th successful booking for a phone number receives a 30% discount. Discount eligibility flag is sent to PayChangu as metadata. | ✅ Implemented (duplicated) | `verify-payment/route.ts:L138-181`, `webhook/paychangu/route.ts:L111-155` |
+| FR-03 | **Loyalty Program** — Every 6th successful booking for one stored phone receives a 30% discount, stored as `discountApplied`. The stored phone is E.164 (`+` and digits only). A Malawi local number (`0999123456`, `999123456`, `265999123456`, `+265 999 123 456`, or `+2650999123456`) is stored as `+265` plus 9 digits and those forms count together. An international number is accepted only when it already starts with `+` and a country code, for example `+256772123456`, and it does not count with a Malawi number. PayChangu is still charged the K10,000 deposit; the 30% is a studio flag, not a smaller charge. The flag is also sent to PayChangu as metadata. Verification counts the phone stored on the booking. | 🔲 Specified (v4) | Loyalty, checkout, verification |
 | FR-04 | **Rescheduling** — Confirmed bookings can be rescheduled once, with 24-hour notice before appointment, no payment required. Conflict checking against existing bookings. | ✅ Implemented | `reschedule/route.ts` |
 | FR-05 | **Booking Lookup** — Customers retrieve booking details via Ticket ID and initiate reschedule if eligible. | ✅ Implemented | `lookup/page.tsx` |
-| FR-06 | **SMS Confirmation** — Twilio sends booking confirmation SMS with ticket ID, date, time, and services. Phone numbers normalized to Malawi E.164 format (+265). | ✅ Implemented | `lib/sms.ts` |
+| FR-06 | **SMS Confirmation** — Twilio sends booking confirmation SMS with ticket ID, date, time, and services. The recipient is the stored E.164 phone from FR-03. | 🔲 Specified (v4) | `lib/sms.ts` |
 | FR-07 | **Newsletter System** — Email subscription, unsubscription, and batch sending via Resend API with React email templates. | ✅ Implemented | `newsletter/*.ts` |
 | FR-08 | **Service & Category Management** — CRUD for services and categories. Services linked to categories by name string. Category deletion blocked if services reference it. | ✅ Implemented (weak linking) | `services/route.ts`, `categories/route.ts` |
 | FR-09 | **Date/Time Availability Management** — Admin can block specific time slots on specific dates. Fully booked dates are auto-detected and disabled in the calendar. | ✅ Implemented | `unavailable-dates/route.ts` |
@@ -42,6 +51,12 @@ Lauryn Luxe Beauty Studio is a **customer-facing beauty booking platform** for a
 | FR-13 | **Payment Audit Trail** — All payment events logged to `PaymentEvent` table with sequential numbering per transaction. | ✅ Implemented | `lib/paymentLogger.ts` |
 | FR-14 | **Ticket Download** — Confirmation page renders a ticket UI and allows PNG download via `html2canvas`. | ✅ Implemented | `booking/confirmation/page.tsx` |
 | FR-15 | **Admin Manual Payment Verification** — Admin can manually verify a pending payment by transaction reference. | ✅ Implemented | `admin/verify-payment/route.ts` |
+| FR-16 | **Optional customer account** — A customer may sign up and sign in with Neon Auth (email + password). Sign-in is optional. A guest with no session books exactly as today: same form, deposit, payment, ticket, lookup, and reschedule. | 🔲 Specified (v2) | Neon Auth |
+| FR-17 | **Signup profile** — Signup collects name, email, password, and phone. Email is the Neon Auth login. Phone is required, stored as the E.164 value from FR-03, and unique on that value. Password is held by Neon Auth, not by the app database. The phone field rejects letters and any value that does not canonicalize. | 🔲 Specified (v4) | Customer profile |
+| FR-18 | **Signed-in booking** — When a session exists, the booking form does not ask for name, phone, or email. Those values come from the profile and are written onto the booking the same way a guest would have typed them. Services, date, time, notes, and inspiration photos are unchanged. | 🔲 Specified (v2) | Booking form |
+| FR-19 | **Account visits** — A signed-in customer has an account page with a **Visits** section: **Upcoming** and **Past**, listing successful bookings whose canonical phone equals the profile phone. No ticket-id search. Opening an upcoming visit shows the same downloadable ticket as `/booking/confirmation`. Past visits are appointments whose Blantyre date/time is already over. | 🔲 Specified (v3) | Account page |
+| FR-20 | **Reschedule from a visit** — Reschedule started from an upcoming visit uses the existing rules (FR-04): once, at least 24 hours before the appointment, no extra payment, conflict check unchanged. The server accepts it only when that booking's phone is the session phone. | 🔲 Specified (v2) | Reschedule |
+| FR-21 | **Loyalty progress** — The 30% rule is unchanged (FR-03): every 6th successful booking for that canonical phone. The account only displays progress from that count, for example "two visits until the 30% visit" when four successful bookings already exist (`6 - (count % 6)` visits remaining; `0` means the next booking is the discounted one). | 🔲 Specified (v3) | Account page |
 
 ### 1.3 Non-Functional Requirements (Inferred)
 
@@ -54,6 +69,7 @@ Lauryn Luxe Beauty Studio is a **customer-facing beauty booking platform** for a
 | NFR-05 | **Real-time Availability** — Booking form must reflect current slot availability | SWR polling at 1-second intervals for services, unavailable dates, and bookings | 🟡 Medium (aggressive) |
 | NFR-06 | **Mobile Responsiveness** — Support both desktop and mobile users | Tailwind responsive classes used throughout; `useIsMobile` hook in admin | 🟢 Adequate |
 | NFR-07 | **Build Safety** — Production builds should catch errors | ESLint and TypeScript checks disabled in `next.config.mjs` | 🟡 Medium |
+| NFR-08 | **Customer session scope** — Visit lists, ticket open-from-account, and account reschedule must require a Neon Auth session and may return only bookings for that profile's phone. Guest booking, guest lookup by ticket id, payment, and webhook routes stay public. Admin auth is a separate control (NFR-01) and is not replaced by customer accounts. | 🔲 Specified (v2) | 🔴 Critical if missing |
 
 ---
 
@@ -64,8 +80,9 @@ Lauryn Luxe Beauty Studio is a **customer-facing beauty booking platform** for a
 **Monolithic Next.js Application** with:
 - **Client-side rendering** for all interactive pages (`"use client"` throughout)
 - **API Routes** as the sole backend (no separate API server)
-- **No middleware layer** — each route handles its own validation/auth
+- **No middleware layer** — each route handles its own validation/auth, except customer routes protected by the Neon Auth session (v2)
 - **Direct Prisma calls** from API routes (no service/repository abstraction)
+- **Neon Auth (Managed Better Auth)** for optional customer sign-up and sign-in (v2). Admin login stays the existing password check until that work is done separately.
 
 ### 2.2 Component Topology
 
@@ -90,6 +107,9 @@ Lauryn Luxe Beauty Studio is a **customer-facing beauty booking platform** for a
 │  │  /prices          │    │  /api/admin/verify-payment│   │
 │  │  /policies        │    │  /api/callback (stub)     │   │
 │  │  /unsubscribed    │    │  /api/bookings/upload     │   │
+│  │  /sign-in (v2)    │    │  /api/auth/[...path] (v2) │   │
+│  │  /sign-up (v2)    │    │  /api/account/visits (v2) │   │
+│  │  /account (v2)    │    │                           │   │
 │  └──────────────────┘    └──────────┬───────────────┘   │
 │                                      │                   │
 │  ┌──────────────────┐    ┌──────────▼───────────────┐   │
@@ -115,6 +135,10 @@ Lauryn Luxe Beauty Studio is a **customer-facing beauty booking platform** for a
           │  PayChangu   │  │  Twilio   │  │  Resend      │
           │  (Payments)  │  │  (SMS)    │  │  (Email)     │
           └─────────────┘  └──────────┘  └──────────────┘
+          ┌──────────────────────────────────────────────┐
+          │  Neon Auth (v2) — customer email/password    │
+          │  Sessions in neon_auth; app stores profile   │
+          └──────────────────────────────────────────────┘
                                           ┌──────────────┐
                                           │  Vercel Blob  │
                                           │  (File Store) │
@@ -161,6 +185,19 @@ Lauryn Luxe Beauty Studio is a **customer-facing beauty booking platform** for a
 │ email (unique)           │    │ key (unique)  │
 │ createdAt                │    │ value         │
 └──────────────────────────┘    └───────────────┘
+
+┌──────────────────────────┐
+│ CustomerProfile (v2)     │
+│──────────────────────────│
+│ id (PK)                  │
+│ neonUserId (unique)      │  ← Neon Auth user id
+│ name                     │
+│ email (unique)           │
+│ phone (unique)           │  ← E.164; Malawi local forms become +265 plus 9 digits
+│ createdAt                │
+└──────────────────────────┘
+
+Bookings are not given a user foreign key. Visits and loyalty both select `Booking` rows by the canonical phone from FR-03. Existing rows written as another form of that same number are included, and a one-time rewrite stores the canonical value on `Booking` and `CustomerProfile`. Two profiles that collapse to one number are not merged. The customer cannot edit the profile phone, because a change would split that history. A genuinely different number stays a different customer.
 ```
 
 ### 2.4 Critical Flow: Booking + Payment Sequence
@@ -202,6 +239,8 @@ sequenceDiagram
     API->>DB: Idempotent update (if not already successful)
 ```
 
+Signed-in checkout uses this same sequence. The only difference is that name, phone, and email are taken from `CustomerProfile` instead of form fields. Guest and signed-in checkout store the canonical Malawi phone. Loyalty counts successful bookings by the phone stored on the booking.
+
 ### 2.5 Page Routing Map
 
 | Route | Type | Purpose | Auth |
@@ -220,6 +259,9 @@ sequenceDiagram
 | `/policies` | Public | Studio policies | None |
 | `/unsubscribed` | Public | Newsletter unsubscribe confirmation | None |
 | `/admin` | "Protected" | Full admin dashboard | Hardcoded password |
+| `/sign-in` | Public | Email + password sign-in (Neon Auth) | None to view; creates a customer session |
+| `/sign-up` | Public | Name, email, password, and phone | None to view; creates Neon Auth user + CustomerProfile |
+| `/account` | Customer | Visits (upcoming and past) and loyalty progress | Neon Auth session |
 
 ---
 
@@ -295,6 +337,7 @@ The admin dashboard fetches ALL bookings on load. The booking page fetches ALL s
 | TD-08 | **Dual verification: polling + webhook** | Redundancy for payment reliability | Good pattern, but loyalty logic is duplicated between both paths |
 | TD-09 | **1-second SWR polling** for real-time availability | Ensure users see up-to-date slots | Excessive server load; unnecessary for a low-volume studio |
 | TD-10 | **Single admin page (1,597 lines)** | All management in one place | Unmaintainable; no lazy loading; full re-render on any state change |
+| TD-11 | **Optional Neon Auth; E.164 phone remains the customer key** (v4) | Guests must keep booking with no account. Loyalty and tickets are stored by phone, not by user id. Malawi local forms collapse to `+265` plus 9 digits. Any other country is stored only when typed with `+` and its country code, and stays a separate customer. | Email/password live in Neon Auth. The app stores name, email, and the E.164 phone on `CustomerProfile`. Visits match that phone. One stored phone, one account. The customer cannot edit it. Guest ticket lookup stays. Two profiles that canonicalize to one number are not merged. |
 
 ### 4.2 Missing Decisions (Gaps)
 
@@ -454,6 +497,20 @@ app/admin/
 
 Add cursor-based pagination to `GET /api/bookings` with `take`, `skip`, and `cursor` parameters.
 
+### 5.5 Customer accounts (SDD v2)
+
+Not part of the forensic hotfix phases above. Implement optional Neon Auth sign-up and sign-in, a `CustomerProfile` keyed by phone, a signed-in booking path that skips name/phone/email, and an account Visits page (upcoming, past, existing ticket, existing reschedule rules, loyalty progress). Guest booking is unchanged. Admin authentication stays on the existing password until its own security work.
+
+### 5.6 Stored phone and input check (SDD v4)
+
+Loyalty, visits, signup uniqueness, and account reschedule compare one stored phone: `+` followed by digits only, at most 15 digits.
+
+Malawi entry, with or without spaces, dashes, or brackets: leading `0` plus 9 digits, 9 digits alone, `265` plus 9 digits, or `+265` plus 9 digits. `+265` followed by an extra `0` and then 9 digits drops that `0`. All of these save as `+265` plus 9 digits. A leading letter `O` used in place of `0` on an otherwise numeric Malawi number is treated as `0`.
+
+International entry must already start with `+` and a country code, for example `+256772123456` or `+44 7471 224556`. Strip spaces, dashes, and brackets, then save `+` plus the digits. Do not invent a country code. `07740971277` is not rewritten to `+44`.
+
+The booking, signup, and admin phone boxes accept only characters that can become one of those forms, and they refuse submit until the value canonicalizes. The server applies the same rule and rejects names and other junk. Rewrite existing `Booking.phone` values that canonicalize, including international numbers that already start with `+`. Leave names, junk, and country-less non-Malawi numbers unchanged. `CustomerProfile` has no rows yet. If two profiles ever collapse to one number, stop and report them; do not merge the accounts. SMS uses the stored value. The 30% rule and the K10,000 deposit stay as they are.
+
 ---
 
 ## 6. Resilience — Failure Modes & Recovery
@@ -470,6 +527,8 @@ Add cursor-based pagination to `GET /api/bookings` with `take`, `skip`, and `cur
 | FM-06 | **Webhook signature mismatch** | Returns 401; booking stuck in `pending` | 🟡 Admin can manually verify, but no automated alerting |
 | FM-07 | **Admin password leaked** | Full admin access to anyone | 🔴 No password rotation; no 2FA; no audit log for admin actions |
 | FM-08 | **Concurrent booking for same slot** | No database-level unique constraint on `(date, timeSlot)`; only checked via SWR poll | 🟡 Race condition possible |
+| FM-09 | **Neon Auth unavailable** (v2) | Guest booking, payment, lookup, and reschedule must not call Neon Auth. Only sign-in, sign-up, and `/account` depend on it. | 🟢 Guest path stays bookable |
+| FM-10 | **Phone cannot be stored as E.164** (v4) | The phone box and the server reject it before save. A stored value that cannot be canonicalized is left unchanged and reported by the rewrite. | 🟢 Names and junk do not become a loyalty identity |
 
 ### 6.2 Recovery Recommendations
 
@@ -514,6 +573,7 @@ The `PaymentEvent` table provides excellent audit coverage. Events logged:
 | Deployment | Vercel | Serverless |
 | Data Fetching | SWR | Latest |
 | Forms | React Hook Form + Zod | Latest |
+| Customer auth | Neon Auth (`@neondatabase/auth`, Managed Better Auth) | Current SDK |
 
 ### 7.2 File Count Summary
 
@@ -541,6 +601,8 @@ The `PaymentEvent` table provides excellent audit coverage. Events logged:
 | `ADMIN_PASSWORD` | Admin dashboard access | 🔴 Secret (also hardcoded in client!) |
 | `NEXT_PUBLIC_SITE_URL` | Frontend URL | 🟢 Public |
 | `BLOB_READ_WRITE_TOKEN` | Vercel Blob file operations | 🔴 Secret |
+| `NEON_AUTH_BASE_URL` | Neon Auth server URL (v2) | 🟡 Semi-public |
+| `NEON_AUTH_COOKIE_SECRET` | Signed HTTP-only customer session cookie (v2) | 🔴 Secret |
 
 ### 7.4 Business Hours vs Code
 

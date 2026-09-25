@@ -54,6 +54,7 @@ function RescheduleContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const ticketId = searchParams.get('ticketId')
+  const fromAccount = searchParams.get('source') === 'account'
 
   const [booking, setBooking] = useState<Booking | null>(null)
   const [loading, setLoading] = useState(false)
@@ -92,7 +93,7 @@ function RescheduleContent() {
     const fetchBooking = async () => {
       setLoading(true)
       try {
-        const response = await fetch(`/api/reschedule?ticketId=${ticketId}`)
+        const response = await fetch(`/api/reschedule?ticketId=${ticketId}${fromAccount ? "&source=account" : ""}`)
         const data = await response.json()
 
         if (!response.ok) {
@@ -122,7 +123,7 @@ function RescheduleContent() {
     }
 
     fetchBooking()
-  }, [ticketId, router])
+  }, [ticketId, fromAccount, router])
 
   // Load unavailable dates
   useEffect(() => {
@@ -197,6 +198,7 @@ function RescheduleContent() {
           ticketId: booking.ticketId,
           newDate: format(date, "yyyy-MM-dd"),
           newTimeSlot: selectedTimeSlot,
+          fromAccount,
         }),
       })
 
