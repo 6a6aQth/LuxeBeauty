@@ -15,7 +15,16 @@ export async function GET() {
     where: { neonUserId: session.user.id },
   });
   if (!profile) {
-    return NextResponse.json({ error: "No studio profile for this account." }, { status: 404 });
+    return NextResponse.json(
+      {
+        error: "No studio profile for this account.",
+        suggested: {
+          name: session.user.name ?? "",
+          email: session.user.email ?? "",
+        },
+      },
+      { status: 404 },
+    );
   }
 
   return NextResponse.json({

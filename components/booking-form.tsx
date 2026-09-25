@@ -59,6 +59,7 @@ export function BookingForm({
   setStep,
   loyaltyDiscountEligible,
   isReschedule,
+  accountBooking,
 }: BookingFormProps) {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [showPoliciesDialog, setShowPoliciesDialog] = useState(false);
@@ -254,36 +255,47 @@ export function BookingForm({
             <CardContent className="p-0">
               {step === "form" ? (
                 <form onSubmit={handleSubmit} className="space-y-6">
-                  <div className="grid sm:grid-cols-2 gap-4">
-                    <Input
-                      id="name"
-                      name="name"
-                      placeholder="Full Name"
-                      required
-                      value={formData.name}
-                      onChange={handleChange}
-                      className="bg-gray-50 border-gray-300 text-gray-900 rounded-md focus:ring-brand-pink focus:border-brand-pink"
-                    />
-                    <Input
-                      id="phone"
-                      name="phone"
-                      placeholder="Phone Number"
-                      required
-                      value={formData.phone}
-                      onChange={handleChange}
-                      className="bg-gray-50 border-gray-300 text-gray-900 rounded-md focus:ring-brand-pink focus:border-brand-pink"
-                    />
-                  </div>
-                  <Input
-                    id="email"
-                    name="email"
-                    type="email"
-                    placeholder="Email Address"
-                    required
-                    value={formData.email}
-                    onChange={handleChange}
-                    className="bg-gray-50 border-gray-300 text-gray-900 rounded-md focus:ring-brand-pink focus:border-brand-pink"
-                  />
+                  {accountBooking ? (
+                    <div className="rounded-md border border-stone-200 bg-stone-950 px-4 py-3 text-sm text-white">
+                      <p className="text-[11px] uppercase tracking-[0.18em] text-brand-pink">Booking as</p>
+                      <p className="mt-1 font-medium">{formData.name}</p>
+                      <p className="text-white/70">{formData.email}</p>
+                      <p className="text-white/70">{formData.phone}</p>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="grid sm:grid-cols-2 gap-4">
+                        <Input
+                          id="name"
+                          name="name"
+                          placeholder="Full Name"
+                          required
+                          value={formData.name}
+                          onChange={handleChange}
+                          className="bg-gray-50 border-gray-300 text-gray-900 rounded-md focus:ring-brand-pink focus:border-brand-pink"
+                        />
+                        <Input
+                          id="phone"
+                          name="phone"
+                          placeholder="Phone Number"
+                          required
+                          value={formData.phone}
+                          onChange={handleChange}
+                          className="bg-gray-50 border-gray-300 text-gray-900 rounded-md focus:ring-brand-pink focus:border-brand-pink"
+                        />
+                      </div>
+                      <Input
+                        id="email"
+                        name="email"
+                        type="email"
+                        placeholder="Email Address"
+                        required
+                        value={formData.email}
+                        onChange={handleChange}
+                        className="bg-gray-50 border-gray-300 text-gray-900 rounded-md focus:ring-brand-pink focus:border-brand-pink"
+                      />
+                    </>
+                  )}
 
                   <div className="space-y-4 pt-4 border-t border-gray-200">
                     <Label className="text-base font-medium text-gray-900">

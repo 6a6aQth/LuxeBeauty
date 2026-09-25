@@ -15,6 +15,7 @@ import { PageHeader } from "@/components/page-header"
 import { MultiStepLoader } from "@/components/ui/multi-step-loader"
 import { BookingForm } from "@/components/booking-form"
 import useSWR from 'swr';
+import { authClient } from "@/lib/auth/client"
 
 const loadingStates = [
   { text: "Processing Payment" },
@@ -52,9 +53,12 @@ function BookingContent() {
   const [agreedToTerms, setAgreedToTerms] = useState(false)
   const [loading, setLoading] = useState(false)
   const bookingFormRef = useRef<HTMLDivElement>(null);
+  const skipAccountFill = useRef(false);
   const [loyaltyDiscountEligible, setLoyaltyDiscountEligible] = useState(false);
   const [isReschedule, setIsReschedule] = useState(false);
   const [rescheduleTicketId, setRescheduleTicketId] = useState('');
+  const [accountBooking, setAccountBooking] = useState(false);
+  const { data: session, isPending: sessionPending } = authClient.useSession();
 
   useEffect(() => {
     // Primary path: sessionStorage handoff from lookup page
@@ -75,6 +79,7 @@ function BookingContent() {
           });
           setIsReschedule(true);
           setRescheduleTicketId(data.ticketId);
+          skipAccountFill.current = true;
           sessionStorage.removeItem('lauryn-luxe-reschedule-data');
           return; // done
         }
@@ -87,6 +92,7 @@ function BookingContent() {
     const isRescheduleParam = searchParams?.get('reschedule') === 'true';
     const ticketIdParam = searchParams?.get('ticketId');
     if (isRescheduleParam && ticketIdParam) {
+      skipAccountFill.current = true;
       (async () => {
         try {
           const resp = await fetch(`/api/bookings?ticketId=${encodeURIComponent(ticketIdParam)}`);
@@ -118,6 +124,33 @@ function BookingContent() {
     sessionStorage.removeItem('lauryn-luxe-booking');
     localStorage.removeItem('lauryn-luxe-booking-form');
   }, [searchParams]);
+
+  useEffect(() => {
+    if (sessionPending || !session?.user || isReschedule || skipAccountFill.current) return
+    let cancelled = false
+    async function loadProfile() {
+      const response = await fetch("/api/account/profile")
+      if (cancelled) return
+      if (response.status === 404) {
+        router.replace("/auth/continue")
+        return
+      }
+      if (!response.ok) return
+      const profile = await response.json()
+      if (cancelled) return
+      setFormData((prev) => ({
+        ...prev,
+        name: profile.name || prev.name,
+        phone: profile.phone || prev.phone,
+        email: profile.email || prev.email,
+      }))
+      setAccountBooking(true)
+    }
+    loadProfile()
+    return () => {
+      cancelled = true
+    }
+  }, [session, sessionPending, isReschedule, router]);
 
   useEffect(() => {
     if (step === 'payment') {
@@ -403,6 +436,7 @@ function BookingContent() {
           setStep={setStep}
           loyaltyDiscountEligible={loyaltyDiscountEligible}
           isReschedule={isReschedule}
+          accountBooking={accountBooking}
         />
       </div>
 

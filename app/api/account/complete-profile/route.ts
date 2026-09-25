@@ -20,11 +20,11 @@ export async function POST(req: Request) {
 
   const body = await req.json().catch(() => null);
   const phone = canonicalPhone(String(body?.phone ?? ""));
-  const email = String(session.user.email ?? "").trim().toLowerCase();
-  const name = String(session.user.name ?? "").trim() || email.split("@")[0] || "Customer";
+  const email = String(body?.email ?? session.user.email ?? "").trim().toLowerCase();
+  const name = String(body?.name ?? "").trim();
 
-  if (!phone || !email) {
-    return NextResponse.json({ error: "A valid phone number is required." }, { status: 400 });
+  if (!name || !email || !email.includes("@") || !phone) {
+    return NextResponse.json({ error: "Name, email, and a valid phone number are required." }, { status: 400 });
   }
 
   const phoneTaken = await prisma.customerProfile.findUnique({ where: { phone } });
