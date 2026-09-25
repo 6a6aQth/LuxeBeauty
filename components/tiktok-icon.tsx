@@ -1,5 +1,3 @@
-import Image from "next/image"
-
 export function TiktokIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg 
