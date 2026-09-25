@@ -119,13 +119,13 @@ This file combines the planned development roadmap and the reactive work log (fi
 - [x] 15.10 When rewriting `Booking.phone`, also store already-international `+` numbers as digits-only E.164. Leave names, junk, and country-less non-Malawi numbers unchanged.
 
 16.0 Direct Charge booking payment (generated against SDD v5)
-- [ ] 16.1 Remove hosted PayChangu checkout from the booking flow: no checkout URL, no redirect, and no use of the public key
-- [ ] 16.2 Add a booking payment step that offers TNM Mpamba (`08`) and Airtel Money (`09`), in the studio UI, and stays on the site
-- [ ] 16.3 Initialize a Direct Charge for MWK 100 with a new server-generated charge id, create the booking as pending, and ignore any amount from the browser
-- [ ] 16.4 Poll PayChangu verify from that same page. On success, mark the booking successful, apply loyalty, send the SMS, show the ticket, and allow the PNG download
-- [ ] 16.5 Email the ticket through Resend when the booking has an email. A failed send does not undo the booking
-- [ ] 16.6 Keep the webhook route, reject it while `PAYCHANGU_WEBHOOK_SECRET` is missing, and when the secret exists require a valid `Signature` plus a fresh verify before the shared confirm path runs
-- [ ] 16.7 Log initialize, verify, confirm, ticket email, and webhook attempts on `PaymentEvent`
+- [x] 16.1 Remove hosted PayChangu checkout from the booking flow: no checkout URL, no redirect, and no use of the public key
+- [x] 16.2 Add a booking payment step that offers TNM Mpamba (`08`) and Airtel Money (`09`), in the studio UI, and stays on the site
+- [x] 16.3 Initialize a Direct Charge for MWK 100 with a new server-generated charge id, create the booking as pending, and ignore any amount from the browser
+- [x] 16.4 Poll PayChangu verify from that same page. On success, mark the booking successful, apply loyalty, send the SMS, show the ticket, and allow the PNG download
+- [x] 16.5 Email the ticket through Resend when the booking has an email. A failed send does not undo the booking
+- [x] 16.6 Keep the webhook route, reject it while `PAYCHANGU_WEBHOOK_SECRET` is missing, and when the secret exists require a valid `Signature` plus a fresh verify before the shared confirm path runs
+- [x] 16.7 Log initialize, verify, confirm, ticket email, and webhook attempts on `PaymentEvent`
 - [ ] 16.8 Restore the charged amount to K10,000 before this flow is used for real deposits
 
 ## Recent Activity Index

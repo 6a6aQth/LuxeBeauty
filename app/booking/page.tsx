@@ -17,6 +17,9 @@ import { MultiStepLoader } from "@/components/ui/multi-step-loader"
 import { BookingForm } from "@/components/booking-form"
 import useSWR from 'swr';
 import { authClient } from "@/lib/auth/client"
+import { formatDeposit } from "@/lib/deposit"
+import { localMobileMoneyNumber, type MobileOperator } from "@/lib/mobile-money"
+import type { TicketDetails } from "@/components/booking-ticket"
 
 const loadingStates = [
   { text: "Processing Payment" },
@@ -49,7 +52,12 @@ function BookingContent() {
   })
   const [date, setDate] = useState<Date | undefined>()
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [step, setStep] = useState<'form' | 'payment'>('form')
+  const [step, setStep] = useState<'form' | 'payment' | 'awaiting' | 'failed' | 'ticket'>('form')
+  const [operator, setOperator] = useState<MobileOperator>('airtel')
+  const [payerNumber, setPayerNumber] = useState('')
+  const [chargeId, setChargeId] = useState('')
+  const [failureMessage, setFailureMessage] = useState('')
+  const [ticketDetails, setTicketDetails] = useState<TicketDetails | null>(null)
   const [isPaying, setIsPaying] = useState(false)
   const [agreedToTerms, setAgreedToTerms] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -164,7 +172,6 @@ function BookingContent() {
   const fetcher = (url: string) => fetch(url).then(res => res.json());
   const { data: unavailableDatesData = [] } = useSWR('/api/unavailable-dates', fetcher, { refreshInterval: 1000 });
   const { data: bookingsData = [] } = useSWR('/api/bookings?status=successful', fetcher, { refreshInterval: 1000 });
-  const { data: latestServices = [] } = useSWR('/api/services', fetcher, { refreshInterval: 0 });
 
   const unavailableSlots = useMemo(() => {
     const transformed: Record<string, string[]> = {};
@@ -372,48 +379,96 @@ function BookingContent() {
   };
 
   const handlePayment = async () => {
-    setLoading(true);
-    setIsPaying(true); // Indicate payment process has started
+    const payer = localMobileMoneyNumber(payerNumber, operator);
+    if (!payer) {
+      toast({
+        title: "Mobile money number",
+        description: operator === "tnm"
+          ? "TNM Mpamba needs a Malawi number starting with 08."
+          : "Airtel Money needs a Malawi number starting with 09.",
+        variant: "destructive",
+      });
+      return;
+    }
 
-    // Save formData to sessionStorage before redirecting to Paychangu
-    sessionStorage.setItem('lauryn-luxe-booking-form', JSON.stringify(formData));
-
+    setIsPaying(true);
     try {
       const response = await fetch('/api/paychangu-checkout', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           formData,
           useSession: Boolean(session?.user),
-          loyaltyDiscountEligible,
-          // The amount should ideally be calculated on the server-side for security
-          // but for now, we'll pass the hardcoded deposit amount
-          amount: 10000,
-          callback_url: `${process.env.NEXT_PUBLIC_APP_URL}/booking/verifying`, // Your server's verification URL
-          return_url: `${process.env.NEXT_PUBLIC_APP_URL}/booking/status`, // URL for failed/cancelled payments
+          operator,
+          mobile: payer,
         }),
       });
-
       const data = await response.json();
-
-      if (response.ok && data.checkout_url) {
-        window.location.href = data.checkout_url; // Redirect to Paychangu checkout page
-      } else {
-        throw new Error(data.message || 'Failed to initiate payment.');
+      if (!response.ok || !data.chargeId) {
+        throw new Error(data.message || 'Failed to start the payment.');
       }
+      setChargeId(data.chargeId);
+      setStep('awaiting');
     } catch (error: any) {
-      console.error("Payment initiation failed:", error);
       toast({
         title: "Payment Error",
-        description: error.message || "Could not initiate payment. Please try again.",
+        description: error.message || "Could not start the payment. Please try again.",
         variant: "destructive",
       });
-      setLoading(false);
       setIsPaying(false);
     }
   };
+
+  const handleRetryPayment = () => {
+    setChargeId('');
+    setFailureMessage('');
+    setIsPaying(false);
+    setLoading(false);
+    setStep('payment');
+  };
+
+  useEffect(() => {
+    if (step !== 'awaiting' || !chargeId) return;
+    let stopped = false;
+
+    const tick = async () => {
+      try {
+        const response = await fetch('/api/verify-payment', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ chargeId }),
+        });
+        const data = await response.json();
+        if (stopped) return;
+        if (data.status === 'success' && data.booking) {
+          setTicketDetails({
+            name: data.booking.name,
+            date: data.booking.date,
+            timeSlot: data.booking.timeSlot,
+            services: data.booking.services,
+            fee: formatDeposit(),
+            ticketId: data.booking.ticketId,
+            discountApplied: data.booking.discountApplied,
+          });
+          setStep('ticket');
+          setIsPaying(false);
+        } else if (data.status === 'failed') {
+          setFailureMessage(data.message || 'Payment was not approved.');
+          setStep('failed');
+          setIsPaying(false);
+        }
+      } catch {
+        // Keep polling. A closed request is not a failed payment.
+      }
+    };
+
+    tick();
+    const interval = setInterval(tick, 4000);
+    return () => {
+      stopped = true;
+      clearInterval(interval);
+    };
+  }, [step, chargeId]);
 
   return (
     <div>
@@ -447,6 +502,13 @@ function BookingContent() {
           loyaltyDiscountEligible={loyaltyDiscountEligible}
           isReschedule={isReschedule}
           accountBooking={accountBooking}
+          operator={operator}
+          setOperator={setOperator}
+          payerNumber={payerNumber}
+          setPayerNumber={setPayerNumber}
+          failureMessage={failureMessage}
+          onRetry={handleRetryPayment}
+          ticketDetails={ticketDetails}
         />
       </div>
 

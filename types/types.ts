@@ -13,7 +13,7 @@ export interface BookingFormProps {
   date: Date | undefined;
   handleDateSelect: (date: Date | undefined) => void;
   fullyBookedDates: Date[];
-  step: 'form' | 'payment';
+  step: 'form' | 'payment' | 'awaiting' | 'failed' | 'ticket';
   isSubmitting: boolean;
   handleSubmit: (e: React.FormEvent) => void;
   handleSelectChange: (name: string, value: string) => void;
@@ -24,8 +24,24 @@ export interface BookingFormProps {
   agreedToTerms: boolean;
   setAgreedToTerms: React.Dispatch<React.SetStateAction<boolean>>;
   handlePayment: () => Promise<void>;
-  setStep: React.Dispatch<React.SetStateAction<'form' | 'payment'>>;
+  setStep: React.Dispatch<React.SetStateAction<'form' | 'payment' | 'awaiting' | 'failed' | 'ticket'>>;
   loyaltyDiscountEligible?: boolean;
   isReschedule?: boolean;
   accountBooking?: boolean;
+  operator: 'tnm' | 'airtel';
+  setOperator: React.Dispatch<React.SetStateAction<'tnm' | 'airtel'>>;
+  payerNumber: string;
+  setPayerNumber: React.Dispatch<React.SetStateAction<string>>;
+  failureMessage?: string;
+  onRetry: () => void;
+  ticketDetails?: {
+    name: string;
+    date: string;
+    timeSlot: string;
+    services: string[];
+    fee: string;
+    ticketId: string;
+    discountApplied?: boolean;
+  } | null;
+  serviceNames?: string[];
 } 

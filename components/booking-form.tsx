@@ -39,6 +39,8 @@ import { StudioPoliciesContent } from "@/components/studio-policies";
 import useSWR from 'swr';
 import { toast } from '@/hooks/use-toast';
 import { sanitizePhoneInput } from '@/lib/phone';
+import { formatDeposit } from '@/lib/deposit';
+import { BookingTicket } from '@/components/booking-ticket';
 
 export function BookingForm({
   formData,
@@ -61,6 +63,13 @@ export function BookingForm({
   loyaltyDiscountEligible,
   isReschedule,
   accountBooking,
+  operator,
+  setOperator,
+  payerNumber,
+  setPayerNumber,
+  failureMessage,
+  onRetry,
+  ticketDetails,
 }: BookingFormProps) {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [showPoliciesDialog, setShowPoliciesDialog] = useState(false);
@@ -246,12 +255,26 @@ export function BookingForm({
           <div className="p-8 bg-white">
             <CardHeader className="p-0 mb-6 text-center">
               <CardTitle className="text-2xl font-bold text-gray-900">
-                {step === "form" ? "Book Your Slot" : "Confirm & Pay"}
+                {step === "form"
+                  ? "Book Your Slot"
+                  : step === "awaiting"
+                    ? "Approve on your phone"
+                    : step === "ticket"
+                      ? "Appointment confirmed"
+                      : step === "failed"
+                        ? "Payment not completed"
+                        : "Confirm & Pay"}
               </CardTitle>
               <CardDescription className="text-sm text-gray-500">
                 {step === "form"
-                  ? "A K10,000 non-refundable deposit is required."
-                  : "Review your details and pay the booking fee."}
+                  ? `A ${formatDeposit()} non-refundable deposit is required.`
+                  : step === "awaiting"
+                    ? "A prompt was sent to the mobile money number. Approve it with your PIN."
+                    : step === "ticket"
+                      ? "Your deposit is paid. Download the ticket below."
+                      : step === "failed"
+                        ? failureMessage || "The payment was not approved."
+                        : `Review your details and pay ${formatDeposit()}.`}
               </CardDescription>
             </CardHeader>
             <CardContent className="p-0">
@@ -538,6 +561,27 @@ export function BookingForm({
                     {isSubmitting ? "Submitting..." : "Proceed"}
                   </Button>
                 </form>
+              ) : step === "ticket" && ticketDetails ? (
+                <BookingTicket
+                  details={ticketDetails}
+                  serviceNames={ticketDetails.services.map((serviceId) => {
+                    const service = services.find((item) => item.id === serviceId);
+                    return service ? service.name : serviceId;
+                  })}
+                />
+              ) : step === "awaiting" ? (
+                <div className="space-y-4 text-center">
+                  <div className="mx-auto h-8 w-8 animate-spin rounded-full border-b-2 border-brand-pink" />
+                  <p className="text-gray-700">Check your phone and approve the PIN prompt. This page will update when PayChangu confirms the payment.</p>
+                  <p className="text-sm text-gray-500">Charge {formatDeposit()}. Stay on this page.</p>
+                </div>
+              ) : step === "failed" ? (
+                <div className="space-y-4 text-center">
+                  <p className="text-gray-700">{failureMessage || "Payment was not approved."}</p>
+                  <Button onClick={onRetry} className="w-full bg-brand-pink text-white hover:bg-brand-pink/90">
+                    Try again
+                  </Button>
+                </div>
               ) : (
                 <div className="space-y-6">
                   {loyaltyDiscountEligible && (
@@ -596,6 +640,41 @@ export function BookingForm({
                         <p className="text-gray-700 mt-1">{formData.notes}</p>
                       </div>
                     )}
+                  </div>
+
+                  <div className="space-y-3">
+                    <p className="text-sm font-medium text-gray-900">Pay {formatDeposit()} with</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      <Button
+                        type="button"
+                        variant={operator === "tnm" ? "default" : "outline"}
+                        className={operator === "tnm" ? "bg-brand-pink text-white hover:bg-brand-pink/90" : ""}
+                        onClick={() => setOperator("tnm")}
+                      >
+                        TNM Mpamba
+                      </Button>
+                      <Button
+                        type="button"
+                        variant={operator === "airtel" ? "default" : "outline"}
+                        className={operator === "airtel" ? "bg-brand-pink text-white hover:bg-brand-pink/90" : ""}
+                        onClick={() => setOperator("airtel")}
+                      >
+                        Airtel Money
+                      </Button>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="payer-number">
+                        {operator === "tnm" ? "TNM number (starts with 08)" : "Airtel number (starts with 09)"}
+                      </Label>
+                      <Input
+                        id="payer-number"
+                        inputMode="tel"
+                        autoComplete="tel"
+                        placeholder={operator === "tnm" ? "0881234567" : "0991234567"}
+                        value={payerNumber}
+                        onChange={(event) => setPayerNumber(event.target.value)}
+                      />
+                    </div>
                   </div>
 
                   <div className="items-top flex space-x-2">
