@@ -112,10 +112,13 @@ export function BookingForm({
     });
   }, [services]);
 
-  // Robust unavailableSlots effect for timeSlot
+  // Clear a selected time only while the customer is still choosing one.
+  // Once they leave the form, this list also contains their own confirmed
+  // booking, and that must not wipe the slot or show the unavailable toast.
   const isFirstSlots = useRef(true);
   const prevTimeSlot = useRef(formData.timeSlot);
   useEffect(() => {
+    if (step !== "form") return;
     if (isFirstSlots.current) {
       isFirstSlots.current = false;
       prevTimeSlot.current = formData.timeSlot;
@@ -133,7 +136,7 @@ export function BookingForm({
       prevTimeSlot.current = prev.timeSlot;
       return prev;
     });
-  }, [unavailableSlots, formData.timeSlot]);
+  }, [unavailableSlots, formData.timeSlot, step]);
 
   useEffect(() => {
     if (clearedTimeSlot) {

@@ -128,7 +128,20 @@ This file combines the planned development roadmap and the reactive work log (fi
 - [x] 16.7 Log initialize, verify, confirm, ticket email, and webhook attempts on `PaymentEvent`
 - [ ] 16.8 Restore the charged amount to K10,000 before this flow is used for real deposits
 
+## Reactive Log
+
+F1.0 — 26 Sept 2026 — After a successful PayChangu payment the ticket is shown (“Appointment confirmed”) and a destructive toast still says “Time Slot Unavailable / The time slot you selected is no longer available.”
+- Affected area: `components/booking-form.tsx` unavailable-slot effect; `app/booking/page.tsx` successful-booking poll (`/api/bookings?status=successful`, 1s).
+- Root cause: Once verify marks the booking `successful`, the next poll adds that date/time to `unavailableSlots`. The form effect still holds the same `formData.timeSlot`, treats the customer’s own booking as a lost slot, clears it, and toasts. The ticket reads separate `ticketDetails`, so both the error and the confirmed ticket render together. The PayChangu receipt and the ticket (for example 2027-08-31 10:00, Gel soak off, MWK 100) are the real outcome.
+- Fix: Do not clear the slot or show that toast after the customer has left the form, and never when the slot disappeared because this payment just confirmed it. Keep the warning only while they are still choosing a time and another booking or an admin block takes that slot.
+- Security-relevant: No
+- Priority: High
+- Capsule log: `F1.0-false-slot-unavailable-toast.md`
+- Status: Resolved
+
 ## Recent Activity Index
+- 26 Sept 2026 — F1.0 resolved
+- 26 Sept 2026 — F1.0 False “Time Slot Unavailable” toast after a successful payment
 - 25 Sept 2026 — 16.0 Direct Charge booking payment
 - 25 Sept 2026 — 16.1 Remove hosted checkout
 - 25 Sept 2026 — 16.2 On-site TNM and Airtel payment step
