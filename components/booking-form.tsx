@@ -69,6 +69,7 @@ export function BookingForm({
   setPayerNumber,
   failureMessage,
   onRetry,
+  onAwaitingRetry,
   ticketDetails,
 }: BookingFormProps) {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -576,7 +577,15 @@ export function BookingForm({
                 <div className="space-y-4 text-center">
                   <div className="mx-auto h-8 w-8 animate-spin rounded-full border-b-2 border-brand-pink" />
                   <p className="text-gray-700">Check your phone and approve the PIN prompt. This page will update when PayChangu confirms the payment.</p>
-                  <p className="text-sm text-gray-500">Charge {formatDeposit()}. Stay on this page.</p>
+                  <p className="text-sm text-gray-500">Charge {formatDeposit()}. Stay on this page. Refreshing will not start a second charge.</p>
+                  {failureMessage ? (
+                    <p className="text-sm text-red-600">{failureMessage}</p>
+                  ) : null}
+                  {failureMessage && onAwaitingRetry ? (
+                    <Button type="button" variant="outline" className="w-full" onClick={onAwaitingRetry}>
+                      Start a new payment only if this one did not go through
+                    </Button>
+                  ) : null}
                 </div>
               ) : step === "failed" ? (
                 <div className="space-y-4 text-center">

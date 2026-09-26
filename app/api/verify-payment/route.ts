@@ -3,7 +3,7 @@ import prisma from "@/lib/prisma"
 import { logPaymentEvent } from "@/lib/paymentLogger"
 import { verifyDirectCharge } from "@/lib/paychangu-direct"
 import { classifyChargeStatus } from "@/lib/mobile-money"
-import { DEPOSIT_AMOUNT_MWK } from "@/lib/deposit"
+import { DEPOSIT_AMOUNT_MWK, chargedAmountMatches } from "@/lib/deposit"
 import { confirmPaidBooking } from "@/lib/confirm-booking"
 
 export async function POST(req: NextRequest) {
@@ -26,12 +26,16 @@ export async function POST(req: NextRequest) {
       result = await verifyDirectCharge(chargeId)
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : "Verify failed"
+      const status = typeof error === "object" && error && "status" in error ? Number((error as { status?: number }).status) : 0
       await logPaymentEvent({
         txRef: chargeId,
         eventType: "paychangu_verify_response",
-        status: "error",
+        status: status === 404 ? "absent" : "error",
         message,
       })
+      if (status === 404) {
+        return NextResponse.json({ status: "absent" }, { status: 202 })
+      }
       return NextResponse.json({ status: "pending", message: "Still waiting for PayChangu." }, { status: 202 })
     }
 
@@ -59,17 +63,17 @@ export async function POST(req: NextRequest) {
       })
     }
 
-    if (result.amount !== DEPOSIT_AMOUNT_MWK) {
+    if (!chargedAmountMatches(result.amount)) {
       await logPaymentEvent({
         txRef: chargeId,
         eventType: "paychangu_verify_response",
         status: "amount_mismatch",
         message: `Expected ${DEPOSIT_AMOUNT_MWK}, got ${result.amount}`,
       })
-      return NextResponse.json(
-        { status: "failed", message: "The payment amount did not match this booking." },
-        { status: 400 },
-      )
+      return NextResponse.json({
+        status: "review",
+        message: "PayChangu reported a different amount. Stay on this page and do not start another payment.",
+      })
     }
 
     const confirmed = await confirmPaidBooking(chargeId)

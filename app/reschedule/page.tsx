@@ -208,13 +208,18 @@ function RescheduleContent() {
         throw new Error(data.error || 'Failed to reschedule booking')
       }
 
+      sessionStorage.setItem('lauryn-luxe-booking', JSON.stringify({
+        ...data.booking,
+        fee: 'Rescheduled - No Additional Charge',
+        isReschedule: true,
+      }))
+
       toast({
         title: "Reschedule Successful",
         description: `Your appointment has been rescheduled to ${format(date, "MMMM dd, yyyy")} at ${formatTime(selectedTimeSlot)}.`,
       })
 
-      // Redirect to booking status page
-      router.push(`/booking/status?ticketId=${booking.ticketId}`)
+      router.push(`/booking/confirmation?ticketId=${encodeURIComponent(data.booking.ticketId)}`)
 
     } catch (error: any) {
       console.error('Reschedule error:', error)
@@ -379,9 +384,9 @@ function RescheduleContent() {
           <div className="mt-6 text-center">
             <Button 
               variant="outline" 
-              onClick={() => router.push(`/booking/status?ticketId=${booking.ticketId}`)}
+              onClick={() => router.push(fromAccount ? '/account' : '/lookup')}
             >
-              Back to Booking Status
+              {fromAccount ? "Back to Account" : "Back to Lookup"}
             </Button>
           </div>
         </div>

@@ -34,6 +34,7 @@ export interface BookingFormProps {
   setPayerNumber: React.Dispatch<React.SetStateAction<string>>;
   failureMessage?: string;
   onRetry: () => void;
+  onAwaitingRetry?: () => void;
   ticketDetails?: {
     name: string;
     date: string;

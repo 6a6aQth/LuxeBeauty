@@ -100,7 +100,9 @@ export async function verifyDirectCharge(chargeId: string): Promise<VerifyDirect
   )
   const body = await res.json().catch(() => ({}))
   if (!res.ok) {
-    throw new Error(body.message || "PayChangu verify failed.")
+    const error = new Error(body.message || "PayChangu verify failed.") as Error & { status?: number }
+    error.status = res.status
+    throw error
   }
   return {
     status: String(body.data?.status ?? "pending"),

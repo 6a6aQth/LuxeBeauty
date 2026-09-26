@@ -4,7 +4,7 @@ import prisma from "@/lib/prisma"
 import { logPaymentEvent } from "@/lib/paymentLogger"
 import { verifyDirectCharge } from "@/lib/paychangu-direct"
 import { classifyChargeStatus } from "@/lib/mobile-money"
-import { DEPOSIT_AMOUNT_MWK } from "@/lib/deposit"
+import { DEPOSIT_AMOUNT_MWK, chargedAmountMatches } from "@/lib/deposit"
 import { confirmPaidBooking } from "@/lib/confirm-booking"
 
 function signaturesMatch(payload: string, signature: string | null, secret: string) {
@@ -100,7 +100,7 @@ export async function POST(req: NextRequest) {
     })
     return NextResponse.json({ received: true, status: "failed" })
   }
-  if (result.amount !== DEPOSIT_AMOUNT_MWK) {
+  if (!chargedAmountMatches(result.amount)) {
     await logPaymentEvent({
       txRef: chargeId,
       eventType: "paychangu_verify_response",
