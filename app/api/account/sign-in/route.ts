@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getNeonAuth } from "@/lib/auth/neon";
+import { findNeonIdentityByEmail, GOOGLE_ONLY_SIGN_IN_MESSAGE, isGoogleOnly } from "@/lib/auth/one-email";
 
 export async function POST(req: Request) {
   const neon = getNeonAuth();
@@ -15,6 +16,15 @@ export async function POST(req: Request) {
   const password = String(body?.password ?? "");
   if (!email || !password) {
     return NextResponse.json({ error: "Email and password are required." }, { status: 400 });
+  }
+
+  try {
+    const identity = await findNeonIdentityByEmail(email);
+    if (identity && isGoogleOnly(identity)) {
+      return NextResponse.json({ error: GOOGLE_ONLY_SIGN_IN_MESSAGE }, { status: 401 });
+    }
+  } catch {
+    return NextResponse.json({ error: "Could not check this email. Try again." }, { status: 503 });
   }
 
   const { error } = await neon.signIn.email({ email, password });

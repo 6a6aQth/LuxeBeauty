@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getSessionUser } from "@/lib/auth/session";
+import { EMAIL_ALREADY_HAS_ACCOUNT, emailBelongsToOtherProfile, LINKED_EMAIL_MESSAGE } from "@/lib/auth/one-email";
 import { canonicalPhone } from "@/lib/phone";
 
 /** After Google sign-in, store the studio phone on CustomerProfile. */
@@ -32,9 +33,15 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "That phone number already belongs to an account." }, { status: 409 });
   }
 
-  const emailTaken = await prisma.customerProfile.findUnique({ where: { email } });
-  if (emailTaken) {
-    return NextResponse.json({ error: "That email already belongs to an account." }, { status: 409 });
+  const sessionEmail = session.user.email ?? "";
+  if (
+    (await emailBelongsToOtherProfile(sessionEmail, session.user.id)) ||
+    (await emailBelongsToOtherProfile(email, session.user.id))
+  ) {
+    return NextResponse.json(
+      { error: LINKED_EMAIL_MESSAGE, code: EMAIL_ALREADY_HAS_ACCOUNT },
+      { status: 409 },
+    );
   }
 
   await prisma.customerProfile.create({

@@ -135,6 +135,12 @@ This file combines the planned development roadmap and the reactive work log (fi
 - [x] 17.4 Replace the services catalog’s empty wait, the prices gray skeleton, and the booking form’s “Loading categories…” line with the small mark
 - [x] 17.5 Use the small mark for lookup search, “Show earlier visits”, the booking “Please wait while we process your booking...” line, and the admin subscriber “Loading...” count. Leave the payment step’s existing step copy in place
 
+18.0 Same email across Google and password (generated against SDD v5)
+- [x] 18.1 When someone who already continued with Google tries email and password sign-in, do not create a Neon user, do not create a CustomerProfile, and do not start a session. Tell them to continue with Google.
+- [x] 18.2 When someone tries to sign up with an email that already belongs to an account, including a Google sign-in that has not saved a phone yet, refuse it. Do not create a second profile.
+- [x] 18.3 On sign-up, require the password twice and refuse submit when the two values differ. On sign-up and sign-in, let the customer show or hide the password. Send one password to Neon Auth. Do not store it in the app database.
+- [x] 18.4 When a password account later continues with Google for the same verified email, keep the same Neon user and the existing CustomerProfile. Do not ask them to create a second profile.
+
 ## Reactive Log
 
 F1.0 — 26 Sept 2026 — After a successful PayChangu payment the ticket is shown (“Appointment confirmed”) and a destructive toast still says “Time Slot Unavailable / The time slot you selected is no longer available.”
@@ -147,6 +153,11 @@ F1.0 — 26 Sept 2026 — After a successful PayChangu payment the ticket is sho
 - Status: Resolved
 
 ## Recent Activity Index
+- 26 Sept 2026 — 18.0 Same email across Google and password
+- 26 Sept 2026 — 18.1 Google-only email cannot sign in with a password
+- 26 Sept 2026 — 18.2 Refuse sign-up when the email already exists
+- 26 Sept 2026 — 18.3 Confirm password and show or hide it
+- 26 Sept 2026 — 18.4 Google after a password account stays one profile
 - 26 Sept 2026 — 17.0 Luxury loading mark
 - 26 Sept 2026 — 17.1 Shared full-page and inline mark from `/Llogo.png`
 - 26 Sept 2026 — 17.2 Full-page waits on home, booking, status, and verifying

@@ -9,6 +9,7 @@
 |---------|------|---------|
 | 5 | 2026-09-25 | Booking payment leaves PayChangu hosted checkout. The booking flow collects TNM Mpamba or Airtel Money on the site, starts a Direct Charge, and confirms only after PayChangu verify succeeds. That confirm writes the booking, shows the ticket, and emails it through Resend. The webhook stays a backup and does not confirm anything until its secret exists. The studio deposit stays K10,000. This integration test charges MWK 100. |
 | 5 addendum | 2026-09-26 | FR-24. Waiting states use one luxury mark, `/Llogo.png`. A full-page wait is a black field with the mark and at most one quiet line. An in-page wait uses the same mark smaller and keeps the header and footer. |
+| 5 addendum | 2026-09-26 | FR-16, FR-17, FR-25. One email is one account across Google and a password. A Google-only account cannot sign in with a password. Sign-up confirms the password, and sign-in and sign-up can show it. |
 | 4 | 2026-09-25 | Phone inputs accept a Malawi local number or an international number that starts with `+`. Stored value is E.164. Malawi `08`/`09` forms still collapse to `+265` plus 9 digits. Other countries, such as `+256`, stay their own loyalty key. Names and junk are rejected on input. |
 | 3 | 2026-09-25 | Loyalty, visits, and account phone checks use one Malawi number: `+265` plus 9 digits. Local `0`, bare `265`, `+265`, and spacing are the same phone. The 30% rule and the K10,000 PayChangu deposit are unchanged. |
 | 2 | 2026-09-25 | Optional customer accounts via Neon Auth. Guests still book without an account. Signed-in customers skip name, phone, and email on the booking form, see upcoming and past visits for their phone, open the existing ticket, and reschedule under the existing once / 24-hour / no-payment rules. Loyalty stays keyed to the phone number; the account shows progress toward the next 30% visit. |
@@ -53,8 +54,8 @@ Lauryn Luxe Beauty Studio is a **customer-facing beauty booking platform** for a
 | FR-13 | **Payment Audit Trail** — All payment events logged to `PaymentEvent` table with sequential numbering per transaction. | ✅ Implemented | `lib/paymentLogger.ts` |
 | FR-14 | **Ticket Download** — Confirmation page renders a ticket UI and allows PNG download via `html2canvas`. | ✅ Implemented | `booking/confirmation/page.tsx` |
 | FR-15 | **Admin Manual Payment Verification** — Admin can manually verify a pending payment by transaction reference. | ✅ Implemented | `admin/verify-payment/route.ts` |
-| FR-16 | **Optional customer account** — A customer may sign up and sign in with Neon Auth (email + password). Sign-in is optional. A guest with no session books exactly as today: same form, deposit, payment, ticket, lookup, and reschedule. | 🔲 Specified (v2) | Neon Auth |
-| FR-17 | **Signup profile** — Signup collects name, email, password, and phone. Email is the Neon Auth login. Phone is required, stored as the E.164 value from FR-03, and unique on that value. Password is held by Neon Auth, not by the app database. The phone field rejects letters and any value that does not canonicalize. | 🔲 Specified (v4) | Customer profile |
+| FR-16 | **Optional customer account** — A customer may sign up and sign in with Neon Auth using email and password, or continue with Google. Sign-in is optional. A guest with no session books exactly as today: same form, deposit, payment, ticket, lookup, and reschedule. The same email is one account (FR-25). | 🔲 Specified (v5 addendum) | Neon Auth |
+| FR-17 | **Signup profile** — Signup collects name, email, password, and phone. Email is the Neon Auth login. Phone is required, stored as the E.164 value from FR-03, and unique on that value. Password is held by Neon Auth, not by the app database. The phone field rejects letters and any value that does not canonicalize. On sign-up the password is entered twice and the two values must match before the account is created. Sign-up and sign-in can show or hide the password. Neon Auth still receives one password. The app does not store it. | 🔲 Specified (v5 addendum) | Customer profile |
 | FR-18 | **Signed-in booking** — When a session exists, the booking form does not ask for name, phone, or email. Those values come from the profile and are written onto the booking the same way a guest would have typed them. Services, date, time, notes, and inspiration photos are unchanged. | 🔲 Specified (v2) | Booking form |
 | FR-19 | **Account visits** — A signed-in customer has an account page with a **Visits** section: **Upcoming** and **Past**, listing successful bookings whose canonical phone equals the profile phone. No ticket-id search. Opening an upcoming visit shows the same downloadable ticket as `/booking/confirmation`. Past visits are appointments whose Blantyre date/time is already over. | 🔲 Specified (v3) | Account page |
 | FR-20 | **Reschedule from a visit** — Reschedule started from an upcoming visit uses the existing rules (FR-04): once, at least 24 hours before the appointment, no extra payment, conflict check unchanged. The server accepts it only when that booking's phone is the session phone. | 🔲 Specified (v2) | Reschedule |
@@ -62,6 +63,7 @@ Lauryn Luxe Beauty Studio is a **customer-facing beauty booking platform** for a
 | FR-22 | **On-site mobile money** — After the existing booking details, the customer picks TNM Mpamba or Airtel Money on the studio booking flow. TNM Mpamba accepts a Malawi number that starts with `08`. Airtel Money accepts a Malawi number that starts with `09`. That number is sent to PayChangu as the local mobile-money number. It does not replace the stored loyalty phone from FR-03. The operator id comes from PayChangu's operator list. The charge id is generated by the server, stored as `Booking` payment reference (`txRef` on `PaymentEvent`), and is new on every attempt. The screen stays on the site and tells the customer to approve the PIN prompt on their phone. The sample checkout screen in the Direct Charge guide is not used. | 🔲 Specified (v5) | Booking payment step |
 | FR-23 | **Ticket email** — When verify marks a booking successful and that booking has an email, Resend sends the ticket details to that address. The on-screen ticket and PNG download stay. A failed email does not undo the successful booking, same as a failed SMS. | 🔲 Specified (v5) | Resend, confirmation |
 | FR-24 | **Luxury loading mark** — Any customer-facing wait uses `/Llogo.png` (`public/Llogo.png`) and no other spinner, skeleton, or bare “Loading...” line. A wait that blocks the whole view (first paint, route suspense, account visits, finishing sign-in) is a black field, the mark centered with a soft glow, and at most one quiet line such as “Loading your visits”. A wait inside a page that is already on screen (services, prices, booking categories, lookup, sign-in and sign-up buttons, earlier visits) uses the same mark smaller and leaves the header and footer in place. Button labels stay; the mark sits with them. The payment step may keep its existing step copy. The Direct Charge flow, amounts, and confirm rules are unchanged. | 🔲 Specified (v5 addendum) | Loading mark |
+| FR-25 | **One email, one account** — Google and email/password are two ways into one Neon user and one CustomerProfile. A person who first continues with Google has no password. Signing in later with that email and a password does not create a second account, does not save that password, and does not start a session. The sign-in page tells them to continue with Google. Signing up with an email that already belongs to an account, including a Google sign-in that has not saved a phone yet, is refused. A person who first creates a password account and later continues with Google for that same verified email stays on that same Neon user and that same CustomerProfile, and is not asked to create a second profile. This does not add a forgot-password or set-password email. | 🔲 Specified (v5 addendum) | Neon Auth |
 
 ### 1.3 Non-Functional Requirements (Inferred)
 
@@ -87,7 +89,7 @@ Lauryn Luxe Beauty Studio is a **customer-facing beauty booking platform** for a
 - **API Routes** as the sole backend (no separate API server)
 - **No middleware layer** — each route handles its own validation/auth, except customer routes protected by the Neon Auth session (v2)
 - **Direct Prisma calls** from API routes (no service/repository abstraction)
-- **Neon Auth (Managed Better Auth)** for optional customer sign-up and sign-in (v2). Admin login stays the existing password check until that work is done separately.
+- **Neon Auth (Managed Better Auth)** for optional customer sign-up and sign-in, by email and password or by Google (v2, FR-25). Admin login stays the existing password check until that work is done separately.
 
 ### 2.2 Component Topology
 
@@ -141,7 +143,7 @@ Lauryn Luxe Beauty Studio is a **customer-facing beauty booking platform** for a
           │  (Payments)  │  │  (SMS)    │  │  (Email)     │
           └─────────────┘  └──────────┘  └──────────────┘
           ┌──────────────────────────────────────────────┐
-          │  Neon Auth (v2) — customer email/password    │
+          │  Neon Auth (v2) — email/password or Google   │
           │  Sessions in neon_auth; app stores profile   │
           └──────────────────────────────────────────────┘
                                           ┌──────────────┐
@@ -264,8 +266,8 @@ Signed-in booking uses this same sequence. The only difference is that name, pho
 | `/policies` | Public | Studio policies | None |
 | `/unsubscribed` | Public | Newsletter unsubscribe confirmation | None |
 | `/admin` | "Protected" | Full admin dashboard | Hardcoded password |
-| `/sign-in` | Public | Email + password sign-in (Neon Auth) | None to view; creates a customer session |
-| `/sign-up` | Public | Name, email, password, and phone | None to view; creates Neon Auth user + CustomerProfile |
+| `/sign-in` | Public | Google, or email + password. A Google-only email cannot sign in with a password (FR-25). | None to view; creates a customer session |
+| `/sign-up` | Public | Google, or name, email, password entered twice, and phone | None to view; creates Neon Auth user + CustomerProfile |
 | `/account` | Customer | Visits (upcoming and past) and loyalty progress | Neon Auth session |
 
 ---
