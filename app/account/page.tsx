@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { TicketFace, downloadTicketPng, TicketDetails } from "@/components/booking-ticket"
 import { formatTime } from "@/lib/time-slots"
 import { LuxuryMark } from "@/components/luxury-mark"
+import { authClient } from "@/lib/auth/client"
 
 type Visit = {
   id: string
@@ -132,6 +133,13 @@ export default function AccountPage() {
   const firstName = payload?.name.split(" ")[0] || ""
   const filled = payload ? 6 - payload.loyalty.visitsUntilDiscount : 0
 
+  async function signOut() {
+    await fetch("/api/auth/sign-out", { method: "POST" }).catch(() => {})
+    await authClient.signOut().catch(() => {})
+    router.push("/")
+    router.refresh()
+  }
+
   return (
     <div className="min-h-[70vh] bg-[#fdf6f8]">
       <div className="bg-stone-950">
@@ -141,7 +149,15 @@ export default function AccountPage() {
             <h1 className="mt-2 font-serif text-3xl text-white sm:mt-3 sm:text-4xl md:text-5xl">
               {firstName ? `Hi, ${firstName}` : "Your account"}
             </h1>
-            {payload && <p className="mt-2 truncate text-sm text-white/70">Visits for {payload.phone}</p>}
+            {payload && (
+              <button
+                type="button"
+                onClick={signOut}
+                className="mt-3 text-sm tracking-wide text-white/80 underline underline-offset-4 hover:text-white"
+              >
+                Sign out
+              </button>
+            )}
           </div>
           <img
             src="/llogo-mark.png"
@@ -231,12 +247,16 @@ export default function AccountPage() {
                               >
                                 {downloadingId === visit.id ? "Preparing…" : "Download Ticket"}
                               </Button>
-                              {visit.rescheduleCount < 1 && (
+                              {visit.rescheduleCount < 1 ? (
                                 <Button asChild variant="outline" className="rounded-md border-stone-300 text-stone-800 hover:bg-stone-50">
                                   <Link href={`/reschedule?ticketId=${encodeURIComponent(visit.ticketId)}&source=account`}>
                                     Reschedule
                                   </Link>
                                 </Button>
+                              ) : (
+                                <span className="inline-flex items-center rounded-md border border-stone-300 bg-stone-200 px-4 py-2 text-sm tracking-wide text-stone-500">
+                                  Rescheduled
+                                </span>
                               )}
                             </div>
                           </div>
@@ -282,20 +302,20 @@ export default function AccountPage() {
                   })}
                 </ul>
                 {payload.pastHasMore && (
-                  <button
-                    type="button"
-                    disabled={loadingMore}
-                    onClick={() => {
-                      setLoadingMore(true)
-                      setPastPage((page) => page + 1)
-                    }}
-                    className="mt-4 text-sm tracking-wide text-stone-700 underline underline-offset-4 hover:text-stone-950"
-                  >
-                    <span className="inline-flex items-center gap-2">
+                  <div className="mt-4 flex justify-center">
+                    <button
+                      type="button"
+                      disabled={loadingMore}
+                      onClick={() => {
+                        setLoadingMore(true)
+                        setPastPage((page) => page + 1)
+                      }}
+                      className="inline-flex items-center gap-2 text-sm tracking-wide text-stone-700 underline underline-offset-4 hover:text-stone-950"
+                    >
                       {loadingMore ? <LuxuryMark size="button" /> : null}
                       {`Show earlier visits (${payload.past.length} of ${payload.pastTotal})`}
-                    </span>
-                  </button>
+                    </button>
+                  </div>
                 )}
               </>
             )}

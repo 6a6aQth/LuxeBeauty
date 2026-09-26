@@ -12,6 +12,7 @@ import { Mail, Phone, Home } from 'lucide-react'
 import { Service } from '@/types/types';
 import { format, parseISO } from 'date-fns'
 import { formatDeposit } from '@/lib/deposit'
+import { LuxuryMark } from '@/components/luxury-mark'
 
 interface BookingDetails {
   id: string
@@ -33,6 +34,8 @@ export default function BookingConfirmationPage() {
   const [bookingDetails, setBookingDetails] = useState<BookingDetails | null>(null);
   const [loadError, setLoadError] = useState('');
   const [isClient, setIsClient] = useState(false);
+  const [ticketReady, setTicketReady] = useState(false);
+  const [servicesReady, setServicesReady] = useState(false);
   const [allServices, setAllServices] = useState<Service[]>([]);
   const ticketRef = useRef<HTMLDivElement>(null);
 
@@ -97,6 +100,8 @@ export default function BookingConfirmationPage() {
       } catch {
         setLoadError('We could not load this ticket. If you already paid, return to booking and stay on that page.');
         setBookingDetails(null);
+      } finally {
+        setTicketReady(true);
       }
     };
 
@@ -111,6 +116,8 @@ export default function BookingConfirmationPage() {
         }
       } catch (error) {
         console.error('Failed to fetch services', error);
+      } finally {
+        setServicesReady(true);
       }
     };
     fetchServices();
@@ -176,8 +183,8 @@ export default function BookingConfirmationPage() {
     }
   }
 
-  if (!isClient) {
-    return null; // Render nothing on the server
+  if (!isClient || !ticketReady || !servicesReady) {
+    return <LuxuryMark variant="page" />
   }
 
   if (!bookingDetails) {

@@ -27,7 +27,6 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Calendar as CalendarIcon } from "lucide-react";
-import { LuxuryMark } from "@/components/luxury-mark";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Textarea } from "@/components/ui/textarea";
@@ -334,7 +333,7 @@ export function BookingForm({
                       Select Service Category
                     </Label>
                     {servicesLoading ? (
-                      <LuxuryMark className="items-start py-3" />
+                      <p className="text-sm text-stone-400">Loading categories…</p>
                     ) : (
                     <Select
                       onValueChange={setSelectedCategory}

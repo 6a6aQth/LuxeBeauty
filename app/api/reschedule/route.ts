@@ -290,6 +290,10 @@ export async function GET(req: NextRequest) {
       }, { status: 400 });
     }
 
+    const catalog = await prisma.service.findMany({ select: { id: true, name: true } })
+    const nameById = new Map(catalog.map((service) => [service.id, service.name]))
+    const serviceNames = booking.services.map((id) => nameById.get(id) || id)
+
     return NextResponse.json({
       booking: {
         id: booking.id,
@@ -300,6 +304,7 @@ export async function GET(req: NextRequest) {
         date: booking.date,
         timeSlot: booking.timeSlot,
         services: booking.services,
+        serviceNames,
         notes: booking.notes,
         rescheduleCount: booking.rescheduleCount,
         originalDate: booking.originalDate
