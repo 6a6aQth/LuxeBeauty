@@ -27,6 +27,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Calendar as CalendarIcon } from "lucide-react";
+import { LuxuryMark } from "@/components/luxury-mark";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Textarea } from "@/components/ui/textarea";
@@ -332,20 +333,18 @@ export function BookingForm({
                     <Label className="text-base font-medium text-gray-900">
                       Select Service Category
                     </Label>
+                    {servicesLoading ? (
+                      <LuxuryMark className="items-start py-3" />
+                    ) : (
                     <Select
                       onValueChange={setSelectedCategory}
                       value={selectedCategory || ""}
-                      disabled={servicesLoading}
                     >
                       <SelectTrigger className="bg-gray-50 border-gray-300 text-gray-900 rounded-md focus:ring-brand-pink">
                         <SelectValue placeholder="Select a category" />
                       </SelectTrigger>
                       <SelectContent className="bg-white text-gray-900 border-gray-200">
-                        {servicesLoading ? (
-                          <SelectItem value="__loading" disabled>
-                            Loading categories…
-                          </SelectItem>
-                        ) : categories.length === 0 ? (
+                        {categories.length === 0 ? (
                           <SelectItem value="__empty" disabled>
                             No categories found.
                           </SelectItem>
@@ -364,6 +363,7 @@ export function BookingForm({
                         )}
                       </SelectContent>
                     </Select>
+                    )}
                   </div>
 
                   {selectedCategory && (

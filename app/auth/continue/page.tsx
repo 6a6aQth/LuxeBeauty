@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { canonicalPhone, sanitizePhoneInput } from "@/lib/phone"
+import { LuxuryMark } from "@/components/luxury-mark"
 
 export default function ContinuePage() {
   const router = useRouter()
@@ -74,7 +75,7 @@ export default function ContinuePage() {
   }
 
   if (!ready) {
-    return <p className="px-4 py-16 text-center text-sm text-gray-500">Finishing sign-in…</p>
+    return <LuxuryMark variant="page" label="Finishing sign-in…" />
   }
 
   return (
@@ -107,6 +108,7 @@ export default function ContinuePage() {
           </div>
           {error && <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
           <Button type="submit" className="w-full rounded-lg bg-brand-pink text-white hover:bg-brand-pink/90" disabled={pending}>
+            {pending ? <LuxuryMark size="button" tone="ink" /> : null}
             {pending ? "Saving…" : "Continue"}
           </Button>
         </form>

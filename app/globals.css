@@ -91,6 +91,53 @@
   box-shadow: 0 0 15px rgba(255, 192, 203, 0.3);
 }
 
+.luxury-breathe {
+  animation: luxury-breathe 4.2s ease-in-out infinite;
+}
+
+.luxury-paper {
+  filter: invert(1);
+  mix-blend-mode: multiply;
+}
+
+.luxury-glow {
+  animation: luxury-glow 4.2s ease-in-out infinite;
+}
+
+@keyframes luxury-breathe {
+  0%,
+  100% {
+    opacity: 0.78;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes luxury-glow {
+  0%,
+  100% {
+    opacity: 0.4;
+    transform: translate(-50%, -50%) scale(0.92);
+  }
+  50% {
+    opacity: 0.9;
+    transform: translate(-50%, -50%) scale(1.06);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .luxury-breathe {
+    animation: none;
+  }
+
+  .luxury-glow {
+    animation: none;
+    opacity: 0.55;
+    transform: translate(-50%, -50%);
+  }
+}
+
 .gradient-bg {
   background: linear-gradient(135deg, #ffffff 0%, #fff0f5 100%);
 }

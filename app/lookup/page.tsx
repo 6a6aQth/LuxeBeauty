@@ -12,6 +12,7 @@ import { parseISO, format, isValid, subDays, isAfter } from "date-fns"
 import { formatTime } from "@/lib/time-slots"
 import { PageHeader } from "@/components/page-header"
 import Link from 'next/link'
+import { LuxuryMark } from "@/components/luxury-mark"
 
 interface Booking {
   id: string;
@@ -178,7 +179,7 @@ export default function BookingLookupPage() {
                       >
                         {isLoading ? (
                           <div className="flex items-center">
-                            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                            <LuxuryMark size="button" tone="ink" className="mr-2" />
                             Looking up...
                           </div>
                         ) : (

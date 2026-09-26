@@ -18,6 +18,7 @@ import { BookingForm } from "@/components/booking-form"
 import useSWR from 'swr';
 import { authClient } from "@/lib/auth/client"
 import { formatDeposit } from "@/lib/deposit"
+import { LuxuryMark } from "@/components/luxury-mark"
 import { localMobileMoneyNumber, type MobileOperator } from "@/lib/mobile-money"
 import type { TicketDetails } from "@/components/booking-ticket"
 
@@ -68,7 +69,7 @@ function clearPendingCharge() {
 // Wrap the client component that uses useSearchParams in Suspense to satisfy Next.js CSR bailout
 export default function Booking() {
   return (
-    <Suspense fallback={null}>
+    <Suspense fallback={<LuxuryMark variant="page" />}>
       <BookingContent />
     </Suspense>
   );
@@ -104,7 +105,7 @@ function BookingContent() {
   const [isReschedule, setIsReschedule] = useState(false);
   const [rescheduleTicketId, setRescheduleTicketId] = useState('');
   const [accountBooking, setAccountBooking] = useState(false);
-  const { data: session, isPending: sessionPending } = authClient.useSession();
+  const { data: session } = authClient.useSession();
 
   useEffect(() => {
     // Primary path: sessionStorage handoff from lookup page
@@ -179,11 +180,12 @@ function BookingContent() {
   }, [searchParams]);
 
   useEffect(() => {
-    if (sessionPending || !session?.user || isReschedule || skipAccountFill.current) return
+    if (isReschedule || skipAccountFill.current) return
     let cancelled = false
     async function loadProfile() {
       const response = await fetch("/api/account/profile")
       if (cancelled) return
+      if (response.status === 401 || response.status === 503) return
       if (response.status === 404) {
         router.replace("/auth/continue")
         return
@@ -198,12 +200,13 @@ function BookingContent() {
         email: profile.email || prev.email,
       }))
       setAccountBooking(true)
+      void authClient.getSession()
     }
     loadProfile()
     return () => {
       cancelled = true
     }
-  }, [session, sessionPending, isReschedule, router]);
+  }, [isReschedule, router]);
 
   useEffect(() => {
     if (step === 'payment') {
@@ -488,7 +491,7 @@ function BookingContent() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           formData,
-          useSession: Boolean(session?.user),
+          useSession: accountBooking || Boolean(session?.user),
           operator,
           mobile: payer,
         }),
@@ -502,7 +505,7 @@ function BookingContent() {
         operator,
         mobile: payer,
         formData,
-        useSession: Boolean(session?.user),
+        useSession: accountBooking || Boolean(session?.user),
       };
       writePendingCharge(pending);
       setChargeId(data.chargeId);
@@ -681,7 +684,7 @@ function BookingContent() {
           </DialogHeader>
           <div className="flex items-center justify-center py-8">
             <div className="text-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-pink-600 mx-auto mb-4"></div>
+              <LuxuryMark size="block" className="py-2" />
               <p id="booking-processing-description" className="text-gray-600">Please wait while we process your booking...</p>
             </div>
           </div>

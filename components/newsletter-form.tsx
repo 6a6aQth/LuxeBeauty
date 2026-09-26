@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/hooks/use-toast';
+import { LuxuryMark } from '@/components/luxury-mark';
 
 interface Subscriber {
   id: string;
@@ -106,7 +107,7 @@ export default function NewsletterForm() {
         </div>
         <div className="flex justify-between items-center">
           <p className="text-sm text-gray-500">
-            {isLoading ? 'Loading...' : `${subscribers.length} subscriber(s)`}
+            {isLoading ? <LuxuryMark size="button" /> : `${subscribers.length} subscriber(s)`}
           </p>
           <Button type="submit" disabled={!subject || !content || subscribers.length === 0 || isSending}>
             {isSending ? 'Sending...' : 'Send Newsletter'}

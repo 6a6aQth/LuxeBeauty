@@ -27,7 +27,7 @@ const navLinks = [
   { href: "/policies", label: "Policies" },
 ]
 
-function AccountMenu({ signedIn, onNavigate }: { signedIn: boolean; onNavigate?: () => void }) {
+function AccountMenu({ signedIn, onNavigate, onSignedOut }: { signedIn: boolean; onNavigate?: () => void; onSignedOut: () => void }) {
   const router = useRouter()
   const menuRef = useRef<HTMLDivElement>(null)
   const [open, setOpen] = useState(false)
@@ -53,7 +53,9 @@ function AccountMenu({ signedIn, onNavigate }: { signedIn: boolean; onNavigate?:
   async function signOut() {
     setOpen(false)
     onNavigate?.()
-    await authClient.signOut()
+    await fetch("/api/auth/sign-out", { method: "POST" }).catch(() => {})
+    await authClient.signOut().catch(() => {})
+    onSignedOut()
     router.push("/")
     router.refresh()
   }
@@ -107,8 +109,22 @@ function AccountMenu({ signedIn, onNavigate }: { signedIn: boolean; onNavigate?:
 const Header = () => {
   const pathname = usePathname()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
-  const { data: session, isPending } = authClient.useSession()
-  const signedIn = Boolean(session?.user)
+  const [signedIn, setSignedIn] = useState(false)
+  const [checked, setChecked] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    async function load() {
+      const response = await fetch("/api/account/profile", { cache: "no-store" })
+      if (cancelled) return
+      setSignedIn(response.status === 200 || response.status === 404)
+      setChecked(true)
+    }
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [pathname])
 
   const isAdminPage = pathname.startsWith('/admin')
 
@@ -143,7 +159,9 @@ const Header = () => {
             </div>
           ) : (
             <div className="flex items-center gap-6">
-              {!isPending && <AccountMenu signedIn={signedIn} />}
+              {!isAdminPage && checked && (
+                <AccountMenu signedIn={signedIn} onSignedOut={() => setSignedIn(false)} />
+              )}
               <Button asChild className="rounded-lg">
                 <Link href="/booking">Book Appointment</Link>
               </Button>
@@ -153,8 +171,8 @@ const Header = () => {
 
         {/* Mobile Navigation */}
         <div className="flex items-center gap-2 md:hidden">
-          {!isAdminPage && !isPending && (
-            <AccountMenu signedIn={signedIn} onNavigate={() => setIsMobileMenuOpen(false)} />
+          {!isAdminPage && checked && (
+            <AccountMenu signedIn={signedIn} onNavigate={() => setIsMobileMenuOpen(false)} onSignedOut={() => setSignedIn(false)} />
           )}
           <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
             <SheetTrigger asChild>

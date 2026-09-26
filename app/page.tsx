@@ -12,6 +12,7 @@ import { AnimatedSection } from "@/components/ui/animated-section"
 import NewsletterSignup from "@/components/newsletter-signup"
 import { PulsatingButton } from "@/components/ui/pulsating-button"
 import { SparklesText } from "@/components/ui/sparkles-text"
+import { LuxuryMark } from "@/components/luxury-mark"
 
 function HomeContent() {
   const searchParams = useSearchParams()
@@ -328,7 +329,7 @@ function HomeContent() {
 
 export default function Home() {
   return (
-    <React.Suspense fallback={<div>Loading...</div>}>
+    <React.Suspense fallback={<LuxuryMark variant="page" />}>
       <HomeContent />
     </React.Suspense>
   )

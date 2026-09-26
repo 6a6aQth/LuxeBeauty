@@ -128,6 +128,13 @@ This file combines the planned development roadmap and the reactive work log (fi
 - [x] 16.7 Log initialize, verify, confirm, ticket email, and webhook attempts on `PaymentEvent`
 - [ ] 16.8 Restore the charged amount to K10,000 before this flow is used for real deposits
 
+17.0 Luxury loading mark (generated against SDD v5)
+- [x] 17.1 Add one shared mark from `/Llogo.png` with two sizes: a full-page black field, centered mark, soft glow, and at most one quiet line; and a smaller mark that leaves the header and footer in place
+- [x] 17.2 Use the full-page mark for the homepage “Loading...” suspense, the empty booking and reschedule suspense fallbacks, the booking status and verifying “Loading...” fallbacks, and any route navigation that is otherwise a blank wait
+- [x] 17.3 Use the full-page mark for account “Loading your visits…” and “Finishing sign-in…”. On sign-in, sign-up, Google, and profile-continue, keep the button label and show the small mark beside it
+- [x] 17.4 Replace the services catalog’s empty wait, the prices gray skeleton, and the booking form’s “Loading categories…” line with the small mark
+- [x] 17.5 Use the small mark for lookup search, “Show earlier visits”, the booking “Please wait while we process your booking...” line, and the admin subscriber “Loading...” count. Leave the payment step’s existing step copy in place
+
 ## Reactive Log
 
 F1.0 — 26 Sept 2026 — After a successful PayChangu payment the ticket is shown (“Appointment confirmed”) and a destructive toast still says “Time Slot Unavailable / The time slot you selected is no longer available.”
@@ -140,6 +147,12 @@ F1.0 — 26 Sept 2026 — After a successful PayChangu payment the ticket is sho
 - Status: Resolved
 
 ## Recent Activity Index
+- 26 Sept 2026 — 17.0 Luxury loading mark
+- 26 Sept 2026 — 17.1 Shared full-page and inline mark from `/Llogo.png`
+- 26 Sept 2026 — 17.2 Full-page waits on home, booking, status, and verifying
+- 26 Sept 2026 — 17.3 Account visits, finishing sign-in, and auth buttons
+- 26 Sept 2026 — 17.4 Services, prices, and booking categories
+- 26 Sept 2026 — 17.5 Lookup, earlier visits, booking wait, and subscriber count
 - 26 Sept 2026 — F1.0 resolved
 - 26 Sept 2026 — F1.0 False “Time Slot Unavailable” toast after a successful payment
 - 25 Sept 2026 — 16.0 Direct Charge booking payment

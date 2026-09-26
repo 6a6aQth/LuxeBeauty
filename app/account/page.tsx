@@ -7,6 +7,7 @@ import { format, parseISO } from "date-fns"
 import { Button } from "@/components/ui/button"
 import { TicketFace, downloadTicketPng, TicketDetails } from "@/components/booking-ticket"
 import { formatTime } from "@/lib/time-slots"
+import { LuxuryMark } from "@/components/luxury-mark"
 
 type Visit = {
   id: string
@@ -155,7 +156,7 @@ export default function AccountPage() {
         {error && (
           <p className="mt-8 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>
         )}
-        {!payload && !error && <p className="mt-10 text-sm text-stone-500">Loading your visits…</p>}
+        {!payload && !error && <LuxuryMark variant="page" label="Loading your visits…" />}
 
         {payload && (
           <>
@@ -290,7 +291,10 @@ export default function AccountPage() {
                     }}
                     className="mt-4 text-sm tracking-wide text-stone-700 underline underline-offset-4 hover:text-stone-950"
                   >
-                    {loadingMore ? "Loading…" : `Show earlier visits (${payload.past.length} of ${payload.pastTotal})`}
+                    <span className="inline-flex items-center gap-2">
+                      {loadingMore ? <LuxuryMark size="button" /> : null}
+                      {`Show earlier visits (${payload.past.length} of ${payload.pastTotal})`}
+                    </span>
                   </button>
                 )}
               </>

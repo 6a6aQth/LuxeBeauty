@@ -8,6 +8,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { GoogleAuthButton } from "@/components/google-auth-button"
 import { canonicalPhone, sanitizePhoneInput } from "@/lib/phone"
+import { authClient } from "@/lib/auth/client"
+import { LuxuryMark } from "@/components/luxury-mark"
 
 export default function SignUpPage() {
   const router = useRouter()
@@ -37,6 +39,7 @@ export default function SignUpPage() {
       })
       const data = await response.json()
       if (!response.ok) throw new Error(data.error || "Sign-up failed")
+      await authClient.getSession()
       router.push("/account")
       router.refresh()
     } catch (err) {
@@ -89,6 +92,7 @@ export default function SignUpPage() {
             </div>
             {error && <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
             <Button type="submit" className="w-full rounded-lg bg-brand-pink text-white hover:bg-brand-pink/90" disabled={pending}>
+              {pending ? <LuxuryMark size="button" tone="ink" /> : null}
               {pending ? "Creating account…" : "Create account"}
             </Button>
           </form>

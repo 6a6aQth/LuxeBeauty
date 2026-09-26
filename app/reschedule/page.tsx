@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "@/hooks/use-toast"
 import { parseISO, format, isValid, addDays } from "date-fns"
+import { LuxuryMark } from "@/components/luxury-mark"
 import { Calendar as CalendarIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Calendar } from "@/components/ui/calendar"
@@ -44,7 +45,7 @@ interface Booking {
 
 export default function ReschedulePage() {
   return (
-    <Suspense fallback={null}>
+    <Suspense fallback={<LuxuryMark variant="page" />}>
       <RescheduleContent />
     </Suspense>
   )

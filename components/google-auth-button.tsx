@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { authClient } from "@/lib/auth/client"
+import { LuxuryMark } from "@/components/luxury-mark"
 
 export function GoogleAuthButton() {
   const [error, setError] = useState("")
@@ -28,7 +29,7 @@ export function GoogleAuthButton() {
         disabled={pending}
         className="flex w-full items-center justify-center gap-3 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-800 transition-colors hover:bg-gray-50 disabled:opacity-60"
       >
-        <GoogleMark />
+        {pending ? <LuxuryMark size="button" /> : <GoogleMark />}
         {pending ? "Opening Google…" : "Continue with Google"}
       </button>
       {error && <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
