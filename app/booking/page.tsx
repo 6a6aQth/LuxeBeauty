@@ -409,6 +409,20 @@ function BookingContent() {
       }
       setChargeId(data.chargeId);
       setStep('awaiting');
+      // The phone prompt can succeed even when this request dies on a slow connection.
+      // Polling already has the charge id, so a "Load failed" here is not a failed payment.
+      void fetch('/api/paychangu-checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'initialize',
+          chargeId: data.chargeId,
+          formData,
+          useSession: Boolean(session?.user),
+          operator,
+          mobile: payer,
+        }),
+      }).catch(() => {});
     } catch (error: any) {
       toast({
         title: "Payment Error",

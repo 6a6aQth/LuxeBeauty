@@ -12,11 +12,13 @@ export async function POST(req: Request) {
   let chargeId = "unknown"
   try {
     const body = await req.json()
-    const { formData, useSession, operator, mobile } = body as {
+    const { formData, useSession, operator, mobile, action, chargeId: existingChargeId } = body as {
       formData?: Record<string, unknown>
       useSession?: boolean
       operator?: MobileOperator
       mobile?: string
+      action?: string
+      chargeId?: string
     }
 
     if (!formData) {
@@ -75,6 +77,46 @@ export async function POST(req: Request) {
       return NextResponse.json({ message: "Booking details are incomplete." }, { status: 400 })
     }
 
+    if (action === "initialize") {
+      chargeId = String(existingChargeId || "")
+      if (!chargeId) {
+        return NextResponse.json({ message: "Missing charge id." }, { status: 400 })
+      }
+      const booking = await prisma.booking.findUnique({ where: { ticketId: chargeId } })
+      if (!booking) {
+        return NextResponse.json({ message: "Booking not found." }, { status: 404 })
+      }
+      if (booking.status === "successful") {
+        return NextResponse.json({ chargeId, status: "success" })
+      }
+      const nameParts = String(booking.name).trim().split(/\s+/)
+      const refId = await operatorRefId(operator)
+      const charged = await chargeMobileMoney({
+        mobile: payer,
+        mobileMoneyOperatorRefId: refId,
+        amount: DEPOSIT_AMOUNT_MWK,
+        chargeId,
+        email: booking.email ?? undefined,
+        firstName: nameParts[0],
+        lastName: nameParts.slice(1).join(" ") || nameParts[0],
+      })
+      await logPaymentEvent({
+        txRef: chargeId,
+        bookingId: booking.id,
+        eventType: "paychangu_initialize",
+        status: charged.initialStatus,
+        message: charged.message || "PayChangu accepted the charge",
+      })
+      await logPaymentEvent({
+        txRef: chargeId,
+        bookingId: booking.id,
+        eventType: "awaiting_pin",
+        status: "pending",
+        message: "Waiting for the customer to approve the phone prompt",
+      })
+      return NextResponse.json({ chargeId, status: "pending", amount: DEPOSIT_AMOUNT_MWK })
+    }
+
     chargeId = `LLB-${Date.now()}-${Math.floor(Math.random() * 1000000)}`
     await logPaymentEvent({
       txRef: chargeId,
@@ -84,7 +126,6 @@ export async function POST(req: Request) {
       payload: { operator, amount: DEPOSIT_AMOUNT_MWK },
     })
 
-    const nameParts = name.split(/\s+/)
     const booking = await prisma.booking.create({
       data: {
         name,
@@ -111,34 +152,8 @@ export async function POST(req: Request) {
       message: "Pending booking stored",
     })
 
-    const refId = await operatorRefId(operator)
-    const charged = await chargeMobileMoney({
-      mobile: payer,
-      mobileMoneyOperatorRefId: refId,
-      amount: DEPOSIT_AMOUNT_MWK,
-      chargeId,
-      email: booking.email ?? undefined,
-      firstName: nameParts[0],
-      lastName: nameParts.slice(1).join(" ") || nameParts[0],
-    })
-
-    await logPaymentEvent({
-      txRef: chargeId,
-      bookingId: booking.id,
-      eventType: "paychangu_initialize",
-      status: charged.initialStatus,
-      message: charged.message || "PayChangu accepted the charge",
-    })
-    await logPaymentEvent({
-      txRef: chargeId,
-      bookingId: booking.id,
-      eventType: "awaiting_pin",
-      status: "pending",
-      message: "Waiting for the customer to approve the phone prompt",
-    })
-
     return NextResponse.json({
-      chargeId: charged.chargeId,
+      chargeId,
       status: "pending",
       amount: DEPOSIT_AMOUNT_MWK,
     })
