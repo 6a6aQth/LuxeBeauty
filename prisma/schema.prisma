@@ -26,25 +26,6 @@ model Booking {
   status            String   @default("successful")
 }
 
-/// Immutable audit trail of payment-related events per transaction reference
-model PaymentEvent {
-  id         String   @id @default(cuid())
-  txRef      String
-  bookingId  String?
-  eventType  String
-  status     String?
-  httpStatus Int?
-  message    String?
-  payload    Json?
-  attempt    Int      @default(0)
-  sequence   Int
-  createdAt  DateTime @default(now())
-
-  @@index([txRef])
-  @@index([bookingId])
-  @@index([txRef, sequence])
-}
-
 model UnavailableDate {
   id        String   @id @default(cuid())
   date      String   @unique
