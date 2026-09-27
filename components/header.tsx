@@ -35,7 +35,7 @@ function HeaderLogo() {
 function AccountMenu({ signedIn, onNavigate }: { signedIn: boolean; onNavigate?: () => void }) {
   if (!signedIn) {
     return (
-      <Button asChild className="rounded-lg bg-brand-pink text-white hover:bg-brand-pink/90">
+      <Button asChild className="rounded-lg bg-[#f4c6d4] text-[#6e243f] hover:bg-[#e7b4c4]">
         <Link href="/sign-in" onClick={() => onNavigate?.()}>
           Sign in
         </Link>

@@ -108,7 +108,7 @@ export default function NewsletterForm() {
           <p className="text-sm text-stone-500">
             {isLoading ? <LuxuryMark size="button" /> : `${subscribers.length} subscriber${subscribers.length === 1 ? "" : "s"}`}
           </p>
-          <Button type="submit" disabled={!subject || !content || subscribers.length === 0 || isSending} className="rounded-full bg-black text-white hover:bg-black/80">
+          <Button type="submit" disabled={!subject || !content || subscribers.length === 0 || isSending} className="rounded-full bg-[#f4c6d4] text-[#6e243f] hover:bg-[#e7b4c4]">
             {isSending ? 'Sending...' : 'Send Newsletter'}
           </Button>
         </div>

@@ -164,9 +164,9 @@ export default function AccountPage() {
                 type="button"
                 onClick={signOut}
                 disabled={signingOut}
-                className="mt-3 inline-flex items-center gap-2 text-sm tracking-wide text-white/80 underline underline-offset-4 hover:text-white disabled:opacity-70"
+                className="mt-4 inline-flex items-center gap-2 rounded-lg bg-[#f4c6d4] px-4 py-2 text-sm text-[#6e243f] hover:bg-[#e7b4c4] disabled:opacity-70"
               >
-                {signingOut ? <LuxuryMark size="button" tone="ink" /> : null}
+                {signingOut ? <LuxuryMark size="button" tone="paper" /> : null}
                 {signingOut ? "Signing out…" : "Sign out"}
               </button>
             )}

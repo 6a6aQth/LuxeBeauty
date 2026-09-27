@@ -34,7 +34,7 @@ export function AdminNav({ section, onSectionChange, onLogout }: AdminNavProps) 
           luxe
         </p>
         <p className="mt-1 text-[9px] tracking-[0.34em] text-stone-500">BEAUTY STUDIO</p>
-        <div className="mt-4 h-px bg-gradient-to-r from-[#e91e63]/70 via-[#e91e63]/25 to-transparent" />
+        <div className="mt-4 h-px bg-gradient-to-r from-[#f4c6d4] via-[#f4c6d4]/50 to-transparent" />
       </div>
 
       <nav className="shrink-0 space-y-0.5 px-3" aria-label="Admin">

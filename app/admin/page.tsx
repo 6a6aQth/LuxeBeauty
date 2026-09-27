@@ -984,6 +984,7 @@ export default function AdminPage() {
                                     id={`switch-${service.id}`}
                                     checked={service.isAvailable}
                                     onCheckedChange={() => handleToggleServiceAvailability(service)}
+                                    className="data-[state=checked]:bg-[#f4c6d4]"
                                   />
                                   Service Available
                                 </Label>
@@ -1012,6 +1013,7 @@ export default function AdminPage() {
                               <Switch
                                 checked={service.isAvailable}
                                 onCheckedChange={() => handleToggleServiceAvailability(service)}
+                                className="data-[state=checked]:bg-[#f4c6d4]"
                               />
                               <Button variant="ghost" size="icon" onClick={() => handleOpenServiceModal(service)} className="text-gray-500 hover:text-blue-500 rounded-full">
                                 <Edit className="w-5 h-5" />
@@ -1167,7 +1169,7 @@ export default function AdminPage() {
                 </button>
               </div>
             )}
-            <Button onClick={handleSavePriceList} disabled={!priceListFile || isSavingPriceList} className="w-full rounded-full bg-black text-white hover:bg-black/80">
+            <Button onClick={handleSavePriceList} disabled={!priceListFile || isSavingPriceList} className="w-full rounded-full bg-[#f4c6d4] text-[#6e243f] hover:bg-[#e7b4c4]">
               {isSavingPriceList ? 'Uploading...' : 'Upload price list'}
             </Button>
             {priceListUrl && <a href={priceListUrl} target="_blank" rel="noopener noreferrer" className="block text-center text-sm text-stone-500 underline decoration-stone-300 underline-offset-4 hover:text-stone-800">View current price list</a>}

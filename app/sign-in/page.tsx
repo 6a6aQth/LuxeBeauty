@@ -61,8 +61,8 @@ export default function SignInPage() {
             </div>
             <PasswordField id="password" name="password" label="Password" autoComplete="current-password" />
             {error && <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
-            <Button type="submit" className="w-full rounded-lg bg-zinc-950 text-white hover:bg-zinc-800" disabled={pending}>
-              {pending ? <LuxuryMark size="button" tone="ink" /> : null}
+            <Button type="submit" className="w-full rounded-lg bg-[#f4c6d4] text-[#6e243f] hover:bg-[#e7b4c4]" disabled={pending}>
+              {pending ? <LuxuryMark size="button" tone="paper" /> : null}
               {pending ? "Signing in…" : "Sign in"}
             </Button>
           </form>
