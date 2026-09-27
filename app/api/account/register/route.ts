@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getNeonAuth } from "@/lib/auth/neon";
+import { EMAIL_TAKEN_MESSAGE, findNeonIdentityByEmail } from "@/lib/auth/one-email";
 import { canonicalPhone } from "@/lib/phone";
 
 function readUserId(data: unknown): string | null {
@@ -23,6 +24,7 @@ export async function POST(req: Request) {
   const name = String(body?.name ?? "").trim();
   const email = String(body?.email ?? "").trim().toLowerCase();
   const password = String(body?.password ?? "");
+  const confirmPassword = String(body?.confirmPassword ?? "");
   const phone = canonicalPhone(String(body?.phone ?? ""));
 
   if (!name || !email || !password || !phone) {
@@ -32,6 +34,10 @@ export async function POST(req: Request) {
     );
   }
 
+  if (password !== confirmPassword) {
+    return NextResponse.json({ error: "Passwords do not match." }, { status: 400 });
+  }
+
   const phoneTaken = await prisma.customerProfile.findUnique({ where: { phone } });
   if (phoneTaken) {
     return NextResponse.json({ error: "That phone number already belongs to an account." }, { status: 409 });
@@ -39,7 +45,16 @@ export async function POST(req: Request) {
 
   const emailTaken = await prisma.customerProfile.findUnique({ where: { email } });
   if (emailTaken) {
-    return NextResponse.json({ error: "That email already belongs to an account." }, { status: 409 });
+    return NextResponse.json({ error: EMAIL_TAKEN_MESSAGE }, { status: 409 });
+  }
+
+  try {
+    const identity = await findNeonIdentityByEmail(email);
+    if (identity) {
+      return NextResponse.json({ error: EMAIL_TAKEN_MESSAGE }, { status: 409 });
+    }
+  } catch {
+    return NextResponse.json({ error: "Could not check this email. Try again." }, { status: 503 });
   }
 
   const { data, error } = await neon.signUp.email({ email, password, name });

@@ -7,6 +7,7 @@ import { ServicesList } from "@/components/services-list"
 import useSWR from 'swr';
 import type { Service } from '@prisma/client';
 import React from 'react';
+import { LuxuryMark } from "@/components/luxury-mark";
 
 export default function ServicesPage() {
   const fetcher = (url: string) => fetch(url).then(res => res.json());
@@ -55,7 +56,11 @@ export default function ServicesPage() {
 
       <section className="bg-gray-100 py-20">
         <div className="container mx-auto px-4">
-          <ServicesList groupedServices={groupedServices} />
+          {isLoading && services.length === 0 ? (
+            <LuxuryMark />
+          ) : (
+            <ServicesList groupedServices={groupedServices} />
+          )}
         </div>
       </section>
 

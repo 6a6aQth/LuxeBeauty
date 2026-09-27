@@ -6,8 +6,11 @@ import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { PasswordField } from "@/components/password-field"
 import { GoogleAuthButton } from "@/components/google-auth-button"
 import { canonicalPhone, sanitizePhoneInput } from "@/lib/phone"
+import { authClient } from "@/lib/auth/client"
+import { LuxuryMark } from "@/components/luxury-mark"
 
 export default function SignUpPage() {
   const router = useRouter()
@@ -22,8 +25,14 @@ export default function SignUpPage() {
       setError("That phone number format is not okay.")
       return
     }
-    setPending(true)
     const form = new FormData(event.currentTarget)
+    const password = String(form.get("password") ?? "")
+    const confirmPassword = String(form.get("confirmPassword") ?? "")
+    if (password !== confirmPassword) {
+      setError("Passwords do not match.")
+      return
+    }
+    setPending(true)
     try {
       const response = await fetch("/api/account/register", {
         method: "POST",
@@ -31,12 +40,14 @@ export default function SignUpPage() {
         body: JSON.stringify({
           name: form.get("name"),
           email: form.get("email"),
-          password: form.get("password"),
+          password,
+          confirmPassword,
           phone,
         }),
       })
       const data = await response.json()
       if (!response.ok) throw new Error(data.error || "Sign-up failed")
+      await authClient.getSession()
       router.push("/account")
       router.refresh()
     } catch (err) {
@@ -71,10 +82,8 @@ export default function SignUpPage() {
               <Label htmlFor="email">Email</Label>
               <Input id="email" name="email" type="email" required autoComplete="email" className="bg-gray-50" />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input id="password" name="password" type="password" required minLength={8} autoComplete="new-password" className="bg-gray-50" />
-            </div>
+            <PasswordField id="password" name="password" label="Password" autoComplete="new-password" minLength={8} />
+            <PasswordField id="confirmPassword" name="confirmPassword" label="Confirm password" autoComplete="new-password" minLength={8} />
             <div className="space-y-2">
               <Label htmlFor="phone">Phone</Label>
               <Input
@@ -89,6 +98,7 @@ export default function SignUpPage() {
             </div>
             {error && <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
             <Button type="submit" className="w-full rounded-lg bg-brand-pink text-white hover:bg-brand-pink/90" disabled={pending}>
+              {pending ? <LuxuryMark size="button" tone="ink" /> : null}
               {pending ? "Creating account…" : "Create account"}
             </Button>
           </form>
