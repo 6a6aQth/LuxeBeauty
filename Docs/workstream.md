@@ -81,7 +81,7 @@ This file combines the planned development roadmap and the reactive work log (fi
 11.0 Admin Dashboard (generated against SDD v1)
 - [x] 11.1 Provide one admin screen for bookings, services, categories, availability, the price list, and newsletters
 - [x] 11.2 Default the booking list to all statuses so pending payments are visible
-- [ ] 11.3 Split the admin screen into separate panels for bookings, services, categories, availability, newsletter, and price list
+- [ ] 11.3 Split the admin screen into separate panels for bookings, services, categories, availability, newsletter, and price list [SUPERSEDED BY 19.0]
 - [ ] 11.4 Paginate booking queries used by the admin list and by slot availability
 
 12.0 Security and Build Safety (generated against SDD v1)
@@ -141,6 +141,12 @@ This file combines the planned development roadmap and the reactive work log (fi
 - [x] 18.3 On sign-up, require the password twice and refuse submit when the two values differ. On sign-up and sign-in, let the customer show or hide the password. Send one password to Neon Auth. Do not store it in the app database.
 - [x] 18.4 When a password account later continues with Google for the same verified email, keep the same Neon user and the existing CustomerProfile. Do not ask them to create a second profile.
 
+19.0 Admin phone dashboard (generated against SDD v5)
+- [x] 19.1 Build a phone-first shell on `/admin` after the existing password. One section at a time, opened from a nav: Overview, Bookings, Availability, Services, Users, Newsletter, and Price list. Use black and silver, with a little pink. A wide screen uses the same nav and sections with more room.
+- [x] 19.2 Overview opens first. Draw a line of successful bookings in Africa/Blantyre. Week is each day of the chosen week. Month is each day of the chosen month. Year is each month of the chosen year. She can move to the previous and next period. On a week or month, the top of the line is a full day (every slot that weekday). A full day meets the top. A lighter day sits lower in proportion, and the point shows the count. A date with no slots, including Sunday, sits at zero and does not set the top. On a year, the top is every offered slot in that month taken, and the point shows the month's count.
+- [x] 19.3 Users lists each account's name, email, and phone, for the admin screen only. Each row has a three-dot menu. The menu must not block, delete, or change the account.
+- [x] 19.4 Place the current booking list, availability editor, service and category editor, newsletter form, and price-list upload into those nav sections. Leave what each tool already does unchanged. Categories stay inside Services.
+
 ## Reactive Log
 
 F1.0 — 26 Sept 2026 — After a successful PayChangu payment the ticket is shown (“Appointment confirmed”) and a destructive toast still says “Time Slot Unavailable / The time slot you selected is no longer available.”
@@ -153,6 +159,11 @@ F1.0 — 26 Sept 2026 — After a successful PayChangu payment the ticket is sho
 - Status: Resolved
 
 ## Recent Activity Index
+- 27 Sept 2026 — 19.0 Admin phone dashboard
+- 27 Sept 2026 — 19.1 Phone-first nav in black, silver, and a little pink
+- 27 Sept 2026 — 19.2 Overview line of bookings by week, month, and year
+- 27 Sept 2026 — 19.3 Account list with a menu that does not change accounts
+- 27 Sept 2026 — 19.4 Existing admin tools move into the nav
 - 26 Sept 2026 — 18.0 Same email across Google and password
 - 26 Sept 2026 — 18.1 Google-only email cannot sign in with a password
 - 26 Sept 2026 — 18.2 Refuse sign-up when the email already exists
