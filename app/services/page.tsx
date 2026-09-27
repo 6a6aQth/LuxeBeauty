@@ -7,6 +7,7 @@ import { ServicesList } from "@/components/services-list"
 import useSWR from 'swr';
 import type { Service } from '@prisma/client';
 import React from 'react';
+import { LuxuryMark } from "@/components/luxury-mark";
 
 export default function ServicesPage() {
   const fetcher = (url: string) => fetch(url).then(res => res.json());
@@ -50,12 +51,16 @@ export default function ServicesPage() {
     <div>
       <PageHeader
         title="Our Services"
-        description="Discover our range of premium nail care services, each delivered with meticulous attention to detail and using only the finest products."
+        description="Discover our nails, lamination, and eyelash services, each delivered with meticulous attention to detail and using only the finest products."
       />
 
       <section className="bg-gray-100 py-20">
         <div className="container mx-auto px-4">
-          <ServicesList groupedServices={groupedServices} />
+          {isLoading && services.length === 0 ? (
+            <LuxuryMark />
+          ) : (
+            <ServicesList groupedServices={groupedServices} />
+          )}
         </div>
       </section>
 
@@ -76,7 +81,7 @@ export default function ServicesPage() {
             </div>
             <div className="bg-white p-6 rounded-lg shadow-sm">
               <h3 className="text-xl font-serif mb-3">Service Policies</h3>
-              <p className="text-gray-500 mb-4">What to expect during your visit</p>
+              <p className="text-gray-500 mb-4">What to expect during your appointment</p>
               <ul className="space-y-2 text-gray-700 list-disc list-inside">
                 <li>Please arrive 5-10 minutes before your appointment</li>
                 <li>Cancellations require 24-hour notice</li>

@@ -12,6 +12,7 @@
     "seed": "node prisma/seed.js"
   },
   "dependencies": {
+    "@neondatabase/auth": "0.5.0-beta",
     "@prisma/client": "6.10.1",
     "@radix-ui/react-accordion": "1.2.2",
     "@radix-ui/react-checkbox": "1.1.3",

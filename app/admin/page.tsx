@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { Button } from '@/components/ui/button'
-import { format, parseISO, isValid, startOfWeek, endOfWeek, isWithinInterval, addDays, isToday } from 'date-fns'
+import { format, parseISO, isValid } from 'date-fns'
 import { DayPicker } from 'react-day-picker'
 import 'react-day-picker/dist/style.css'
 import { Calendar } from "@/components/ui/calendar"
@@ -20,18 +20,22 @@ import {
 import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
 import { getSlotsForDate, formatTime, generateTimeSlots } from "@/lib/time-slots"
+import { canonicalPhone, sanitizePhoneInput } from "@/lib/phone"
 import Logo from "@/components/logo";
 import NewsletterForm from '@/components/newsletter-form';
 import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
-import { Progress } from "@/components/ui/progress";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { ShineBorder } from "@/components/ui/shine-border";
 import { WavyBackground } from "@/components/ui/wavy-background";
-import { PlusCircle, Edit, Trash2, Calendar as CalendarIcon, LogOut, Search, UploadCloud, Send, Sun, Moon, Settings, Users, Briefcase, Mail } from 'lucide-react'
+import { PlusCircle, Edit, Trash2, Search } from 'lucide-react'
+import { AdminShell } from '@/components/admin/admin-shell'
+import { OverviewChart } from '@/components/admin/overview-chart'
+import { UsersPanel } from '@/components/admin/users-panel'
+import type { AdminSectionId } from '@/components/admin/admin-nav'
 import {
   Select,
   SelectContent,
@@ -104,6 +108,7 @@ const emptyService: Service = {
 export default function AdminPage() {
   const router = useRouter()
   const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [section, setSection] = useState<AdminSectionId>('overview')
   const [password, setPassword] = useState('')
   const [bookings, setBookings] = useState<Booking[]>([])
   const [services, setServices] = useState<Service[]>([])
@@ -341,35 +346,6 @@ export default function AdminPage() {
       return parseTime(a.timeSlot) - parseTime(b.timeSlot);
     });
   }, [bookings, searchTerm, showAll, statusFilter]);
-
-  const weeklyCapacity = useMemo(() => {
-    const today = new Date();
-    const next7Days = addDays(today, 7);
-    today.setHours(0, 0, 0, 0);
-
-    const bookingsInNext7Days = bookings.filter(b => {
-      try {
-        const bookingDate = parseISO(b.date);
-        // Only count successful bookings for capacity calculation
-        return isValid(bookingDate) &&
-          isWithinInterval(bookingDate, { start: today, end: next7Days }) &&
-          b.status === 'successful';
-      } catch {
-        return false;
-      }
-    });
-
-    const totalSlotsInNext7Days = allTimeSlots.length * 7;
-    const bookedSlots = bookingsInNext7Days.length;
-
-    if (totalSlotsInNext7Days === 0) {
-      return { count: 0, percentage: 0 };
-    }
-
-    const percentage = (bookedSlots / totalSlotsInNext7Days) * 100;
-
-    return { count: bookedSlots, percentage };
-  }, [bookings, allTimeSlots]);
 
   const availableSlotsForSelectedDate = useMemo(() => {
     if (!selectedDate) return [];
@@ -631,6 +607,15 @@ export default function AdminPage() {
       return;
     }
 
+    if (!canonicalPhone(editingBookingData.phone)) {
+      toast({
+        title: 'Check the phone number',
+        description: 'That phone number format is not okay.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     try {
       const response = await fetch(`/api/bookings/${isEditingBooking.id}`, {
         method: 'PATCH',
@@ -766,7 +751,7 @@ export default function AdminPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 className="rounded-lg text-center bg-gray-100 dark:bg-gray-800"
               />
-              <Button type="submit" className="w-full bg-brand-pink text-white rounded-lg hover:bg-brand-pink/90 transition-colors">
+              <Button type="submit" className="w-full bg-black text-white rounded-full hover:bg-black/80 transition-colors">
                 Login
               </Button>
             </form>
@@ -777,65 +762,61 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
-      <header className="flex items-center justify-between mb-8">
-        <h1 className="font-serif text-4xl font-bold">Admin Dashboard</h1>
-        <Button onClick={handleLogout} variant="ghost" className="flex items-center gap-2 text-gray-600 hover:text-brand-pink">
-          <LogOut className="w-5 h-5" />
-          <span>Logout</span>
-        </Button>
-      </header>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 space-y-8">
-          <Card className="rounded-2xl shadow-soft overflow-hidden">
-            <CardHeader>
-              <CardTitle className="font-serif text-2xl flex items-center gap-2"><Briefcase /> Upcoming Bookings</CardTitle>
-              <div className="flex items-center space-x-2 mb-4">
-                <Button
-                  variant={view === 'all' ? 'default' : 'outline'}
-                  onClick={() => setView('all')}
-                  className={view === 'all' ? 'bg-brand-pink text-white hover:bg-brand-pink/90' : 'text-gray-700 hover:bg-gray-100'}
+    <AdminShell section={section} onSectionChange={setSection} onLogout={handleLogout}>
+      {section === 'overview' && <OverviewChart onOpen={setSection} />}
+      {section === 'bookings' && (
+        <section className="space-y-6">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <p className="text-[11px] uppercase tracking-[0.32em] text-stone-400">Appointments</p>
+              <h1 className="mt-2 font-serif text-4xl text-stone-900">Bookings</h1>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="inline-flex rounded-full bg-white p-1">
+                <button
+                  type="button"
+                  onClick={() => { setView('all'); setShowAll(true) }}
+                  className={`rounded-full px-4 py-1.5 text-sm ${view === 'all' ? 'bg-[#f4c6d4] text-[#6e243f]' : 'text-stone-500'}`}
                 >
-                  All Bookings
-                </Button>
-                <Button
-                  variant={view === 'upcoming' ? 'default' : 'outline'}
-                  onClick={() => setView('upcoming')}
-                  className={view === 'upcoming' ? 'bg-brand-pink text-white hover:bg-brand-pink/90' : 'text-gray-700 hover:bg-gray-100'}
+                  All
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setView('upcoming'); setShowAll(false) }}
+                  className={`rounded-full px-4 py-1.5 text-sm ${view === 'upcoming' ? 'bg-[#f4c6d4] text-[#6e243f]' : 'text-stone-500'}`}
                 >
-                  Upcoming Bookings
-                </Button>
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-40">
-                    <SelectValue placeholder="Filter by status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Statuses</SelectItem>
-                    <SelectItem value="successful">Successful</SelectItem>
-                    <SelectItem value="pending">Pending</SelectItem>
-                    <SelectItem value="failed">Failed</SelectItem>
-                  </SelectContent>
-                </Select>
+                  Upcoming
+                </button>
               </div>
-              <div className="relative mt-2">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <Input
-                  placeholder="Search bookings..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 rounded-lg"
-                />
-              </div>
-            </CardHeader>
-            <CardContent>
-              <ScrollArea className="h-[500px] pr-4">
-                <div className="space-y-4">
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-40 rounded-full border-stone-200 bg-white">
+                  <SelectValue placeholder="Filter by status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Statuses</SelectItem>
+                  <SelectItem value="successful">Successful</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="failed">Failed</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="relative">
+            <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-400" />
+            <Input
+              placeholder="Search name, phone, or service"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="rounded-full border-stone-200 bg-white pl-11"
+            />
+          </div>
+          <div className="overflow-hidden rounded-3xl border border-stone-200 bg-white">
+                <div className="divide-y divide-[#f3d0db]">
                   {filteredBookings.length > 0 ? filteredBookings.map(booking => (
-                    <div key={booking.id} className="p-4 bg-gray-100 rounded-xl space-y-3">
+                    <div key={booking.id} className="space-y-4 px-5 py-5">
                       <div className="flex justify-between items-start">
                         <div>
-                          <p className="font-bold text-lg">{booking.name}</p>
+                          <p className="font-serif text-xl text-stone-900">{booking.name}</p>
                           <div className="flex gap-2 mt-1 flex-wrap">
                             {booking.discountApplied && (
                               <Badge variant="secondary" className="bg-pink-100 text-pink-700 border-pink-200">30% Discount</Badge>
@@ -848,8 +829,8 @@ export default function AdminPage() {
                           </div>
                         </div>
                         <div className="text-right flex-shrink-0">
-                          <p className="font-semibold">{format(parseISO(booking.date), 'EEE, MMM d')}</p>
-                          <p className="text-sm text-brand-pink font-medium">{booking.timeSlot}</p>
+                          <p className="font-medium text-stone-800">{format(parseISO(booking.date), 'EEE, MMM d')}</p>
+                          <p className="text-sm text-stone-500">{booking.timeSlot}</p>
                           {booking.originalDate && booking.originalDate !== booking.date && (
                             <p className="text-xs text-gray-500">
                               Originally: {format(parseISO(booking.originalDate), 'MMM d')}
@@ -890,47 +871,56 @@ export default function AdminPage() {
                           </div>
                         )}
                       </div>
-                      <div className="pt-2 border-t border-gray-200">
-                        <p className="text-xs text-gray-500">Ticket ID: {booking.ticketId}</p>
-                      </div>
-                      <div className="flex flex-col sm:flex-row gap-2 mt-4">
+                      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-stone-200 pt-3">
+                        <p className="text-xs tracking-wide text-stone-400">Ticket {booking.ticketId}</p>
+                        <div className="flex flex-wrap gap-2">
                         <Button
                           variant="outline"
-                          className="flex-1 rounded-lg border border-gray-300 text-gray-700 hover:text-brand-pink hover:border-brand-pink transition-colors"
+                          className="rounded-full border-stone-200 text-stone-700 hover:bg-stone-50"
                           onClick={() => handleOpenBookingDetails(booking)}
                         >
-                          <Edit className="mr-2 h-4 w-4" /> Edit Details
+                          <Edit className="mr-2 h-4 w-4" /> Edit
                         </Button>
                         {booking.status === 'pending' && (
                           <Button
-                            className="flex-1 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                            className="rounded-full bg-black text-white hover:bg-black/80"
                             onClick={() => handleMarkSuccessful(booking)}
                           >
-                            Mark Successful
+                            Mark successful
                           </Button>
                         )}
                         <Button
-                          variant="destructive"
-                          className="flex-1 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
+                          variant="ghost"
+                          className="rounded-full text-stone-400 hover:bg-rose-50 hover:text-rose-600"
                           onClick={() => setIsDeletingBooking(booking)}
                         >
-                          <Trash2 className="mr-2 h-4 w-4" /> Delete Booking
+                          <Trash2 className="mr-2 h-4 w-4" /> Delete
                         </Button>
+                        </div>
                       </div>
                     </div>
-                  )) : <p className="text-center text-gray-500 py-8">No upcoming bookings.</p>}
+                  )) : <p className="px-5 py-16 text-center text-sm text-stone-500">No bookings in this view.</p>}
                 </div>
-              </ScrollArea>
-            </CardContent>
-          </Card>
+          </div>
+        </section>
+      )}
 
-          <Card className="rounded-2xl shadow-soft">
-            <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <CardTitle className="font-serif text-2xl flex items-center gap-2"><Settings /> Manage Services & Categories</CardTitle>
+      {section === 'services' && (
+        <section className="space-y-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="text-[11px] uppercase tracking-[0.32em] text-stone-400">Catalog</p>
+              <h1 className="mt-2 font-serif text-4xl text-stone-900">Services</h1>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="inline-flex rounded-full bg-white p-1">
+                <button type="button" onClick={() => setManageServicesTab('services')} className={`rounded-full px-4 py-1.5 text-sm ${manageServicesTab === 'services' ? 'bg-[#f4c6d4] text-[#6e243f]' : 'text-stone-500'}`}>Services</button>
+                <button type="button" onClick={() => setManageServicesTab('categories')} className={`rounded-full px-4 py-1.5 text-sm ${manageServicesTab === 'categories' ? 'bg-[#f4c6d4] text-[#6e243f]' : 'text-stone-500'}`}>Categories</button>
+              </div>
               {manageServicesTab === 'services' ? (
-                <Button onClick={() => handleOpenServiceModal(null)} className="bg-brand-pink text-white rounded-lg hover:bg-brand-pink/90 transition-colors flex items-center gap-2 self-end sm:self-center">
-                  <PlusCircle className="w-5 h-5" />
-                  Add Service
+                <Button onClick={() => handleOpenServiceModal(null)} className="rounded-full bg-black text-white hover:bg-black/80">
+                  <PlusCircle className="mr-2 h-4 w-4" />
+                  Add service
                 </Button>
               ) : (
                 <Button
@@ -938,19 +928,16 @@ export default function AdminPage() {
                     setEditingCategory(null);
                     setIsCategoryModalOpen(true);
                   }}
-                  className="bg-brand-pink text-white rounded-lg hover:bg-brand-pink/90 transition-colors flex items-center gap-2 self-end sm:self-center"
+                  className="rounded-full bg-black text-white hover:bg-black/80"
                 >
-                  <PlusCircle className="w-5 h-5" />
-                  Add Category
+                  <PlusCircle className="mr-2 h-4 w-4" />
+                  Add category
                 </Button>
               )}
-            </CardHeader>
-            <CardContent>
+            </div>
+          </div>
+          <div className="rounded-3xl border border-stone-200 bg-white p-4 sm:p-6">
               <Tabs value={manageServicesTab} onValueChange={(v) => setManageServicesTab(v as 'services' | 'categories')} className="w-full">
-                <TabsList className="grid w-full grid-cols-2 mb-6">
-                  <TabsTrigger value="services">Services</TabsTrigger>
-                  <TabsTrigger value="categories">Categories</TabsTrigger>
-                </TabsList>
 
                 <TabsContent value="services" className="mt-0">
                   {isMobile ? (
@@ -969,27 +956,27 @@ export default function AdminPage() {
                       </Select>
                     </div>
                   ) : (
-                    <div className="flex items-center gap-2 mb-4 border-b overflow-x-auto pb-2">
+                    <div className="mb-4 flex flex-wrap items-center gap-2">
                       {serviceCategories.map(cat => (
                         <button
                           key={cat}
                           onClick={() => setCategoryFilter(cat)}
-                          className={`capitalize pb-2 text-sm font-medium transition-colors whitespace-nowrap ${categoryFilter === cat ? 'text-brand-pink border-b-2 border-brand-pink' : 'text-gray-500 hover:text-gray-800'}`}
+                          className={`capitalize whitespace-nowrap rounded-full px-3 py-1 text-sm ${categoryFilter === cat ? 'bg-[#f4c6d4] text-[#6e243f]' : 'text-stone-500 hover:bg-stone-100'}`}
                         >
                           {cat.replace('-', ' ')}
                         </button>
                       ))}
                     </div>
                   )}
-                  <ScrollArea className="h-[400px]">
+                  <div>
                     {isMobile ? (
                       <Accordion type="single" collapsible className="w-full">
                         {filteredServices.map(service => (
                           <AccordionItem value={service.id} key={service.id}>
-                            <AccordionTrigger className="p-3 bg-gray-100 rounded-xl">
+                            <AccordionTrigger className="rounded-2xl border border-stone-200 px-4 py-3">
                               <span className="font-semibold text-left">{service.name}</span>
                             </AccordionTrigger>
-                            <AccordionContent className="p-3 bg-gray-50 rounded-b-xl">
+                            <AccordionContent className="px-4 py-3">
                               <p className="text-sm text-gray-600 mb-4">{service.description || 'No description.'}</p>
                               <div className="flex items-center justify-between">
                                 <Label htmlFor={`switch-${service.id}`} className="flex items-center gap-2 text-sm font-medium">
@@ -997,6 +984,7 @@ export default function AdminPage() {
                                     id={`switch-${service.id}`}
                                     checked={service.isAvailable}
                                     onCheckedChange={() => handleToggleServiceAvailability(service)}
+                                    className="data-[state=checked]:bg-[#f4c6d4]"
                                   />
                                   Service Available
                                 </Label>
@@ -1012,7 +1000,7 @@ export default function AdminPage() {
                     ) : (
                       <div className="space-y-3 pr-4">
                         {filteredServices.map(service => (
-                          <div key={service.id} className="flex items-center justify-between p-3 bg-gray-100 rounded-xl gap-2">
+                          <div key={service.id} className="flex items-center justify-between gap-2 rounded-2xl border border-stone-200 px-4 py-3">
                             <div className="flex-1 min-w-0">
                               <p className="font-semibold truncate">{service.name}</p>
                               {service.description && (
@@ -1025,6 +1013,7 @@ export default function AdminPage() {
                               <Switch
                                 checked={service.isAvailable}
                                 onCheckedChange={() => handleToggleServiceAvailability(service)}
+                                className="data-[state=checked]:bg-[#f4c6d4]"
                               />
                               <Button variant="ghost" size="icon" onClick={() => handleOpenServiceModal(service)} className="text-gray-500 hover:text-blue-500 rounded-full">
                                 <Edit className="w-5 h-5" />
@@ -1034,7 +1023,7 @@ export default function AdminPage() {
                         ))}
                       </div>
                     )}
-                  </ScrollArea>
+                  </div>
                 </TabsContent>
 
                 <TabsContent value="categories" className="mt-0">
@@ -1048,19 +1037,19 @@ export default function AdminPage() {
                           setEditingCategory(null);
                           setIsCategoryModalOpen(true);
                         }}
-                        className="bg-brand-pink text-white rounded-lg hover:bg-brand-pink/90"
+                        className="rounded-full bg-black text-white hover:bg-black/80"
                       >
                         <PlusCircle className="w-4 h-4 mr-2" />
                         Create Your First Category
                       </Button>
                     </div>
                   ) : (
-                    <ScrollArea className="h-[400px] pr-2">
+                    <div>
                       <div className="space-y-3">
                         {categories.map((cat) => (
                           <div
                             key={cat.id}
-                            className="flex items-start justify-between p-3 bg-gray-100 rounded-xl gap-2"
+                            className="flex items-start justify-between gap-2 rounded-2xl border border-stone-200 px-4 py-3"
                           >
                             <div className="flex-1 min-w-0">
                               <p className="font-semibold truncate">{cat.name}</p>
@@ -1100,109 +1089,98 @@ export default function AdminPage() {
                           </div>
                         ))}
                       </div>
-                    </ScrollArea>
+                    </div>
                   )}
                 </TabsContent>
               </Tabs>
-            </CardContent>
-          </Card>
-        </div>
+          </div>
+        </section>
+      )}
 
-        <div className="space-y-8">
+      {section === 'availability' && (
+        <section className="space-y-6">
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.32em] text-stone-400">Calendar</p>
+            <h1 className="mt-2 font-serif text-4xl text-stone-900">Availability</h1>
+            <p className="mt-2 text-sm text-stone-500">Choose a date, then mark the slots she cannot take.</p>
+          </div>
+          <div className="flex justify-center rounded-3xl border border-stone-200 bg-white p-6">
+            <Calendar
+              mode="single"
+              selected={selectedDate}
+              onSelect={date => date && handleDateClick(date)}
+              disabled={{ before: new Date() }}
+              className="rounded-2xl"
+            />
+          </div>
+        </section>
+      )}
 
-          <Card className="rounded-2xl shadow-soft">
-            <CardHeader>
-              <CardTitle className="font-serif text-2xl flex items-center gap-2"><CalendarIcon /> Availability</CardTitle>
-              <CardDescription>Click a date to manage time slots.</CardDescription>
-            </CardHeader>
-            <CardContent className="flex justify-center">
-              <Calendar
-                mode="single"
-                selected={selectedDate}
-                onSelect={date => date && handleDateClick(date)}
-                disabled={{ before: new Date() }}
-                className="rounded-lg"
+      {section === 'newsletter' && (
+        <section className="space-y-6">
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.32em] text-stone-400">Mail</p>
+            <h1 className="mt-2 font-serif text-4xl text-stone-900">Newsletter</h1>
+          </div>
+          <NewsletterForm />
+        </section>
+      )}
+
+      {section === 'price-list' && (
+        <section className="space-y-6">
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.32em] text-stone-400">Studio</p>
+            <h1 className="mt-2 font-serif text-4xl text-stone-900">Price list</h1>
+            <p className="mt-2 text-sm text-stone-500">The image guests see on the prices page.</p>
+          </div>
+          <div className="max-w-xl space-y-4 rounded-3xl border border-stone-200 bg-white p-6">
+            <label className="flex cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-stone-300 px-6 py-10 text-center text-sm text-stone-500 hover:border-stone-400">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="sr-only"
+                onChange={e => {
+                  if (e.target.files && e.target.files[0]) {
+                    setPriceListFile(e.target.files[0]);
+                  }
+                }}
+                disabled={isSavingPriceList}
               />
-            </CardContent>
-          </Card>
-
-          <Card className="rounded-2xl shadow-soft">
-            <CardHeader>
-              <CardTitle className="font-serif text-2xl flex items-center gap-2"><Mail /> Newsletter</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <NewsletterForm />
-            </CardContent>
-          </Card>
-
-          <Card className="rounded-2xl shadow-soft">
-            <CardHeader>
-              <CardTitle className="font-serif text-2xl flex items-center gap-2"><UploadCloud /> Price List</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="p-4 border rounded-lg">
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={e => {
-                    if (e.target.files && e.target.files[0]) {
-                      setPriceListFile(e.target.files[0]);
-                    }
+              {priceListFile ? priceListFile.name : "Choose an image"}
+            </label>
+            {priceListFile && (
+              <div className="flex flex-col items-center">
+                <img
+                  src={URL.createObjectURL(priceListFile)}
+                  alt="Selected price list preview"
+                  className="h-48 w-full rounded-2xl border border-stone-100 object-contain"
+                />
+                <button
+                  type="button"
+                  className="mt-2 text-xs text-stone-400 hover:text-rose-600"
+                  onClick={() => {
+                    setPriceListFile(null);
+                    if (fileInputRef.current) fileInputRef.current.value = '';
                   }}
                   disabled={isSavingPriceList}
-                />
-                {priceListFile && (
-                  <div className="mt-4 flex flex-col items-center">
-                    <img
-                      src={URL.createObjectURL(priceListFile)}
-                      alt="Selected price list preview"
-                      className="w-40 h-40 object-contain rounded border border-gray-200 shadow-sm"
-                    />
-                    <button
-                      type="button"
-                      className="mt-2 text-xs text-red-500 hover:underline"
-                      onClick={() => {
-                        setPriceListFile(null);
-                        if (fileInputRef.current) fileInputRef.current.value = '';
-                      }}
-                      disabled={isSavingPriceList}
-                    >
-                      Remove
-                    </button>
-                  </div>
-                )}
+                >
+                  Remove
+                </button>
               </div>
-              <Button onClick={handleSavePriceList} disabled={!priceListFile || isSavingPriceList} className="w-full bg-black text-white rounded-lg hover:bg-black/80 transition-colors flex items-center justify-center gap-2">
-                {isSavingPriceList && (
-                  <svg className="animate-spin h-5 w-5 mr-2 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
-                  </svg>
-                )}
-                {isSavingPriceList ? 'Uploading...' : 'Upload New Price List'}
-              </Button>
-              {priceListUrl && <a href={priceListUrl} target="_blank" rel="noopener noreferrer" className="block text-center text-sm text-brand-pink hover:underline">View Current Price List</a>}
-            </CardContent>
-          </Card>
+            )}
+            <Button onClick={handleSavePriceList} disabled={!priceListFile || isSavingPriceList} className="w-full rounded-full bg-[#f4c6d4] text-[#6e243f] hover:bg-[#e7b4c4]">
+              {isSavingPriceList ? 'Uploading...' : 'Upload price list'}
+            </Button>
+            {priceListUrl && <a href={priceListUrl} target="_blank" rel="noopener noreferrer" className="block text-center text-sm text-stone-500 underline decoration-stone-300 underline-offset-4 hover:text-stone-800">View current price list</a>}
+          </div>
+        </section>
+      )}
 
-          <Card className="rounded-2xl shadow-soft">
-            <CardHeader>
-              <CardTitle className="font-serif text-xl">Next 7 Days Capacity</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-sm font-medium text-gray-600">{weeklyCapacity.count} Bookings</span>
-                <span className="text-sm font-medium text-gray-600">{Math.round(weeklyCapacity.percentage)}% full</span>
-              </div>
-              <Progress value={weeklyCapacity.percentage} className="w-full" />
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+      {section === 'users' && <UsersPanel />}
 
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent key={selectedDate?.toISOString() || 'default'} className="rounded-2xl">
+        <DialogContent key={selectedDate?.toISOString() || 'default'} className="rounded-2xl border-[#f3d0db] [border-top-color:#e7b4c4]">
           <DialogHeader>
             <DialogTitle className="font-serif text-2xl">Manage Availability for {selectedDate && format(selectedDate, 'PPP')}</DialogTitle>
             <DialogDescription>Select the time slots that are unavailable on this day. Booked slots are disabled.</DialogDescription>
@@ -1230,7 +1208,7 @@ export default function AdminPage() {
                 const isBooked = bookedTimeSlots.includes(slot);
                 const isManagedUnavailable = managedSlots.includes(slot);
                 return (
-                  <div key={slot} className="flex items-center space-x-2">
+                  <div key={slot} className={`flex items-center space-x-2 rounded-lg px-2 py-1 ${isManagedUnavailable ? 'bg-[#fff5f8]' : ''}`}>
                     <Checkbox
                       id={`slot-${slot}`}
                       checked={isManagedUnavailable}
@@ -1248,7 +1226,7 @@ export default function AdminPage() {
                 );
               })}
             </div>
-            <Button onClick={handleSaveAvailability} className="w-full bg-brand-pink text-white rounded-lg hover:bg-brand-pink/90 transition-colors">
+            <Button onClick={handleSaveAvailability} className="w-full rounded-full bg-[#f4c6d4] text-[#6e243f] hover:bg-[#f0b7c8]">
               Save Availability
             </Button>
           </div>
@@ -1317,7 +1295,7 @@ export default function AdminPage() {
                 Delete Service
               </Button>
             )}
-            <Button onClick={handleSaveService} className="bg-brand-pink text-white rounded-lg hover:bg-brand-pink/90">Save Service</Button>
+            <Button onClick={handleSaveService} className="rounded-full bg-black text-white hover:bg-black/80">Save Service</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -1355,7 +1333,7 @@ export default function AdminPage() {
               }
             />
             <Input
-              placeholder="Image URL (e.g. /IMG_7410.png)"
+              placeholder="Image URL (e.g. /images/nails-1.jpeg)"
               value={editingCategory?.imageUrl || ""}
               onChange={(e) =>
                 setEditingCategory((c) =>
@@ -1379,7 +1357,7 @@ export default function AdminPage() {
             )}
             <Button
               onClick={handleSaveCategory}
-              className="bg-brand-pink text-white rounded-lg hover:bg-brand-pink/90"
+              className="rounded-full bg-black text-white hover:bg-black/80"
             >
               Save Category
             </Button>
@@ -1466,8 +1444,10 @@ export default function AdminPage() {
                   <Label htmlFor="edit-phone">Phone *</Label>
                   <Input
                     id="edit-phone"
+                    inputMode="tel"
+                    autoComplete="tel"
                     value={editingBookingData.phone}
-                    onChange={(e) => setEditingBookingData(prev => prev ? { ...prev, phone: e.target.value } : null)}
+                    onChange={(e) => setEditingBookingData(prev => prev ? { ...prev, phone: sanitizePhoneInput(e.target.value) } : null)}
                     placeholder="Phone number"
                   />
                 </div>
@@ -1596,13 +1576,13 @@ export default function AdminPage() {
             </Button>
             <Button
               onClick={() => handleSaveBooking()}
-              className="bg-brand-pink text-white rounded-lg hover:bg-brand-pink/90"
+              className="rounded-full bg-black text-white hover:bg-black/80"
             >
               Save Changes
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </AdminShell>
   );
 }

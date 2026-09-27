@@ -8,6 +8,7 @@ import type React from "react"
 import { useState, useEffect, useMemo, useRef, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { toast } from "@/hooks/use-toast"
+import { canonicalPhone } from "@/lib/phone"
 import { parseISO, format, isValid } from "date-fns"
 import { getSlotsForDate, formatTime } from "@/lib/time-slots"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -15,6 +16,11 @@ import { PageHeader } from "@/components/page-header"
 import { MultiStepLoader } from "@/components/ui/multi-step-loader"
 import { BookingForm } from "@/components/booking-form"
 import useSWR from 'swr';
+import { authClient } from "@/lib/auth/client"
+import { formatDeposit } from "@/lib/deposit"
+import { LuxuryMark } from "@/components/luxury-mark"
+import { localMobileMoneyNumber, type MobileOperator } from "@/lib/mobile-money"
+import type { TicketDetails } from "@/components/booking-ticket"
 
 const loadingStates = [
   { text: "Processing Payment" },
@@ -23,10 +29,47 @@ const loadingStates = [
   { text: "Appointment Confirmed" },
 ]
 
+const PENDING_CHARGE_KEY = "lauryn-luxe-pending-charge"
+
+type PendingCharge = {
+  chargeId: string
+  operator: MobileOperator
+  mobile: string
+  formData: Record<string, unknown>
+  useSession: boolean
+}
+
+function readPendingCharge(): PendingCharge | null {
+  try {
+    const raw = sessionStorage.getItem(PENDING_CHARGE_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as Partial<PendingCharge>
+    if (!parsed.chargeId || !parsed.mobile || !parsed.formData) return null
+    if (parsed.operator !== "tnm" && parsed.operator !== "airtel") return null
+    return {
+      chargeId: parsed.chargeId,
+      operator: parsed.operator,
+      mobile: parsed.mobile,
+      formData: parsed.formData,
+      useSession: Boolean(parsed.useSession),
+    }
+  } catch {
+    return null
+  }
+}
+
+function writePendingCharge(charge: PendingCharge) {
+  sessionStorage.setItem(PENDING_CHARGE_KEY, JSON.stringify(charge))
+}
+
+function clearPendingCharge() {
+  sessionStorage.removeItem(PENDING_CHARGE_KEY)
+}
+
 // Wrap the client component that uses useSearchParams in Suspense to satisfy Next.js CSR bailout
 export default function Booking() {
   return (
-    <Suspense fallback={null}>
+    <Suspense fallback={<LuxuryMark variant="page" />}>
       <BookingContent />
     </Suspense>
   );
@@ -47,14 +90,22 @@ function BookingContent() {
   })
   const [date, setDate] = useState<Date | undefined>()
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [step, setStep] = useState<'form' | 'payment'>('form')
+  const [step, setStep] = useState<'form' | 'payment' | 'awaiting' | 'failed' | 'ticket'>('form')
+  const [operator, setOperator] = useState<MobileOperator>('airtel')
+  const [payerNumber, setPayerNumber] = useState('')
+  const [chargeId, setChargeId] = useState('')
+  const [failureMessage, setFailureMessage] = useState('')
+  const [ticketDetails, setTicketDetails] = useState<TicketDetails | null>(null)
   const [isPaying, setIsPaying] = useState(false)
   const [agreedToTerms, setAgreedToTerms] = useState(false)
   const [loading, setLoading] = useState(false)
   const bookingFormRef = useRef<HTMLDivElement>(null);
+  const skipAccountFill = useRef(false);
   const [loyaltyDiscountEligible, setLoyaltyDiscountEligible] = useState(false);
   const [isReschedule, setIsReschedule] = useState(false);
   const [rescheduleTicketId, setRescheduleTicketId] = useState('');
+  const [accountBooking, setAccountBooking] = useState(false);
+  const { data: session } = authClient.useSession();
 
   useEffect(() => {
     // Primary path: sessionStorage handoff from lookup page
@@ -75,6 +126,7 @@ function BookingContent() {
           });
           setIsReschedule(true);
           setRescheduleTicketId(data.ticketId);
+          skipAccountFill.current = true;
           sessionStorage.removeItem('lauryn-luxe-reschedule-data');
           return; // done
         }
@@ -87,6 +139,7 @@ function BookingContent() {
     const isRescheduleParam = searchParams?.get('reschedule') === 'true';
     const ticketIdParam = searchParams?.get('ticketId');
     if (isRescheduleParam && ticketIdParam) {
+      skipAccountFill.current = true;
       (async () => {
         try {
           const resp = await fetch(`/api/bookings?ticketId=${encodeURIComponent(ticketIdParam)}`);
@@ -114,10 +167,46 @@ function BookingContent() {
       return;
     }
 
-    // New booking: clear stale caches
+    // New booking: clear the finished-ticket cache, then resume an open charge
+    // so a refresh does not start a second MWK payment.
     sessionStorage.removeItem('lauryn-luxe-booking');
     localStorage.removeItem('lauryn-luxe-booking-form');
+    const openCharge = readPendingCharge();
+    if (openCharge) {
+      setChargeId(openCharge.chargeId);
+      setStep('awaiting');
+      setIsPaying(true);
+    }
   }, [searchParams]);
+
+  useEffect(() => {
+    if (isReschedule || skipAccountFill.current) return
+    let cancelled = false
+    async function loadProfile() {
+      const response = await fetch("/api/account/profile")
+      if (cancelled) return
+      if (response.status === 401 || response.status === 503) return
+      if (response.status === 404) {
+        router.replace("/auth/continue")
+        return
+      }
+      if (!response.ok) return
+      const profile = await response.json()
+      if (cancelled) return
+      setFormData((prev) => ({
+        ...prev,
+        name: profile.name || prev.name,
+        phone: profile.phone || prev.phone,
+        email: profile.email || prev.email,
+      }))
+      setAccountBooking(true)
+      void authClient.getSession()
+    }
+    loadProfile()
+    return () => {
+      cancelled = true
+    }
+  }, [isReschedule, router]);
 
   useEffect(() => {
     if (step === 'payment') {
@@ -130,7 +219,6 @@ function BookingContent() {
   const fetcher = (url: string) => fetch(url).then(res => res.json());
   const { data: unavailableDatesData = [] } = useSWR('/api/unavailable-dates', fetcher, { refreshInterval: 1000 });
   const { data: bookingsData = [] } = useSWR('/api/bookings?status=successful', fetcher, { refreshInterval: 1000 });
-  const { data: latestServices = [] } = useSWR('/api/services', fetcher, { refreshInterval: 0 });
 
   const unavailableSlots = useMemo(() => {
     const transformed: Record<string, string[]> = {};
@@ -243,6 +331,14 @@ function BookingContent() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (formData.phone && !canonicalPhone(formData.phone)) {
+      toast({
+        title: "Phone number",
+        description: "That phone number format is not okay.",
+        variant: "destructive",
+      });
+      return;
+    }
     if (!formData.date || !formData.name || !formData.phone || !formData.email || formData.services.length === 0 || !formData.timeSlot) {
       toast({
         title: "Missing Information",
@@ -311,7 +407,7 @@ function BookingContent() {
         });
 
         // Redirect to confirmation page
-        router.push('/booking/confirmation');
+        router.push(`/booking/confirmation?ticketId=${encodeURIComponent(data.booking.ticketId)}`);
       } catch (error: any) {
         console.error('Reschedule error:', error);
         toast({
@@ -329,48 +425,214 @@ function BookingContent() {
     setStep('payment');
   };
 
+  const payLock = useRef(false);
+  const initializeSent = useRef('');
+
+  const showTicket = (booking: {
+    name: string
+    date: string
+    timeSlot: string
+    services: string[]
+    ticketId: string
+    discountApplied?: boolean
+  }) => {
+    clearPendingCharge();
+    sessionStorage.setItem('lauryn-luxe-booking', JSON.stringify({
+      ticketId: booking.ticketId,
+      fee: formatDeposit(),
+    }));
+    setTicketDetails({
+      name: booking.name,
+      date: booking.date,
+      timeSlot: booking.timeSlot,
+      services: booking.services,
+      fee: formatDeposit(),
+      ticketId: booking.ticketId,
+      discountApplied: booking.discountApplied,
+    });
+    setFailureMessage('');
+    setStep('ticket');
+    setIsPaying(false);
+    payLock.current = false;
+  };
+
   const handlePayment = async () => {
-    setLoading(true);
-    setIsPaying(true); // Indicate payment process has started
+    const openCharge = readPendingCharge();
+    if (openCharge) {
+      setChargeId(openCharge.chargeId);
+      setStep('awaiting');
+      setIsPaying(true);
+      toast({
+        title: "Payment still open",
+        description: "Finish the payment already started. A new one would charge you again.",
+      });
+      return;
+    }
 
-    // Save formData to sessionStorage before redirecting to Paychangu
-    sessionStorage.setItem('lauryn-luxe-booking-form', JSON.stringify(formData));
+    const payer = localMobileMoneyNumber(payerNumber, operator);
+    if (!payer) {
+      toast({
+        title: "Mobile money number",
+        description: operator === "tnm"
+          ? "TNM Mpamba needs a Malawi number starting with 08."
+          : "Airtel Money needs a Malawi number starting with 09.",
+        variant: "destructive",
+      });
+      return;
+    }
 
+    if (payLock.current) return;
+    payLock.current = true;
+    setIsPaying(true);
+    setFailureMessage('');
     try {
       const response = await fetch('/api/paychangu-checkout', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           formData,
-          loyaltyDiscountEligible,
-          // The amount should ideally be calculated on the server-side for security
-          // but for now, we'll pass the hardcoded deposit amount
-          amount: 10000,
-          callback_url: `${process.env.NEXT_PUBLIC_APP_URL}/booking/verifying`, // Your server's verification URL
-          return_url: `${process.env.NEXT_PUBLIC_APP_URL}/booking/status`, // URL for failed/cancelled payments
+          useSession: accountBooking || Boolean(session?.user),
+          operator,
+          mobile: payer,
         }),
       });
-
       const data = await response.json();
-
-      if (response.ok && data.checkout_url) {
-        window.location.href = data.checkout_url; // Redirect to Paychangu checkout page
-      } else {
-        throw new Error(data.message || 'Failed to initiate payment.');
+      if (!response.ok || !data.chargeId) {
+        throw new Error(data.message || 'Failed to start the payment.');
       }
+      const pending: PendingCharge = {
+        chargeId: data.chargeId,
+        operator,
+        mobile: payer,
+        formData,
+        useSession: accountBooking || Boolean(session?.user),
+      };
+      writePendingCharge(pending);
+      setChargeId(data.chargeId);
+      setStep('awaiting');
     } catch (error: any) {
-      console.error("Payment initiation failed:", error);
+      payLock.current = false;
       toast({
         title: "Payment Error",
-        description: error.message || "Could not initiate payment. Please try again.",
+        description: error.message || "Could not start the payment. Please try again.",
         variant: "destructive",
       });
-      setLoading(false);
       setIsPaying(false);
     }
   };
+
+  const handleRetryPayment = () => {
+    clearPendingCharge();
+    payLock.current = false;
+    setChargeId('');
+    setFailureMessage('');
+    setIsPaying(false);
+    setLoading(false);
+    setStep('payment');
+  };
+
+  const handleAwaitingRetry = async () => {
+    const openCharge = readPendingCharge();
+    const id = chargeId || openCharge?.chargeId || '';
+    if (!id) {
+      handleRetryPayment();
+      return;
+    }
+    try {
+      const response = await fetch('/api/verify-payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chargeId: id }),
+      });
+      const data = await response.json();
+      if (data.status === 'success' && data.booking) {
+        showTicket(data.booking);
+        return;
+      }
+      if (data.status === 'failed' || data.status === 'absent') {
+        handleRetryPayment();
+        return;
+      }
+      toast({
+        title: "Payment still open",
+        description: "Stay on this page. Starting again would charge you a second time.",
+      });
+    } catch {
+      toast({
+        title: "Still checking",
+        description: "The connection dropped. Stay on this page if you already approved the PIN.",
+      });
+    }
+  };
+
+  useEffect(() => {
+    if (step !== 'awaiting' || !chargeId) return;
+    const pending = readPendingCharge();
+    if (!pending || pending.chargeId !== chargeId) return;
+    if (initializeSent.current === chargeId) return;
+    initializeSent.current = chargeId;
+
+    void fetch('/api/paychangu-checkout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'initialize',
+        chargeId: pending.chargeId,
+        formData: pending.formData,
+        useSession: pending.useSession,
+        operator: pending.operator,
+        mobile: pending.mobile,
+      }),
+    }).then(async (initResponse) => {
+      if (initResponse.ok) return;
+      const body = await initResponse.json().catch(() => ({}));
+      const message = String(body.message || '');
+      const lower = message.toLowerCase();
+      if (message && !lower.includes('expired') && !lower.includes('already')) {
+        setFailureMessage(message);
+      }
+    }).catch(() => {
+      initializeSent.current = '';
+      setFailureMessage('The connection dropped. If you already approved the PIN, stay on this page.');
+    });
+  }, [step, chargeId]);
+
+  useEffect(() => {
+    if (step !== 'awaiting' || !chargeId) return;
+    let stopped = false;
+
+    const tick = async () => {
+      try {
+        const response = await fetch('/api/verify-payment', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ chargeId }),
+        });
+        const data = await response.json();
+        if (stopped) return;
+        if (data.status === 'success' && data.booking) {
+          showTicket(data.booking);
+        } else if (data.status === 'failed') {
+          clearPendingCharge();
+          setFailureMessage(data.message || 'Payment was not approved.');
+          setStep('failed');
+          setIsPaying(false);
+          payLock.current = false;
+        } else if (data.status === 'review' && data.message) {
+          setFailureMessage(data.message);
+        }
+      } catch {
+        // Keep polling. A closed request is not a failed payment.
+      }
+    };
+
+    tick();
+    const interval = setInterval(tick, 4000);
+    return () => {
+      stopped = true;
+      clearInterval(interval);
+    };
+  }, [step, chargeId]);
 
   return (
     <div>
@@ -378,7 +640,7 @@ function BookingContent() {
 
       <PageHeader
         title="Book an Appointment"
-        description="Schedule your visit to Lauryn Luxe Beauty Studio and treat yourself to a luxurious beauty experience."
+        description="Schedule your appointment at Lauryn Luxe Beauty Studio and treat yourself to a luxurious beauty experience."
         backgroundImage="/IMG_7410.png"
       />
 
@@ -403,6 +665,15 @@ function BookingContent() {
           setStep={setStep}
           loyaltyDiscountEligible={loyaltyDiscountEligible}
           isReschedule={isReschedule}
+          accountBooking={accountBooking}
+          operator={operator}
+          setOperator={setOperator}
+          payerNumber={payerNumber}
+          setPayerNumber={setPayerNumber}
+          failureMessage={failureMessage}
+          onRetry={handleRetryPayment}
+          onAwaitingRetry={handleAwaitingRetry}
+          ticketDetails={ticketDetails}
         />
       </div>
 
@@ -413,7 +684,7 @@ function BookingContent() {
           </DialogHeader>
           <div className="flex items-center justify-center py-8">
             <div className="text-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-pink-600 mx-auto mb-4"></div>
+              <LuxuryMark size="block" className="py-2" />
               <p id="booking-processing-description" className="text-gray-600">Please wait while we process your booking...</p>
             </div>
           </div>

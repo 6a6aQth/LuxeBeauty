@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { canonicalPhone } from '@/lib/phone';
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   const { id } = params;
@@ -55,7 +56,15 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
     // Add fields if provided in body
     if (name !== undefined) updateData.name = name;
-    if (phone !== undefined) updateData.phone = phone;
+    if (phone !== undefined) {
+      const canonical = canonicalPhone(String(phone));
+      if (!canonical) {
+        return NextResponse.json({
+          error: 'That phone number format is not okay.',
+        }, { status: 400 });
+      }
+      updateData.phone = canonical;
+    }
     if (date !== undefined) updateData.date = date;
     if (timeSlot !== undefined) updateData.timeSlot = timeSlot;
     if (services !== undefined) updateData.services = services;

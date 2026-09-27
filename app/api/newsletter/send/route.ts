@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
         const textBody = `${subject}\n\n${content}\n\nUnsubscribe here: ${unsubscribeUrl}`;
 
         return {
-          from: 'Lauryn Luxe Beauty Studio <noreply@laurynluxebeautystudio.com>',
+          from: 'Lauryn Luxe Beauty Studio <noreply@laurynbeautystudio.com>',
           to: subscriber.email,
           subject: subject,
           html: htmlBody,

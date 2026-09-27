@@ -17,11 +17,11 @@ const timelineData = [
           perfection in every nail we touch.
         </p>
         <Image
-          src="/IMG_7429.png"
-          alt="Precision nail art"
+          src="/images/nails-9.jpeg"
+          alt="Precision red manicure in progress"
           width={400}
           height={300}
-          className="rounded-lg object-cover w-full"
+          className="rounded-lg object-cover w-full h-64"
           sizes="(max-width: 768px) 100vw, 50vw"
         />
       </>
@@ -39,11 +39,11 @@ const timelineData = [
           quiet confidence.
         </p>
         <Image
-          src="/IMG_9067.png"
-          alt="Elegant nail design"
+          src="/images/nails-2.jpeg"
+          alt="Elegant floral nail art"
           width={400}
           height={300}
-          className="rounded-lg object-cover w-full"
+          className="rounded-lg object-cover w-full h-64"
           sizes="(max-width: 768px) 100vw, 50vw"
         />
       </>
@@ -61,11 +61,11 @@ const timelineData = [
           your physical appearance and inner peace.
         </p>
         <Image
-          src="/pedicure.jpg"
-          alt="Relaxing pedicure session"
+          src="/images/lamination-3.jpeg"
+          alt="Relaxing brow lamination appointment"
           width={400}
           height={300}
-          className="rounded-lg object-cover w-full"
+          className="rounded-lg object-cover w-full h-64"
           sizes="(max-width: 768px) 100vw, 50vw"
         />
       </>
@@ -83,11 +83,11 @@ const timelineData = [
           attention to ensure your complete satisfaction.
         </p>
         <Image
-          src="/IMG_7186.png"
-          alt="Premium studio experience"
+          src="/images/eyelashes-3.jpeg"
+          alt="Eyelash treatment at the studio"
           width={400}
           height={300}
-          className="rounded-lg object-cover w-full"
+          className="rounded-lg object-cover w-full h-64"
           sizes="(max-width: 768px) 100vw, 50vw"
         />
       </>
@@ -104,17 +104,7 @@ export default function AboutPage() {
       />
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-16">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
-          <div className="w-full h-auto">
-            <Image
-              src="/lauryn.jpg"
-              alt="Beautifully manicured hands with intricate red nail art"
-              width={800}
-              height={1000}
-              className="rounded-lg object-cover shadow-lg"
-              priority
-              sizes="(max-width: 768px) 100vw, 50vw"
-            />
-          </div>
+          <div className="hidden aspect-[3/4] md:block" aria-hidden="true" />
           <div>
             <h2 className="text-3xl md:text-4xl font-bold mb-4">
               About Lauryn

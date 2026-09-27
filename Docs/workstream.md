@@ -42,11 +42,11 @@ This file combines the planned development roadmap and the reactive work log (fi
 - [x] 5.3 Upload up to five inspiration photos to Vercel Blob and store the URLs on the booking
 - [x] 5.4 Show a confirmation ticket and let the customer download it as a PNG
 - [x] 5.5 Show a failed or cancelled payment status page
-- [x] 5.6 Poll payment verification from the verifying page after PayChangu redirects back
+- [x] 5.6 Poll payment verification from the verifying page after PayChangu redirects back [SUPERSEDED BY 16.0]
 - [ ] 5.7 Enforce file type and size limits on inspiration-photo uploads
 - [ ] 5.8 Load the in-progress booking from the database by transaction reference on the verifying page, so a cleared browser session can still finish
 
-6.0 PayChangu Payments (generated against SDD v1)
+6.0 PayChangu Payments (generated against SDD v1) [SUPERSEDED BY 16.0]
 - [x] 6.1 Create a PayChangu checkout session and redirect the customer to it
 - [x] 6.2 Verify a payment from the client, with retries, and mark the booking successful when PayChangu confirms it
 - [x] 6.3 Accept the PayChangu webhook, verify the HMAC signature, and confirm the booking only once
@@ -81,7 +81,7 @@ This file combines the planned development roadmap and the reactive work log (fi
 11.0 Admin Dashboard (generated against SDD v1)
 - [x] 11.1 Provide one admin screen for bookings, services, categories, availability, the price list, and newsletters
 - [x] 11.2 Default the booking list to all statuses so pending payments are visible
-- [ ] 11.3 Split the admin screen into separate panels for bookings, services, categories, availability, newsletter, and price list
+- [ ] 11.3 Split the admin screen into separate panels for bookings, services, categories, availability, newsletter, and price list [SUPERSEDED BY 19.0]
 - [ ] 11.4 Paginate booking queries used by the admin list and by slot availability
 
 12.0 Security and Build Safety (generated against SDD v1)
@@ -94,5 +94,108 @@ This file combines the planned development roadmap and the reactive work log (fi
 - [ ] 13.1 Prevent two successful bookings from occupying the same date and time slot, including under concurrent checkout
 - [ ] 13.2 Add error monitoring so production payment and SMS failures are visible without reading server logs
 
+14.0 Customer Accounts (generated against SDD v2)
+- [x] 14.1 Add Neon Auth (`createNeonAuth`, auth route handler, `NEON_AUTH_BASE_URL`, `NEON_AUTH_COOKIE_SECRET`) and read the customer session on the server. Leave guest booking, lookup, payment, and webhook routes public.
+- [x] 14.2 Add a `CustomerProfile` with unique `neonUserId`, name, unique email, and unique phone stored in the same string form bookings already use. Create it during signup. Do not add a user foreign key on `Booking`. [SUPERSEDED BY 15.0]
+- [x] 14.3 Build sign-up (name, email, password, phone) and sign-in (email, password), plus sign-out. Reject a phone that already belongs to an account.
+- [x] 14.4 In the header, show Sign in when there is no session and Account when there is one. A guest can still open booking and complete checkout with no session.
+- [x] 14.5 When a session exists, do not show name, phone, or email on the booking form. Submit the profile values on the booking. Guests still type those three fields.
+- [x] 14.6 Add `/account` with a Visits section split into Upcoming and Past: successful bookings whose phone equals the profile phone, using Africa/Blantyre for the split. Require a session. Do not offer ticket-id search on this page.
+- [x] 14.7 Opening an upcoming visit shows the same downloadable ticket the confirmation page already renders.
+- [x] 14.8 Reschedule from that upcoming visit uses the existing once / 24-hour notice / no extra payment rules, and the server rejects the request unless the booking phone is the session phone.
+- [x] 14.9 On the account page, show loyalty progress from the count of successful bookings for that phone. The discount rule stays every 6th booking at 30%. Example copy: "two visits until the 30% visit".
+- [x] 14.10 After signup, bookings already stored under that phone appear in Visits. Do not move bookings that use a different phone. [SUPERSEDED BY 15.0]
+
+15.0 Canonical Malawi phone for loyalty and visits (generated against SDD v3)
+- [ ] 15.1 Add one normalizer: strip spaces and dashes; accept `0` plus 9 digits, 9 digits, `265` plus 9 digits, or `+265` plus 9 digits; reject anything else; return `+265` plus 9 digits. [SUPERSEDED BY 15.8]
+- [x] 15.2 Save that value on guest checkout, signed-in checkout, signup, and admin phone edit. Signup uniqueness uses the canonical value.
+- [x] 15.3 Loyalty preview, payment verification, and the PayChangu webhook count successful bookings for that phone, including rows still stored in an equivalent form. Verification uses the phone stored on the booking.
+- [x] 15.4 Account visits and account reschedule compare canonical phones.
+- [x] 15.5 Rewrite existing `Booking.phone` and `CustomerProfile.phone` values that canonicalize. If two profiles collapse to one number, stop and report them; do not merge accounts.
+- [x] 15.6 Send confirmation SMS to that same canonical number.
+- [x] 15.7 Replace the signup note that says visits and loyalty match the number exactly as written.
+- [x] 15.8 Replace the Malawi-only normalizer. Save E.164. Collapse Malawi local forms, including brackets, an extra `0` after `+265`, and a leading letter `O`, to `+265` plus 9 digits. Accept any other number that already starts with `+` and a country code, such as `+256`. Do not invent a country code for `07…`. Reject names and junk.
+- [x] 15.9 On the booking, signup, and admin phone boxes, block letters and refuse submit until the value canonicalizes. Show that a Malawi number can be typed locally and every other country needs `+` and its country code. The server enforces the same rule.
+- [x] 15.10 When rewriting `Booking.phone`, also store already-international `+` numbers as digits-only E.164. Leave names, junk, and country-less non-Malawi numbers unchanged.
+
+16.0 Direct Charge booking payment (generated against SDD v5)
+- [x] 16.1 Remove hosted PayChangu checkout from the booking flow: no checkout URL, no redirect, and no use of the public key
+- [x] 16.2 Add a booking payment step that offers TNM Mpamba (`08`) and Airtel Money (`09`), in the studio UI, and stays on the site
+- [x] 16.3 Initialize a Direct Charge for MWK 100 with a new server-generated charge id, create the booking as pending, and ignore any amount from the browser
+- [x] 16.4 Poll PayChangu verify from that same page. On success, mark the booking successful, apply loyalty, send the SMS, show the ticket, and allow the PNG download
+- [x] 16.5 Email the ticket through Resend when the booking has an email. A failed send does not undo the booking
+- [x] 16.6 Keep the webhook route, reject it while `PAYCHANGU_WEBHOOK_SECRET` is missing, and when the secret exists require a valid `Signature` plus a fresh verify before the shared confirm path runs
+- [x] 16.7 Log initialize, verify, confirm, ticket email, and webhook attempts on `PaymentEvent`
+- [ ] 16.8 Restore the charged amount to K10,000 before this flow is used for real deposits
+
+17.0 Luxury loading mark (generated against SDD v5)
+- [x] 17.1 Add one shared mark from `/Llogo.png` with two sizes: a full-page black field, centered mark, soft glow, and at most one quiet line; and a smaller mark that leaves the header and footer in place
+- [x] 17.2 Use the full-page mark for the homepage “Loading...” suspense, the empty booking and reschedule suspense fallbacks, the booking status and verifying “Loading...” fallbacks, and any route navigation that is otherwise a blank wait
+- [x] 17.3 Use the full-page mark for account “Loading your visits…” and “Finishing sign-in…”. On sign-in, sign-up, Google, and profile-continue, keep the button label and show the small mark beside it
+- [x] 17.4 Replace the services catalog’s empty wait, the prices gray skeleton, and the booking form’s “Loading categories…” line with the small mark
+- [x] 17.5 Use the small mark for lookup search, “Show earlier visits”, the booking “Please wait while we process your booking...” line, and the admin subscriber “Loading...” count. Leave the payment step’s existing step copy in place
+
+18.0 Same email across Google and password (generated against SDD v5)
+- [x] 18.1 When someone who already continued with Google tries email and password sign-in, do not create a Neon user, do not create a CustomerProfile, and do not start a session. Tell them to continue with Google.
+- [x] 18.2 When someone tries to sign up with an email that already belongs to an account, including a Google sign-in that has not saved a phone yet, refuse it. Do not create a second profile.
+- [x] 18.3 On sign-up, require the password twice and refuse submit when the two values differ. On sign-up and sign-in, let the customer show or hide the password. Send one password to Neon Auth. Do not store it in the app database.
+- [x] 18.4 When a password account later continues with Google for the same verified email, keep the same Neon user and the existing CustomerProfile. Do not ask them to create a second profile.
+
+19.0 Admin phone dashboard (generated against SDD v5)
+- [x] 19.1 Build a phone-first shell on `/admin` after the existing password. One section at a time, opened from a nav: Overview, Bookings, Availability, Services, Users, Newsletter, and Price list. Use black and silver, with a little pink. A wide screen uses the same nav and sections with more room.
+- [x] 19.2 Overview opens first. Draw a line of successful bookings in Africa/Blantyre. Week is each day of the chosen week. Month is each day of the chosen month. Year is each month of the chosen year. She can move to the previous and next period. On a week or month, the top of the line is a full day (every slot that weekday). A full day meets the top. A lighter day sits lower in proportion, and the point shows the count. A date with no slots, including Sunday, sits at zero and does not set the top. On a year, the top is every offered slot in that month taken, and the point shows the month's count.
+- [x] 19.3 Users lists each account's name, email, and phone, for the admin screen only. Each row has a three-dot menu. The menu must not block, delete, or change the account.
+- [x] 19.4 Place the current booking list, availability editor, service and category editor, newsletter form, and price-list upload into those nav sections. Leave what each tool already does unchanged. Categories stay inside Services.
+
+## Reactive Log
+
+F1.0 — 26 Sept 2026 — After a successful PayChangu payment the ticket is shown (“Appointment confirmed”) and a destructive toast still says “Time Slot Unavailable / The time slot you selected is no longer available.”
+- Affected area: `components/booking-form.tsx` unavailable-slot effect; `app/booking/page.tsx` successful-booking poll (`/api/bookings?status=successful`, 1s).
+- Root cause: Once verify marks the booking `successful`, the next poll adds that date/time to `unavailableSlots`. The form effect still holds the same `formData.timeSlot`, treats the customer’s own booking as a lost slot, clears it, and toasts. The ticket reads separate `ticketDetails`, so both the error and the confirmed ticket render together. The PayChangu receipt and the ticket (for example 2027-08-31 10:00, Gel soak off, MWK 100) are the real outcome.
+- Fix: Do not clear the slot or show that toast after the customer has left the form, and never when the slot disappeared because this payment just confirmed it. Keep the warning only while they are still choosing a time and another booking or an admin block takes that slot.
+- Security-relevant: No
+- Priority: High
+- Capsule log: `F1.0-false-slot-unavailable-toast.md`
+- Status: Resolved
+
 ## Recent Activity Index
+- 27 Sept 2026 — 19.0 Admin phone dashboard
+- 27 Sept 2026 — 19.1 Phone-first nav in black, silver, and a little pink
+- 27 Sept 2026 — 19.2 Overview line of bookings by week, month, and year
+- 27 Sept 2026 — 19.3 Account list with a menu that does not change accounts
+- 27 Sept 2026 — 19.4 Existing admin tools move into the nav
+- 26 Sept 2026 — 18.0 Same email across Google and password
+- 26 Sept 2026 — 18.1 Google-only email cannot sign in with a password
+- 26 Sept 2026 — 18.2 Refuse sign-up when the email already exists
+- 26 Sept 2026 — 18.3 Confirm password and show or hide it
+- 26 Sept 2026 — 18.4 Google after a password account stays one profile
+- 26 Sept 2026 — 17.0 Luxury loading mark
+- 26 Sept 2026 — 17.1 Shared full-page and inline mark from `/Llogo.png`
+- 26 Sept 2026 — 17.2 Full-page waits on home, booking, status, and verifying
+- 26 Sept 2026 — 17.3 Account visits, finishing sign-in, and auth buttons
+- 26 Sept 2026 — 17.4 Services, prices, and booking categories
+- 26 Sept 2026 — 17.5 Lookup, earlier visits, booking wait, and subscriber count
+- 26 Sept 2026 — F1.0 resolved
+- 26 Sept 2026 — F1.0 False “Time Slot Unavailable” toast after a successful payment
+- 25 Sept 2026 — 16.0 Direct Charge booking payment
+- 25 Sept 2026 — 16.1 Remove hosted checkout
+- 25 Sept 2026 — 16.2 On-site TNM and Airtel payment step
+- 25 Sept 2026 — 16.3 Initialize MWK 100 Direct Charge
+- 25 Sept 2026 — 16.4 Verify, then ticket and database
+- 25 Sept 2026 — 16.5 Email the ticket with Resend
+- 25 Sept 2026 — 16.6 Webhook backup gated on secret
+- 25 Sept 2026 — 16.7 Payment event log
+- 25 Sept 2026 — 16.8 Restore K10,000 after the test
+- 25 Sept 2026 — 15.8 E.164 storage, Malawi collapse, international `+` numbers
+- 25 Sept 2026 — 15.9 Phone boxes reject messy input
+- 25 Sept 2026 — 15.10 Rewrite keeps foreign `+` numbers and leaves junk
+- 25 Sept 2026 — 15.0 Canonical Malawi phone for loyalty and visits
+- 25 Sept 2026 — 15.1 Shared phone normalizer
+- 25 Sept 2026 — 15.2 Save canonical phone on checkout, signup, and admin edit
+- 25 Sept 2026 — 15.3 Loyalty counts equivalent phone forms
+- 25 Sept 2026 — 15.4 Account visits and reschedule use the canonical phone
+- 25 Sept 2026 — 15.5 Rewrite stored phones; do not merge colliding profiles
+- 25 Sept 2026 — 15.6 SMS uses the canonical number
+- 25 Sept 2026 — 15.7 Signup copy no longer says the raw string is the match
+- 25 Sept 2026 — 14.0 Customer accounts with optional Neon Auth sign-in
 - 25 Sept 2026 — Initial roadmap generated (13 parent tasks, against SDD v1)

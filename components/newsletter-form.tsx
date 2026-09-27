@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/hooks/use-toast';
+import { LuxuryMark } from '@/components/luxury-mark';
 
 interface Subscriber {
   id: string;
@@ -82,8 +83,7 @@ export default function NewsletterForm() {
   };
 
   return (
-    <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6 max-w-4xl mx-auto">
-      <h2 className="text-2xl font-serif mb-4">Create Newsletter</h2>
+    <div className="max-w-3xl rounded-3xl border border-stone-200 bg-white p-6">
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <Input
@@ -91,7 +91,7 @@ export default function NewsletterForm() {
             placeholder="Newsletter Subject"
             value={subject}
             onChange={(e) => setSubject(e.target.value)}
-            className="w-full"
+            className="rounded-2xl border-stone-200"
             required
           />
         </div>
@@ -100,15 +100,15 @@ export default function NewsletterForm() {
             placeholder="Write your newsletter content here..."
             value={content}
             onChange={(e) => setContent(e.target.value)}
-            className="min-h-[200px]"
+            className="min-h-[200px] rounded-2xl border-stone-200"
             required
           />
         </div>
         <div className="flex justify-between items-center">
-          <p className="text-sm text-gray-500">
-            {isLoading ? 'Loading...' : `${subscribers.length} subscriber(s)`}
+          <p className="text-sm text-stone-500">
+            {isLoading ? <LuxuryMark size="button" /> : `${subscribers.length} subscriber${subscribers.length === 1 ? "" : "s"}`}
           </p>
-          <Button type="submit" disabled={!subject || !content || subscribers.length === 0 || isSending}>
+          <Button type="submit" disabled={!subject || !content || subscribers.length === 0 || isSending} className="rounded-full bg-[#f4c6d4] text-[#6e243f] hover:bg-[#e7b4c4]">
             {isSending ? 'Sending...' : 'Send Newsletter'}
           </Button>
         </div>

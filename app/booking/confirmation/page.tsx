@@ -11,6 +11,8 @@ import { Button } from '@/components/ui/animated-download-button'
 import { Mail, Phone, Home } from 'lucide-react'
 import { Service } from '@/types/types';
 import { format, parseISO } from 'date-fns'
+import { formatDeposit } from '@/lib/deposit'
+import { LuxuryMark } from '@/components/luxury-mark'
 
 interface BookingDetails {
   id: string
@@ -30,7 +32,10 @@ interface BookingDetails {
 
 export default function BookingConfirmationPage() {
   const [bookingDetails, setBookingDetails] = useState<BookingDetails | null>(null);
+  const [loadError, setLoadError] = useState('');
   const [isClient, setIsClient] = useState(false);
+  const [ticketReady, setTicketReady] = useState(false);
+  const [servicesReady, setServicesReady] = useState(false);
   const [allServices, setAllServices] = useState<Service[]>([]);
   const ticketRef = useRef<HTMLDivElement>(null);
 
@@ -51,9 +56,10 @@ export default function BookingConfirmationPage() {
           } catch {}
         }
 
-        const ticketId = ticketIdFromSession;
+        const ticketFromUrl = new URLSearchParams(window.location.search).get('ticketId') || undefined;
+        const ticketId = ticketFromUrl || ticketIdFromSession;
         if (!ticketId) {
-          // No ticketId – leave as null; user may have navigated here directly
+          setLoadError('Open this page from your booking or reschedule confirmation.');
           setBookingDetails(null);
           return;
         }
@@ -63,12 +69,19 @@ export default function BookingConfirmationPage() {
         const arr = await res.json();
         const b = arr?.[0];
         if (!b) {
+          setLoadError('We could not find that ticket.');
+          setBookingDetails(null);
+          return;
+        }
+        if (b.status && b.status !== 'successful') {
+          setLoadError('This payment is still open. Return to booking and stay on that page. Do not start a second payment.');
           setBookingDetails(null);
           return;
         }
 
         const isReschedule = (b.rescheduleCount ?? 0) > 0;
-        const feeString = isReschedule ? 'Rescheduled - No Additional Charge' : (fallbackFee || 'K10,000 (Paid)');
+        const feeString = isReschedule ? 'Rescheduled - No Additional Charge' : (fallbackFee || `${formatDeposit()} (Paid)`);
+        setLoadError('');
 
         setBookingDetails({
           id: b.id,
@@ -85,7 +98,10 @@ export default function BookingConfirmationPage() {
           originalDate: b.originalDate,
         });
       } catch {
+        setLoadError('We could not load this ticket. If you already paid, return to booking and stay on that page.');
         setBookingDetails(null);
+      } finally {
+        setTicketReady(true);
       }
     };
 
@@ -100,6 +116,8 @@ export default function BookingConfirmationPage() {
         }
       } catch (error) {
         console.error('Failed to fetch services', error);
+      } finally {
+        setServicesReady(true);
       }
     };
     fetchServices();
@@ -165,21 +183,21 @@ export default function BookingConfirmationPage() {
     }
   }
 
-  if (!isClient) {
-    return null; // Render nothing on the server
+  if (!isClient || !ticketReady || !servicesReady) {
+    return <LuxuryMark variant="page" />
   }
 
   if (!bookingDetails) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-gray-50 text-center p-4">
         <h1 className="text-2xl font-bold text-red-600 mb-4">
-          Payment was not successful
+          Ticket not available
         </h1>
         <p className="text-gray-600 mb-8">
-          Please try booking again.
+          {loadError || 'We could not open this ticket.'}
         </p>
         <PrimitiveButton asChild>
-          <Link href="/booking">Try Booking Again</Link>
+          <Link href="/booking">Back to booking</Link>
         </PrimitiveButton>
       </div>
     );

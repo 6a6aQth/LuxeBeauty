@@ -7,16 +7,14 @@ import {
   Sheet,
   SheetContent,
   SheetDescription,
-  SheetHeader,
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet"
-import { MenuIcon } from "lucide-react"
+import { MenuIcon, UserRound } from "lucide-react"
 import Logo from "@/components/logo"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 
 const navLinks = [
-  { href: "/", label: "Home" },
   { href: "/about", label: "About" },
   { href: "/services", label: "Services" },
   { href: "/prices", label: "Prices" },
@@ -26,16 +24,63 @@ const navLinks = [
   { href: "/policies", label: "Policies" },
 ]
 
+function HeaderLogo() {
+  return (
+    <Link href="/" aria-label="Lauryn Luxe Beauty Studio" className="inline-flex shrink-0 text-black">
+      <Logo />
+    </Link>
+  )
+}
+
+function AccountMenu({ signedIn, onNavigate }: { signedIn: boolean; onNavigate?: () => void }) {
+  if (!signedIn) {
+    return (
+      <Button asChild className="rounded-lg bg-[#f4c6d4] text-[#6e243f] hover:bg-[#e7b4c4]">
+        <Link href="/sign-in" onClick={() => onNavigate?.()}>
+          Sign in
+        </Link>
+      </Button>
+    )
+  }
+
+  return (
+    <Link
+      href="/account"
+      aria-label="Account"
+      onClick={() => onNavigate?.()}
+      className="flex h-11 w-11 items-center justify-center rounded-full border border-gray-300 bg-white text-gray-700 hover:border-pink-400 hover:text-pink-600"
+    >
+      <UserRound className="h-5 w-5" />
+    </Link>
+  )
+}
+
 const Header = () => {
   const pathname = usePathname()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const [signedIn, setSignedIn] = useState(false)
+  const [checked, setChecked] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    async function load() {
+      const response = await fetch("/api/account/profile", { cache: "no-store" })
+      if (cancelled) return
+      setSignedIn(response.status === 200 || response.status === 404)
+      setChecked(true)
+    }
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [pathname])
 
   const isAdminPage = pathname.startsWith('/admin')
 
   return (
     <header id="main-header" className="bg-white shadow-md">
       <div className="container mx-auto px-4 min-h-20 py-2 flex justify-between items-center">
-        <Logo />
+        <HeaderLogo />
 
         {/* Desktop Navigation */}
         {!isAdminPage && (
@@ -62,14 +107,22 @@ const Header = () => {
               <span className="font-semibold text-pink-600">Admin</span>
             </div>
           ) : (
-            <Button asChild className="rounded-none">
-              <Link href="/booking">Book Appointment</Link>
-            </Button>
+            <div className="flex items-center gap-6">
+              {!isAdminPage && checked && (
+                <AccountMenu signedIn={signedIn} />
+              )}
+              <Button asChild className="rounded-lg">
+                <Link href="/booking">Book Appointment</Link>
+              </Button>
+            </div>
           )}
         </div>
 
         {/* Mobile Navigation */}
-        <div className="md:hidden">
+        <div className="flex items-center gap-2 md:hidden">
+          {!isAdminPage && checked && (
+            <AccountMenu signedIn={signedIn} onNavigate={() => setIsMobileMenuOpen(false)} />
+          )}
           <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
             <SheetTrigger asChild>
               <Button variant="outline" size="icon">
@@ -84,7 +137,7 @@ const Header = () => {
               </SheetDescription>
               <div className="flex flex-col h-full">
                 <div className="p-6">
-                  <Logo />
+                  <HeaderLogo />
                 </div>
                 {!isAdminPage && (
                   <nav className="flex flex-col items-center justify-center flex-1 gap-6 text-lg">
