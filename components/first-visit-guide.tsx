@@ -83,7 +83,7 @@ export function FirstVisitGuide() {
     <AnimatePresence>
       {open ? (
         <motion.div
-          className="fixed inset-0 z-[90] flex items-end justify-center bg-black/55 p-3 backdrop-blur-sm sm:items-center sm:p-6"
+          className="fixed inset-0 z-[90] flex items-end justify-center bg-black/55 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-sm sm:items-center sm:p-6"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -101,15 +101,20 @@ export function FirstVisitGuide() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 16 }}
             transition={{ duration: 0.35, ease: "easeOut" }}
-            className="grid max-h-[min(760px,100dvh-1.5rem)] w-full max-w-4xl overflow-hidden rounded-[28px] bg-[#f6f3ef] shadow-2xl outline-none md:grid-cols-[240px_1fr]"
+            className="flex h-[min(720px,calc(100svh-1.5rem-env(safe-area-inset-bottom,0px)))] w-full max-w-4xl flex-col overflow-hidden rounded-[28px] bg-[#f6f3ef] shadow-2xl outline-none md:grid md:grid-cols-[240px_1fr]"
           >
-            <div className="bg-black px-6 py-5 text-[#f4f0ea] md:flex md:flex-col md:px-7 md:py-8">
-              <div>
-                <p className="text-[10px] tracking-[0.42em] text-stone-500">ESTD — 2022</p>
-                <p className="mt-2 font-serif text-2xl tracking-[0.16em]">LAURYN</p>
-                <p className="-mt-1 font-great-vibes text-3xl text-stone-100">luxe</p>
-                <div className="mt-3 h-px bg-gradient-to-r from-[#f4c6d4] via-[#f4c6d4]/50 to-transparent" />
+            <div className="shrink-0 bg-black px-6 py-4 text-[#f4f0ea] md:flex md:flex-col md:px-7 md:py-8">
+              <div className="flex items-end justify-between gap-4 md:block">
+                <div>
+                  <p className="text-[10px] tracking-[0.42em] text-stone-500">ESTD — 2022</p>
+                  <p className="mt-1 font-serif text-xl tracking-[0.16em] md:mt-2 md:text-2xl">LAURYN</p>
+                  <p className="-mt-1 font-great-vibes text-2xl text-stone-100 md:text-3xl">luxe</p>
+                </div>
+                <p className="pb-1 font-serif text-sm tracking-[0.2em] text-stone-500 md:hidden">
+                  {String(step + 1).padStart(2, "0")} / {String(steps.length).padStart(2, "0")}
+                </p>
               </div>
+              <div className="mt-3 h-px bg-gradient-to-r from-[#f4c6d4] via-[#f4c6d4]/50 to-transparent" />
               <ol className="mt-5 hidden space-y-2 md:block">
                 {steps.map((item, index) => (
                   <li key={item.label}>
@@ -126,13 +131,13 @@ export function FirstVisitGuide() {
                   </li>
                 ))}
               </ol>
-              <p className="mt-4 font-serif text-sm tracking-[0.2em] text-stone-500 md:mt-auto">
+              <p className="mt-auto hidden pt-4 font-serif text-sm tracking-[0.2em] text-stone-500 md:block">
                 {String(step + 1).padStart(2, "0")} / {String(steps.length).padStart(2, "0")}
               </p>
             </div>
 
-            <div className="flex min-h-0 flex-col overflow-y-auto px-6 py-5 sm:px-8 sm:py-7">
-              <div className="flex items-center justify-between gap-4">
+            <div className="flex min-h-0 flex-1 flex-col">
+              <div className="flex shrink-0 items-center justify-between gap-4 px-6 pt-4 sm:px-8 sm:pt-7">
                 <div className="flex gap-1.5" aria-hidden="true">
                   {steps.map((item, index) => (
                     <span
@@ -152,43 +157,44 @@ export function FirstVisitGuide() {
                 </button>
               </div>
 
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={step}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -8 }}
-                  transition={{ duration: 0.22 }}
-                  className="mt-8"
-                >
-                  <p className="text-[11px] uppercase tracking-[0.28em] text-[#6e243f]">{current.kicker}</p>
-                  <h2 id={titleId} className="mt-3 font-serif text-4xl leading-tight text-stone-900">
-                    {current.title}
-                  </h2>
-                  <p className="mt-4 max-w-md text-base leading-relaxed text-stone-600">{current.body}</p>
-                </motion.div>
-              </AnimatePresence>
-
-              {last ? (
-                <div className="mt-8 flex flex-wrap gap-3">
-                  <Link
-                    href="/booking"
-                    onClick={dismiss}
-                    className="rounded-full bg-[#f4c6d4] px-5 py-2.5 text-sm text-[#6e243f] hover:bg-[#e7b4c4]"
+              <div className="min-h-0 flex-1 overflow-y-auto px-6 sm:px-8">
+                <AnimatePresence mode="wait">
+                  <motion.div
+                    key={step}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -8 }}
+                    transition={{ duration: 0.22 }}
+                    className="py-5"
                   >
-                    Book a visit
-                  </Link>
-                  <Link
-                    href="/sign-up"
-                    onClick={dismiss}
-                    className="rounded-full border border-[#f4c6d4] px-5 py-2.5 text-sm text-[#6e243f] hover:bg-[#f4c6d4]/40"
-                  >
-                    Create an account
-                  </Link>
-                </div>
-              ) : null}
+                    <p className="text-[11px] uppercase tracking-[0.28em] text-[#6e243f]">{current.kicker}</p>
+                    <h2 id={titleId} className="mt-3 font-serif text-3xl leading-tight text-stone-900 sm:text-4xl">
+                      {current.title}
+                    </h2>
+                    <p className="mt-4 max-w-md text-base leading-relaxed text-stone-600">{current.body}</p>
+                    {last ? (
+                      <div className="mt-6 flex flex-wrap gap-3">
+                        <Link
+                          href="/booking"
+                          onClick={dismiss}
+                          className="rounded-full bg-[#f4c6d4] px-5 py-2.5 text-sm text-[#6e243f] hover:bg-[#e7b4c4]"
+                        >
+                          Book a visit
+                        </Link>
+                        <Link
+                          href="/sign-up"
+                          onClick={dismiss}
+                          className="rounded-full border border-[#f4c6d4] px-5 py-2.5 text-sm text-[#6e243f] hover:bg-[#f4c6d4]/40"
+                        >
+                          Create an account
+                        </Link>
+                      </div>
+                    ) : null}
+                  </motion.div>
+                </AnimatePresence>
+              </div>
 
-              <div className="mt-auto flex items-center justify-between gap-3 pt-8">
+              <div className="flex shrink-0 items-center justify-between gap-3 border-t border-[#f3d0db] px-6 py-4 sm:px-8">
                 <button
                   type="button"
                   onClick={() => setStep((value) => Math.max(0, value - 1))}
