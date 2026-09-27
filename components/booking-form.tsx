@@ -70,6 +70,8 @@ export function BookingForm({
   failureMessage,
   onRetry,
   onAwaitingRetry,
+  onCancelPayment,
+  cancelConfirm,
   ticketDetails,
 }: BookingFormProps) {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -575,16 +577,20 @@ export function BookingForm({
               ) : step === "awaiting" ? (
                 <div className="space-y-4 text-center">
                   <div className="mx-auto h-8 w-8 animate-spin rounded-full border-b-2 border-brand-pink" />
-                  <p className="text-gray-700">Check your phone and approve the PIN prompt. This page will update when PayChangu confirms the payment.</p>
+                  <p className="text-gray-700">Check your phone and approve the PIN prompt. This page will update when the payment is confirmed.</p>
                   <p className="text-sm text-gray-500">Charge {formatDeposit()}. Stay on this page. Refreshing will not start a second charge.</p>
                   {failureMessage ? (
                     <p className="text-sm text-red-600">{failureMessage}</p>
                   ) : null}
-                  {failureMessage && onAwaitingRetry ? (
-                    <Button type="button" variant="outline" className="w-full" onClick={onAwaitingRetry}>
-                      Start a new payment only if this one did not go through
-                    </Button>
-                  ) : null}
+                  <div className="flex justify-center pt-1">
+                    <button
+                      type="button"
+                      onClick={onCancelPayment}
+                      className="rounded-full bg-[#f4c6d4] px-5 py-2.5 text-sm text-[#6e243f] hover:bg-[#e7b4c4]"
+                    >
+                      {cancelConfirm ? "Leave this payment" : "Cancel payment"}
+                    </button>
+                  </div>
                 </div>
               ) : step === "failed" ? (
                 <div className="space-y-4 text-center">
@@ -654,6 +660,9 @@ export function BookingForm({
                   </div>
 
                   <div className="space-y-3">
+                    {failureMessage ? (
+                      <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{failureMessage}</p>
+                    ) : null}
                     <p className="text-sm font-medium text-gray-900">Pay {formatDeposit()} with</p>
                     <div className="grid grid-cols-2 gap-3">
                       <Button

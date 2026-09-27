@@ -61,10 +61,15 @@ export async function GET(req: NextRequest) {
   const page = Math.max(1, Number(new URL(req.url).searchParams.get("pastPage") || "1") || 1)
   const visiblePast = past.slice(0, page * PAST_PAGE_SIZE)
   const count = bookings.length
+  const subscription = await prisma.newsletterSubscription.findFirst({
+    where: { email: { equals: profile.email, mode: "insensitive" } },
+    select: { id: true },
+  })
 
   return NextResponse.json({
     name: profile.name,
     phone: profile.phone,
+    newsletter: Boolean(subscription),
     upcoming,
     past: visiblePast,
     pastTotal: past.length,

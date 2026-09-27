@@ -35,6 +35,8 @@ export interface BookingFormProps {
   failureMessage?: string;
   onRetry: () => void;
   onAwaitingRetry?: () => void;
+  onCancelPayment?: () => void;
+  cancelConfirm?: boolean;
   ticketDetails?: {
     name: string;
     date: string;

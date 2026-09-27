@@ -12,6 +12,17 @@ function getSecretKey(): string {
   return key
 }
 
+/** PayChangu sometimes returns `message` as an object. Never surface that as "[object Object]". */
+export function paychanguText(value: unknown): string {
+  if (typeof value === "string") return value.trim()
+  if (Array.isArray(value)) return value.map(paychanguText).filter(Boolean).join(" ")
+  if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>
+    return paychanguText(record.message) || paychanguText(record.error) || paychanguText(record.detail)
+  }
+  return ""
+}
+
 let operatorsCache: MobileMoneyOperator[] | null = null
 
 export async function getMobileMoneyOperators(): Promise<MobileMoneyOperator[]> {
@@ -22,7 +33,7 @@ export async function getMobileMoneyOperators(): Promise<MobileMoneyOperator[]> 
   })
   const body = await res.json()
   if (!res.ok || body.status !== "success" || !Array.isArray(body.data)) {
-    throw new Error(body.message || "PayChangu operator lookup failed.")
+    throw new Error(paychanguText(body.message) || "PayChangu operator lookup failed.")
   }
   operatorsCache = body.data as MobileMoneyOperator[]
   return operatorsCache
@@ -71,7 +82,7 @@ export async function chargeMobileMoney(params: {
   })
   const body = await res.json().catch(() => ({}))
   if (!res.ok || body.status !== "success") {
-    throw new Error(body.message || "PayChangu could not start the payment.")
+    throw new Error(paychanguText(body.message) || "PayChangu could not start the payment.")
   }
   return {
     chargeId: (body.data?.charge_id as string) || params.chargeId,
@@ -100,7 +111,7 @@ export async function verifyDirectCharge(chargeId: string): Promise<VerifyDirect
   )
   const body = await res.json().catch(() => ({}))
   if (!res.ok) {
-    const error = new Error(body.message || "PayChangu verify failed.") as Error & { status?: number }
+    const error = new Error(paychanguText(body.message) || "PayChangu verify failed.") as Error & { status?: number }
     error.status = res.status
     throw error
   }

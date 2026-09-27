@@ -20,6 +20,7 @@ import { authClient } from "@/lib/auth/client"
 import { formatDeposit } from "@/lib/deposit"
 import { LuxuryMark } from "@/components/luxury-mark"
 import { localMobileMoneyNumber, type MobileOperator } from "@/lib/mobile-money"
+import { paychanguText } from "@/lib/paychangu-direct"
 import type { TicketDetails } from "@/components/booking-ticket"
 
 const loadingStates = [
@@ -95,6 +96,7 @@ function BookingContent() {
   const [payerNumber, setPayerNumber] = useState('')
   const [chargeId, setChargeId] = useState('')
   const [failureMessage, setFailureMessage] = useState('')
+  const [cancelConfirm, setCancelConfirm] = useState(false)
   const [ticketDetails, setTicketDetails] = useState<TicketDetails | null>(null)
   const [isPaying, setIsPaying] = useState(false)
   const [agreedToTerms, setAgreedToTerms] = useState(false)
@@ -498,7 +500,7 @@ function BookingContent() {
       });
       const data = await response.json();
       if (!response.ok || !data.chargeId) {
-        throw new Error(data.message || 'Failed to start the payment.');
+        throw new Error(paychanguText(data.message) || 'Failed to start the payment.');
       }
       const pending: PendingCharge = {
         chargeId: data.chargeId,
@@ -526,9 +528,51 @@ function BookingContent() {
     payLock.current = false;
     setChargeId('');
     setFailureMessage('');
+    setCancelConfirm(false);
     setIsPaying(false);
     setLoading(false);
     setStep('payment');
+  };
+
+  const handleCancelPayment = async () => {
+    if (cancelConfirm) {
+      clearPendingCharge();
+      payLock.current = false;
+      setChargeId('');
+      setCancelConfirm(false);
+      setIsPaying(false);
+      setLoading(false);
+      setFailureMessage('This page is no longer waiting. If you already approved the PIN, do not start another payment until you have checked your phone.');
+      setStep('payment');
+      return;
+    }
+
+    const openCharge = readPendingCharge();
+    const id = chargeId || openCharge?.chargeId || '';
+    if (!id) {
+      handleRetryPayment();
+      return;
+    }
+    try {
+      const response = await fetch('/api/verify-payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chargeId: id }),
+      });
+      const data = await response.json();
+      if (data.status === 'success' && data.booking) {
+        showTicket(data.booking);
+        return;
+      }
+      if (data.status === 'failed' || data.status === 'absent') {
+        handleRetryPayment();
+        return;
+      }
+    } catch {
+      // The charge may still be open. Ask before leaving the page.
+    }
+    setCancelConfirm(true);
+    setFailureMessage('This payment is still open. If you already approved the PIN, leaving this page does not stop it.');
   };
 
   const handleAwaitingRetry = async () => {
@@ -586,11 +630,12 @@ function BookingContent() {
     }).then(async (initResponse) => {
       if (initResponse.ok) return;
       const body = await initResponse.json().catch(() => ({}));
-      const message = String(body.message || '');
+      const message = paychanguText(body.message) || paychanguText(body.error);
       const lower = message.toLowerCase();
-      if (message && !lower.includes('expired') && !lower.includes('already')) {
-        setFailureMessage(message);
+      if (!message || message === '[object Object]' || lower.includes('expired') || lower.includes('already')) {
+        return;
       }
+      setFailureMessage(message);
     }).catch(() => {
       initializeSent.current = '';
       setFailureMessage('The connection dropped. If you already approved the PIN, stay on this page.');
@@ -614,12 +659,12 @@ function BookingContent() {
           showTicket(data.booking);
         } else if (data.status === 'failed') {
           clearPendingCharge();
-          setFailureMessage(data.message || 'Payment was not approved.');
+          setFailureMessage(paychanguText(data.message) || 'Payment was not approved.');
           setStep('failed');
           setIsPaying(false);
           payLock.current = false;
         } else if (data.status === 'review' && data.message) {
-          setFailureMessage(data.message);
+          setFailureMessage(paychanguText(data.message) || 'Stay on this page and do not start another payment.');
         }
       } catch {
         // Keep polling. A closed request is not a failed payment.
@@ -673,6 +718,8 @@ function BookingContent() {
           failureMessage={failureMessage}
           onRetry={handleRetryPayment}
           onAwaitingRetry={handleAwaitingRetry}
+          onCancelPayment={handleCancelPayment}
+          cancelConfirm={cancelConfirm}
           ticketDetails={ticketDetails}
         />
       </div>

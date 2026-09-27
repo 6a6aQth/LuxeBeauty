@@ -27,8 +27,9 @@ type VisitsPayload = {
   name: string
   phone: string
   pastTotal: number
-  pastHasMore: boolean
-  loyalty: {
+    pastHasMore: boolean
+    newsletter: boolean
+    loyalty: {
     copy: string
     successfulCount: number
     visitsUntilDiscount: number
@@ -87,6 +88,7 @@ export default function AccountPage() {
   const [loadingMore, setLoadingMore] = useState(false)
   const [downloadingId, setDownloadingId] = useState<string | null>(null)
   const [signingOut, setSigningOut] = useState(false)
+  const [newsletterBusy, setNewsletterBusy] = useState(false)
   const ticketNodes = useRef(new Map<string, HTMLDivElement>())
 
   useEffect(() => {
@@ -141,6 +143,22 @@ export default function AccountPage() {
   }
   const firstName = payload?.name.split(" ")[0] || ""
   const filled = payload ? 6 - payload.loyalty.visitsUntilDiscount : 0
+
+  async function toggleNewsletter() {
+    if (!payload || newsletterBusy) return
+    setNewsletterBusy(true)
+    try {
+      const response = await fetch("/api/account/newsletter", { method: payload.newsletter ? "DELETE" : "POST" })
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        setError(typeof data.error === "string" ? data.error : "Could not update the newsletter.")
+        return
+      }
+      setPayload({ ...payload, newsletter: Boolean(data.subscribed) })
+    } finally {
+      setNewsletterBusy(false)
+    }
+  }
 
   async function signOut() {
     if (signingOut) return
@@ -214,6 +232,23 @@ export default function AccountPage() {
                     </div>
                   )
                 })}
+              </div>
+              <Link
+                href="/booking"
+                className="mx-auto mt-6 flex w-fit rounded-full bg-[#f4c6d4] px-5 py-2.5 text-sm text-[#6e243f] hover:bg-[#e7b4c4] lg:mx-0"
+              >
+                Book an appointment
+              </Link>
+              <div className="mt-6 border-t border-pink-100 pt-5">
+                <p className="text-[11px] uppercase tracking-[0.28em] text-brand-pink">Newsletter</p>
+                <button
+                  type="button"
+                  disabled={newsletterBusy}
+                  onClick={toggleNewsletter}
+                  className="mt-3 text-sm text-[#6e243f] underline decoration-[#f4c6d4] underline-offset-4 hover:text-[#e7b4c4] disabled:opacity-60"
+                >
+                  {payload.newsletter ? "Unsubscribe" : "Subscribe"}
+                </button>
               </div>
             </aside>
 

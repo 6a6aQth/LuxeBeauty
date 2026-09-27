@@ -35,7 +35,7 @@ const steps = [
     label: "Account",
     kicker: "Sign in",
     title: "Come back as yourself.",
-    body: "Create an account with your email, a password, and your phone. The blush Sign in button in the header is where you return. Guest booking still works without one.",
+    body: "Create an account with your email, a password, and your phone. Once you sign in, your upcoming appointments stay on this page so you can see them any time. The blush Sign in button in the header is where you return. Guest booking still works without one.",
   },
   {
     label: "Ticket",
