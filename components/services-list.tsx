@@ -27,15 +27,18 @@ export function ServicesList({ groupedServices }: ServicesListProps) {
 
     const serviceImages: Record<string, string> = {
         manicure: "/images/nails-1.jpeg",
-        pedicure: "/images/nails-8.jpeg",
+        pedicure: "/pedicure.jpg",
         refills: "/images/nails-4.jpeg",
         'nail-art': "/images/nails-5.jpeg",
         'soak-off': "/images/nails-7.jpeg",
         nails: "/images/nails-2.jpeg",
         lamination: "/images/lamination-2.jpeg",
         'brow-lamination': "/images/lamination-1.jpeg",
+        eyebrows: "/images/lamination-1.jpeg",
         eyelashes: "/images/eyelashes-2.jpeg",
-        lashes: "/images/eyelashes-1.jpeg",
+        lashes: "/images/eyelashes-2.jpeg",
+        'eye lashes': "/images/eyelashes-2.jpeg",
+        'eye-lashes': "/images/eyelashes-2.jpeg",
     }
 
     const categoryDescriptions: Record<string, string> = {
@@ -86,7 +89,7 @@ export function ServicesList({ groupedServices }: ServicesListProps) {
                     <div className="sticky top-24">
                       <div className="aspect-square relative overflow-hidden rounded-lg shadow-lg mb-6">
                         <Image
-                          src={serviceImages[category] || '/images/nails-3.jpeg'}
+                          src={serviceImages[category] || serviceImages[category.toLowerCase()] || '/images/nails-3.jpeg'}
                           alt={`${category.replace(/-/g, " ")} services`}
                           fill
                           className="object-cover"

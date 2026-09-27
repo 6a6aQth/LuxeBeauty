@@ -56,14 +56,6 @@ export function AdminNav({ section, onSectionChange, onLogout }: AdminNavProps) 
           Log out
         </button>
       </nav>
-
-      <div className="relative mt-3 min-h-0 flex-1 overflow-hidden">
-        <img
-          src="/Admin-Image.png"
-          alt=""
-          className="h-full w-full object-contain object-bottom"
-        />
-      </div>
     </div>
   )
 }
