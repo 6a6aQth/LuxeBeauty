@@ -4,14 +4,11 @@ import type React from "react"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { toast } from "@/hooks/use-toast"
 import { parseISO, format, isValid, subDays, isAfter } from "date-fns"
 import { formatTime } from "@/lib/time-slots"
-import { PageHeader } from "@/components/page-header"
-import Link from 'next/link'
 import { LuxuryMark } from "@/components/luxury-mark"
 
 interface Booking {
@@ -120,133 +117,42 @@ export default function BookingLookupPage() {
   }
 
   return (
-    <div className="min-h-screen bg-pink-50">
-      <PageHeader 
-        title="Find Your Booking" 
-        description="Enter your Ticket ID to view your appointment details"
-      />
-      
-      <div className="container mx-auto px-4 py-8">
-        <div className="max-w-4xl mx-auto">
+    <div className="min-h-screen bg-[#faf7f8]">
+      <div className={`mx-auto px-4 py-12 text-center md:py-16 ${booking ? "max-w-3xl" : "max-w-md"}`}>
+        <h1 className="font-serif text-4xl text-gray-900">Find your booking</h1>
+
           {!booking ? (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center mt-12">
-              {/* Left Side - Form */}
-              <div className="order-2 lg:order-1">
-                <Card className="bg-white border-0 shadow-xl">
-                  <CardHeader className="text-center pb-6">
-                    <div className="mx-auto w-16 h-16 bg-pink-500 rounded-full flex items-center justify-center mb-4">
-                      <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                      </svg>
-                    </div>
-                    <CardTitle className="text-2xl font-serif text-gray-800">Booking Lookup</CardTitle>
-                    <CardDescription className="text-gray-600 text-base">
-                      Enter your Ticket ID to view your appointment details
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="px-8 pb-8">
-                    <form onSubmit={handleLookup} className="space-y-6">
+            <div className="mt-8 rounded-2xl border border-pink-100 bg-white p-6 text-left shadow-sm">
+                    <form onSubmit={handleLookup} className="space-y-5">
                       <div className="space-y-2">
-                        <Label htmlFor="ticketId" className="text-sm font-medium text-gray-700">
-                          Ticket ID
-                        </Label>
+                        <Label htmlFor="ticketId">Ticket ID</Label>
                         <Input
                           id="ticketId"
                           type="text"
-                          placeholder="Enter your Ticket ID (e.g., LLB-1234567890-123456)"
+                          placeholder="LLB-1234567890-123456"
                           value={ticketId}
                           onChange={(e) => setTicketId(e.target.value)}
                           disabled={isLoading}
-                          className="h-12 text-base border-gray-200 focus:border-pink-500 focus:ring-pink-500"
+                          className="bg-gray-50"
                         />
                       </div>
-                      
+
                       {error && (
-                        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                          <div className="flex items-center">
-                            <svg className="w-5 h-5 text-red-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                            <p className="text-red-700 text-sm font-medium">{error}</p>
-                          </div>
-                        </div>
+                        <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
                       )}
-                      
-                      <Button 
-                        type="submit" 
-                        className="w-full h-12 bg-pink-500 hover:bg-pink-600 text-white font-medium text-base shadow-lg hover:shadow-xl transition-all duration-300" 
+
+                      <Button
+                        type="submit"
+                        className="w-full rounded-lg bg-brand-pink text-white hover:bg-brand-pink/90"
                         disabled={isLoading}
                       >
-                        {isLoading ? (
-                          <div className="flex items-center">
-                            <LuxuryMark size="button" tone="ink" className="mr-2" />
-                            Looking up...
-                          </div>
-                        ) : (
-                          <div className="flex items-center">
-                            <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                            </svg>
-                            Find My Booking
-                          </div>
-                        )}
+                        {isLoading ? <LuxuryMark size="button" tone="ink" /> : null}
+                        {isLoading ? "Looking up…" : "Find my booking"}
                       </Button>
                     </form>
-                  </CardContent>
-                </Card>
-              </div>
-
-              {/* Right Side - Illustration/Info */}
-              <div className="order-1 lg:order-2">
-                <div className="text-center lg:text-left">
-                  <div className="mb-8">
-                    <h2 className="text-3xl lg:text-4xl font-serif text-gray-800 mb-4">
-                      Find Your <span className="text-pink-500">Appointment</span>
-                    </h2>
-                    <p className="text-lg text-gray-600 leading-relaxed">
-                      Lost your booking details? No worries! Simply enter your Ticket ID to retrieve all your appointment information.
-                    </p>
-                  </div>
-                  
-                  <div className="space-y-4">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-8 h-8 bg-pink-500 rounded-full flex items-center justify-center">
-                        <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                      </div>
-                      <span className="text-gray-700">View appointment details</span>
-                    </div>
-                    <div className="flex items-center space-x-3">
-                      <div className="w-8 h-8 bg-pink-500 rounded-full flex items-center justify-center">
-                        <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                      </div>
-                      <span className="text-gray-700">Reschedule if eligible</span>
-                    </div>
-                    <div className="flex items-center space-x-3">
-                      <div className="w-8 h-8 bg-pink-500 rounded-full flex items-center justify-center">
-                        <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                      </div>
-                      <span className="text-gray-700">No payment required for reschedule</span>
-                    </div>
-                    <div className="flex items-center space-x-3">
-                      <div className="w-8 h-8 bg-pink-500 rounded-full flex items-center justify-center">
-                        <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                      </div>
-                      <span className="text-gray-700">Can only reschedule once</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
             </div>
           ) : (
-            <div className="space-y-8 mt-12">
+            <div className="mt-8 space-y-8 text-left">
               {/* Booking Details Card */}
               <Card className="bg-white border-0 shadow-xl overflow-hidden">
                 <div className="bg-pink-500 p-6">
@@ -406,7 +312,6 @@ export default function BookingLookupPage() {
               </div>
             </div>
           )}
-        </div>
       </div>
     </div>
   )

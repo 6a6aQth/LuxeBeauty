@@ -78,6 +78,7 @@ export default function AccountPage() {
   const [pastPage, setPastPage] = useState(1)
   const [loadingMore, setLoadingMore] = useState(false)
   const [downloadingId, setDownloadingId] = useState<string | null>(null)
+  const [signingOut, setSigningOut] = useState(false)
   const ticketNodes = useRef(new Map<string, HTMLDivElement>())
 
   useEffect(() => {
@@ -134,7 +135,8 @@ export default function AccountPage() {
   const filled = payload ? 6 - payload.loyalty.visitsUntilDiscount : 0
 
   async function signOut() {
-    await fetch("/api/auth/sign-out", { method: "POST" }).catch(() => {})
+    if (signingOut) return
+    setSigningOut(true)
     await authClient.signOut().catch(() => {})
     router.push("/")
     router.refresh()
@@ -153,9 +155,11 @@ export default function AccountPage() {
               <button
                 type="button"
                 onClick={signOut}
-                className="mt-3 text-sm tracking-wide text-white/80 underline underline-offset-4 hover:text-white"
+                disabled={signingOut}
+                className="mt-3 inline-flex items-center gap-2 text-sm tracking-wide text-white/80 underline underline-offset-4 hover:text-white disabled:opacity-70"
               >
-                Sign out
+                {signingOut ? <LuxuryMark size="button" tone="ink" /> : null}
+                {signingOut ? "Signing out…" : "Sign out"}
               </button>
             )}
           </div>

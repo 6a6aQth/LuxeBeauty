@@ -44,14 +44,10 @@ export default function SignInPage() {
 
   return (
     <div className="bg-[#faf7f8]">
-      <div className="mx-auto max-w-md px-4 py-12 md:py-16">
-        <p className="text-xs uppercase tracking-[0.28em] text-brand-pink">Welcome back</p>
-        <h1 className="mt-2 font-serif text-4xl text-gray-900">Sign in</h1>
-        <p className="mt-3 text-sm leading-relaxed text-gray-600">
-          Continue with Google, or use your email and password.
-        </p>
+      <div className="mx-auto max-w-md px-4 py-12 text-center md:py-16">
+        <h1 className="font-serif text-4xl text-gray-900">Welcome back</h1>
 
-        <div className="mt-8 space-y-5 rounded-2xl border border-pink-100 bg-white p-6 shadow-sm">
+        <div className="mt-8 space-y-5 rounded-2xl border border-pink-100 bg-white p-6 text-left shadow-sm">
           <GoogleAuthButton />
           <div className="flex items-center gap-3 text-xs uppercase tracking-[0.18em] text-gray-400">
             <span className="h-px flex-1 bg-gray-200" />
