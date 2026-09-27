@@ -104,17 +104,7 @@ export default function AboutPage() {
       />
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-16">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
-          <div className="w-full h-auto">
-            <Image
-              src="/lauryn.jpg"
-              alt="Beautifully manicured hands with intricate red nail art"
-              width={800}
-              height={1000}
-              className="rounded-lg object-cover shadow-lg"
-              priority
-              sizes="(max-width: 768px) 100vw, 50vw"
-            />
-          </div>
+          <div className="hidden aspect-[3/4] md:block" aria-hidden="true" />
           <div>
             <h2 className="text-3xl md:text-4xl font-bold mb-4">
               About Lauryn
