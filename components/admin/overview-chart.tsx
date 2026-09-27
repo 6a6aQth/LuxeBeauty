@@ -147,7 +147,7 @@ export function OverviewChart({ onOpen }: { onOpen?: (section: AdminSectionId) =
               </button>
             ) : null}
           </div>
-          <p className="mt-1 text-sm text-stone-500">The next five successful visits.</p>
+          <p className="mt-1 text-sm text-stone-500">The next five successful appointments.</p>
           {bookings === null ? (
             <LuxuryMark size="block" label="Loading bookings" />
           ) : upcomingPreview.length === 0 ? (

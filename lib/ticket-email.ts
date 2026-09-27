@@ -33,7 +33,7 @@ export async function sendTicketEmail(booking: {
     `Time: ${visitTime}`,
     `Services: ${services.join(", ")}`,
     `Deposit: ${deposit}`,
-    booking.discountApplied ? "A 30% loyalty discount is noted on this visit." : "",
+    booking.discountApplied ? "A 30% loyalty discount is noted on this appointment." : "",
     "Show this ticket at the studio.",
     "Lauryn Luxe Beauty Studio, Blantyre",
   ]
@@ -84,7 +84,7 @@ export async function sendStudioBookingEmail(booking: {
     `Time: ${visitTime}`,
     `Services: ${services.join(", ")}`,
     `Deposit: ${deposit}`,
-    booking.discountApplied ? "A 30% loyalty discount is noted on this visit." : "",
+    booking.discountApplied ? "A 30% loyalty discount is noted on this appointment." : "",
   ]
     .filter(Boolean)
     .join("\n")
@@ -152,7 +152,7 @@ function ticketHtml(booking: {
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${blush};border-radius:16px;">
             <tr>
               <td style="padding:14px 18px;font-family:Georgia,'Times New Roman',serif;font-size:14px;line-height:1.5;color:${blushInk};">
-                A 30% loyalty discount is noted on this visit.
+                A 30% loyalty discount is noted on this appointment.
               </td>
             </tr>
           </table>
@@ -186,12 +186,12 @@ function ticketHtml(booking: {
                 <p style="margin:0 0 18px 0;">
                   <span style="display:inline-block;background:${blush};color:${blushInk};font-family:Georgia,'Times New Roman',serif;font-size:11px;letter-spacing:0.22em;padding:7px 14px;border-radius:999px;">${booking.studio ? "NEW BOOKING" : "CONFIRMED"}</span>
                 </p>
-                <p style="margin:0;font-family:Georgia,'Times New Roman',serif;font-size:30px;line-height:1.15;color:${ink};">${booking.studio ? "A visit was just booked" : "Your appointment is set"}</p>
+                <p style="margin:0;font-family:Georgia,'Times New Roman',serif;font-size:30px;line-height:1.15;color:${ink};">${booking.studio ? "An appointment was just booked" : "Your appointment is set"}</p>
                 <p style="margin:14px 0 0 0;font-family:Georgia,'Times New Roman',serif;font-size:16px;line-height:1.6;color:${stone};">
                   ${
                     booking.studio
-                      ? `${escapeHtml(booking.name)} booked a visit. Phone ${escapeHtml(booking.studio.phone)}. Email ${escapeHtml(booking.studio.email)}.`
-                      : `Hi ${escapeHtml(booking.name)}, your visit at Lauryn Luxe is booked. Keep this note and show it at the studio.`
+                      ? `${escapeHtml(booking.name)} booked an appointment. Phone ${escapeHtml(booking.studio.phone)}. Email ${escapeHtml(booking.studio.email)}.`
+                      : `Hi ${escapeHtml(booking.name)}, your appointment at Lauryn Luxe is booked. Keep this note and show it at the studio.`
                   }
                 </p>
               </td>

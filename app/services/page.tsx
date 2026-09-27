@@ -81,7 +81,7 @@ export default function ServicesPage() {
             </div>
             <div className="bg-white p-6 rounded-lg shadow-sm">
               <h3 className="text-xl font-serif mb-3">Service Policies</h3>
-              <p className="text-gray-500 mb-4">What to expect during your visit</p>
+              <p className="text-gray-500 mb-4">What to expect during your appointment</p>
               <ul className="space-y-2 text-gray-700 list-disc list-inside">
                 <li>Please arrive 5-10 minutes before your appointment</li>
                 <li>Cancellations require 24-hour notice</li>

@@ -640,7 +640,7 @@ function BookingContent() {
 
       <PageHeader
         title="Book an Appointment"
-        description="Schedule your visit to Lauryn Luxe Beauty Studio and treat yourself to a luxurious beauty experience."
+        description="Schedule your appointment at Lauryn Luxe Beauty Studio and treat yourself to a luxurious beauty experience."
         backgroundImage="/IMG_7410.png"
       />
 

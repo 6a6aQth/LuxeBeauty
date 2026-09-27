@@ -179,7 +179,7 @@ export function FirstVisitGuide() {
                           onClick={dismiss}
                           className="rounded-full bg-[#f4c6d4] px-5 py-2.5 text-sm text-[#6e243f] hover:bg-[#e7b4c4]"
                         >
-                          Book a visit
+                          Book an appointment
                         </Link>
                         <Link
                           href="/sign-up"

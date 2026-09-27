@@ -70,7 +70,7 @@ function TicketStub({ visit }: { visit: Visit }) {
 function DiscountTag() {
   return (
     <span className="inline-flex shrink-0 items-center rounded-full border border-pink-200 bg-pink-50 px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.14em] text-brand-pink">
-      30% visit
+      30% appointment
     </span>
   )
 }
@@ -184,7 +184,7 @@ export default function AccountPage() {
         {error && (
           <p className="mt-8 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>
         )}
-        {!payload && !error && <LuxuryMark variant="page" label="Loading your visits…" />}
+        {!payload && !error && <LuxuryMark variant="page" label="Loading your appointments…" />}
 
         {payload && (
           <>
@@ -193,7 +193,7 @@ export default function AccountPage() {
               <p className="text-[11px] uppercase tracking-[0.28em] text-brand-pink">Loyalty</p>
               <p className="mt-4 font-serif text-[1.65rem] leading-snug text-stone-900">{payload.loyalty.copy}</p>
               <p className="mt-3 text-sm text-stone-500">
-                {payload.loyalty.successfulCount} successful {payload.loyalty.successfulCount === 1 ? "visit" : "visits"}
+                {payload.loyalty.successfulCount} successful {payload.loyalty.successfulCount === 1 ? "appointment" : "appointments"}
               </p>
               <div className="mt-6 grid grid-cols-6 gap-2">
                 {Array.from({ length: 6 }, (_, index) => {
@@ -226,7 +226,7 @@ export default function AccountPage() {
                   <span className="text-xs uppercase tracking-[0.2em] text-pink-400">{payload.upcoming.length}</span>
                 </div>
                 {payload.upcoming.length === 0 ? (
-                  <p className="mt-6 text-sm text-stone-500">No upcoming visits. The next confirmed appointment will appear here.</p>
+                  <p className="mt-6 text-sm text-stone-500">No upcoming appointments. The next confirmed appointment will appear here.</p>
                 ) : (
                   <ul className="mt-6 space-y-5">
                     {payload.upcoming.map((visit) => {
@@ -292,7 +292,7 @@ export default function AccountPage() {
               <span className="text-xs uppercase tracking-[0.2em] text-stone-400">{payload.pastTotal}</span>
             </div>
             {payload.pastTotal === 0 ? (
-              <p className="mt-6 text-sm text-stone-500">No past visits yet.</p>
+              <p className="mt-6 text-sm text-stone-500">No past appointments yet.</p>
             ) : (
               <>
                 <ul className="mt-4 overflow-hidden rounded-2xl border border-stone-200 bg-white">
@@ -331,7 +331,7 @@ export default function AccountPage() {
                       className="inline-flex items-center gap-2 text-sm tracking-wide text-stone-700 underline underline-offset-4 hover:text-stone-950"
                     >
                       {loadingMore ? <LuxuryMark size="button" /> : null}
-                      {`Show earlier visits (${payload.past.length} of ${payload.pastTotal})`}
+                      {`Show earlier appointments (${payload.past.length} of ${payload.pastTotal})`}
                     </button>
                   </div>
                 )}

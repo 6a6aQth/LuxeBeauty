@@ -233,7 +233,7 @@ function RescheduleContent() {
       <div className="bg-[#fdf6f8] px-4 py-20 text-center">
         <h1 className="font-serif text-3xl text-stone-900">Booking not found</h1>
         <p className="mx-auto mt-3 max-w-md text-sm text-stone-500">
-          We could not find a visit with that ticket.
+          We could not find an appointment with that ticket.
         </p>
         <Button onClick={() => router.push('/booking')} className="mt-8 rounded-md bg-stone-950 text-white hover:bg-stone-800">
           Back to booking
@@ -252,12 +252,12 @@ function RescheduleContent() {
     <div className="bg-[#fdf6f8]">
       <PageHeader
         title="Reschedule"
-        description="Move this visit once, with 24 hours' notice. There is no extra charge."
+        description="Move this appointment once, with 24 hours' notice. There is no extra charge."
       />
 
       <div className="mx-auto max-w-xl px-4 py-12 md:py-16">
         <section className="rounded-2xl border border-pink-100 bg-white p-6 shadow-sm">
-          <p className="text-[11px] uppercase tracking-[0.28em] text-brand-pink">This visit</p>
+          <p className="text-[11px] uppercase tracking-[0.28em] text-brand-pink">This appointment</p>
           <h2 className="mt-2 font-serif text-3xl text-stone-900">{booking.name}</h2>
           <p className="mt-3 text-sm text-stone-600">
             {format(parseISO(booking.date), "EEEE, MMMM d, yyyy")} · {formatTime(booking.timeSlot)}
@@ -273,7 +273,7 @@ function RescheduleContent() {
         <form onSubmit={handleSubmit} className="mt-8 space-y-6 rounded-2xl border border-stone-200 bg-white p-6 shadow-sm">
           <div>
             <h2 className="font-serif text-2xl text-stone-900">New date and time</h2>
-            <p className="mt-2 text-sm text-stone-500">Once this visit is moved, it cannot be moved again.</p>
+            <p className="mt-2 text-sm text-stone-500">Once this appointment is moved, it cannot be moved again.</p>
           </div>
 
           <div className="space-y-2">

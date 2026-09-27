@@ -156,7 +156,7 @@ export default function BookingLookupPage() {
                     </form>
                     <ul className="mt-8 space-y-4 border-t border-zinc-200 pt-6 text-sm leading-6 text-zinc-700">
                       <li>View the appointment details</li>
-                      <li>Reschedule only if the visit is confirmed</li>
+                      <li>Reschedule only if the appointment is confirmed</li>
                       <li>No extra payment</li>
                       <li>One change, and not within 24 hours of the appointment</li>
                     </ul>

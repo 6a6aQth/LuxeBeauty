@@ -34,7 +34,7 @@ export async function GET(req: NextRequest) {
     const names = values
       .map((value) => nameById.get(value) || (looksLikeId(value) ? null : value))
       .filter((name): name is string => Boolean(name))
-    return names.length > 0 ? names : ["Service from this visit"]
+    return names.length > 0 ? names : ["Service from this appointment"]
   }
 
   const bookings = await successfulBookingsForPhone(profile.phone)

@@ -117,7 +117,7 @@ export default function ContinuePage() {
         <p className="mt-3 text-sm leading-relaxed text-gray-600">
           {blocked
             ? "Sign in with the password for this email."
-            : "Confirm the name and email for this account, and add the phone number your visits use."}
+            : "Confirm the name and email for this account, and add the phone number your appointments use."}
         </p>
         {blocked ? (
           <div className="mt-8 space-y-5 rounded-2xl border border-pink-100 bg-white p-6 shadow-sm">

@@ -29,7 +29,7 @@ export async function sessionPhoneForAccount(fromAccount: boolean): Promise<
 export function rejectOtherPhone(bookingPhone: string, sessionPhone: string | null) {
   if (sessionPhone !== null && !phonesMatch(bookingPhone, sessionPhone)) {
     return NextResponse.json(
-      { error: "This visit does not belong to the signed-in phone number." },
+      { error: "This appointment does not belong to the signed-in phone number." },
       { status: 403 }
     )
   }
