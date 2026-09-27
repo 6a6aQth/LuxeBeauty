@@ -4,7 +4,7 @@
 export const dynamic = 'force-dynamic'
 
 import type React from "react"
-import { useState, useEffect, Suspense } from "react"
+import { useState, useEffect, useMemo, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
@@ -53,17 +53,9 @@ function RescheduleContent() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [date, setDate] = useState<Date | undefined>()
   const [selectedTimeSlot, setSelectedTimeSlot] = useState("")
-  const [unavailableDates, setUnavailableDates] = useState<any[]>([])
-  const [fullyBookedDates, setFullyBookedDates] = useState<Date[]>([])
+  const [unavailableSlots, setUnavailableSlots] = useState<Record<string, string[]>>({})
+  const [bookedSlots, setBookedSlots] = useState<Record<string, string[]>>({})
 
-  // Helper to get minimum booking date (tomorrow)
-  function getMinBookingDate() {
-    const d = new Date()
-    d.setDate(d.getDate() + 1)
-    return d
-  }
-
-  // Helper to get max booking date (1 year from now)
   function getMaxBookingDate() {
     const d = new Date()
     d.setFullYear(d.getFullYear() + 1)
@@ -117,47 +109,60 @@ function RescheduleContent() {
     fetchBooking()
   }, [ticketId, fromAccount, router])
 
-  // Load unavailable dates
   useEffect(() => {
-    const fetchUnavailableDates = async () => {
+    const loadAvailability = async () => {
       try {
-        const response = await fetch('/api/unavailable-dates')
-        if (response.ok) {
-          const data = await response.json()
-          setUnavailableDates(data)
-        }
-      } catch (error) {
-        console.error('Error fetching unavailable dates:', error)
-      }
-    }
-
-    fetchUnavailableDates()
-  }, [])
-
-  // Load fully booked dates
-  useEffect(() => {
-    const fetchBookedDates = async () => {
-      try {
-        const response = await fetch('/api/bookings')
-        if (response.ok) {
-          const bookings = await response.json()
-          const bookedDates = bookings
-            .filter((b: any) => b.status === 'successful')
-            .map((b: any) => {
-              const d = parseISO(b.date)
-              return isValid(d) ? d : null
+        const [blockedResponse, bookingsResponse] = await Promise.all([
+          fetch('/api/unavailable-dates'),
+          fetch('/api/bookings?status=successful'),
+        ])
+        if (blockedResponse.ok) {
+          const blocked = await blockedResponse.json()
+          const byDate: Record<string, string[]> = {}
+          if (Array.isArray(blocked)) {
+            blocked.forEach((item: { date: string; timeSlots: string[] }) => {
+              byDate[item.date] = item.timeSlots || []
             })
-            .filter(Boolean) as Date[]
-          
-          setFullyBookedDates(bookedDates)
+          }
+          setUnavailableSlots(byDate)
+        }
+        if (bookingsResponse.ok) {
+          const bookings = await bookingsResponse.json()
+          const byDate: Record<string, string[]> = {}
+          if (Array.isArray(bookings)) {
+            bookings.forEach((item: { ticketId?: string; status?: string; date: string; timeSlot: string }) => {
+              if (item.status && item.status !== 'successful') return
+              if (ticketId && item.ticketId === ticketId) return
+              if (!byDate[item.date]) byDate[item.date] = []
+              byDate[item.date].push(item.timeSlot)
+            })
+          }
+          setBookedSlots(byDate)
         }
       } catch (error) {
-        console.error('Error fetching booked dates:', error)
+        console.error('Error fetching availability:', error)
       }
     }
 
-    fetchBookedDates()
-  }, [])
+    loadAvailability()
+  }, [ticketId])
+
+  const slotTaken = (dateStr: string, slot: string) =>
+    (bookedSlots[dateStr] || []).includes(slot) || (unavailableSlots[dateStr] || []).includes(slot)
+
+  const closedOrFullDates = useMemo(() => {
+    const dates = new Set([...Object.keys(bookedSlots), ...Object.keys(unavailableSlots)])
+    const blocked: Date[] = []
+    dates.forEach((dateStr) => {
+      const slots = getSlotsForDate(parseISO(dateStr))
+      if (slots.length === 0) return
+      if (slots.every((slot) => slotTaken(dateStr, slot))) {
+        const parsed = parseISO(dateStr)
+        if (isValid(parsed)) blocked.push(parsed)
+      }
+    })
+    return blocked
+  }, [bookedSlots, unavailableSlots])
 
   const handleDateSelect = (selectedDate: Date | undefined) => {
     setDate(selectedDate)
@@ -237,7 +242,9 @@ function RescheduleContent() {
     )
   }
 
-  const availableTimeSlots = date ? getSlotsForDate(date, unavailableDates, fullyBookedDates) : []
+  const dateStr = date ? format(date, "yyyy-MM-dd") : ""
+  const daySlots = date ? getSlotsForDate(date) : []
+  const selectedSlotTaken = Boolean(dateStr && selectedTimeSlot && slotTaken(dateStr, selectedTimeSlot))
 
   const names = booking.serviceNames?.length ? booking.serviceNames : booking.services
 
@@ -289,10 +296,17 @@ function RescheduleContent() {
                   mode="single"
                   selected={date}
                   onSelect={handleDateSelect}
-                  disabled={(date) => {
+                  disabled={(day) => {
                     const today = new Date()
                     today.setHours(0, 0, 0, 0)
-                    return date < today || date < getMinBookingDate() || date > getMaxBookingDate()
+                    const tomorrow = new Date(today)
+                    tomorrow.setDate(today.getDate() + 1)
+                    const key = format(day, "yyyy-MM-dd")
+                    const noSlots = getSlotsForDate(day).length === 0
+                    const fullyTaken = closedOrFullDates.some(
+                      (booked) => booked.toDateString() === day.toDateString()
+                    )
+                    return day < tomorrow || day > getMaxBookingDate() || noSlots || fullyTaken
                   }}
                   initialFocus
                 />
@@ -307,22 +321,25 @@ function RescheduleContent() {
                 <SelectValue placeholder="Select a time" />
               </SelectTrigger>
               <SelectContent>
-                {availableTimeSlots.map((slot) => (
-                  <SelectItem key={slot} value={slot}>
-                    {formatTime(slot)}
-                  </SelectItem>
-                ))}
+                {daySlots.map((slot) => {
+                  const taken = slotTaken(dateStr, slot)
+                  return (
+                    <SelectItem key={slot} value={slot} disabled={taken}>
+                      {formatTime(slot)}{taken ? " · Taken" : ""}
+                    </SelectItem>
+                  )
+                })}
               </SelectContent>
             </Select>
-            {date && availableTimeSlots.length === 0 && (
-              <p className="text-sm text-stone-500">No open times on this date.</p>
+            {date && daySlots.length > 0 && daySlots.every((slot) => slotTaken(dateStr, slot)) && (
+              <p className="text-sm text-stone-500">Every time on this date is taken.</p>
             )}
           </div>
 
           <Button
             type="submit"
             className="w-full rounded-md bg-brand-pink text-white hover:bg-brand-pink/90"
-            disabled={!date || !selectedTimeSlot || isSubmitting}
+            disabled={!date || !selectedTimeSlot || selectedSlotTaken || isSubmitting}
           >
             Reschedule appointment
           </Button>

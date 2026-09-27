@@ -58,7 +58,7 @@ export function UsersPanel() {
           <p className="px-6 py-16 text-center text-sm text-stone-500">No accounts yet.</p>
         ) : (
           <div>
-            <div className="flex min-w-[40rem] items-center gap-6 border-b border-stone-200 px-5 py-3 text-[11px] uppercase tracking-[0.18em] text-stone-400">
+            <div className="flex min-w-[40rem] items-center gap-6 border-b border-[#f3d0db] px-5 py-3 text-[11px] uppercase tracking-[0.18em] text-stone-400">
               <span className="w-10 shrink-0" />
               <span className="w-40 shrink-0">Name</span>
               <span className="min-w-0 flex-1">Email</span>
@@ -69,7 +69,7 @@ export function UsersPanel() {
               {accounts.map((account) => (
                 <li
                   key={account.email}
-                  className="flex min-w-[40rem] items-center gap-6 border-b border-stone-200 px-5 py-3 last:border-b-0"
+                  className="flex min-w-[40rem] items-center gap-6 border-b border-[#f3d0db] px-5 py-3 last:border-b-0"
                 >
                   <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-stone-100 font-serif text-sm text-stone-700">
                     {initials(account.name)}
@@ -87,8 +87,16 @@ export function UsersPanel() {
                         <MoreVertical className="h-4 w-4" />
                       </button>
                     </PopoverTrigger>
-                    <PopoverContent align="end" className="w-52 p-3 text-sm text-stone-500">
-                      Nothing to change from here.
+                    <PopoverContent align="end" className="w-36 p-1">
+                      {["Edit", "Delete", "Block"].map((action) => (
+                        <button
+                          key={action}
+                          type="button"
+                          className="block w-full rounded-md px-3 py-2 text-left text-sm text-stone-700 hover:bg-[#fff5f8]"
+                        >
+                          {action}
+                        </button>
+                      ))}
                     </PopoverContent>
                   </Popover>
                 </li>

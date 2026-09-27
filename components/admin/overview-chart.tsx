@@ -10,7 +10,7 @@ import {
   periodLabel,
   shiftAnchor,
   studioSnapshot,
-  visitsThisWeek,
+  upcomingVisits,
   type CalendarDay,
   type OverviewPoint,
   type OverviewRange,
@@ -93,7 +93,7 @@ export function OverviewChart({ onOpen }: { onOpen?: (section: AdminSectionId) =
     [bookings, range, anchor],
   )
   const snapshot = useMemo(() => (bookings ? studioSnapshot(bookings) : null), [bookings])
-  const weekVisits = useMemo(() => (bookings ? visitsThisWeek(bookings) : []), [bookings])
+  const upcomingPreview = useMemo(() => (bookings ? upcomingVisits(bookings, 5) : []), [bookings])
   const successfulCount = bookings ? bookings.filter((booking) => booking.status === "successful").length : 0
 
   return (
@@ -137,27 +137,27 @@ export function OverviewChart({ onOpen }: { onOpen?: (section: AdminSectionId) =
         </div>
       ) : null}
 
-      <div className="grid gap-4 lg:grid-cols-[1.4fr_0.8fr]">
-        <div className="rounded-3xl border border-stone-200 bg-white p-5">
+      <div className="grid items-start gap-4 lg:grid-cols-[1.4fr_0.8fr]">
+        <div className="rounded-3xl border border-stone-200 [border-top-color:#e7b4c4] bg-white p-5">
           <div className="flex items-center justify-between gap-3">
-            <h2 className="font-serif text-2xl">This week</h2>
+            <h2 className="font-serif text-2xl">Upcoming</h2>
             {onOpen ? (
-              <button type="button" onClick={() => onOpen("bookings")} className="text-sm text-stone-500 hover:text-stone-800">
+              <button type="button" onClick={() => onOpen("bookings")} className="text-sm text-[#c45c7a] hover:underline">
                 All bookings
               </button>
             ) : null}
           </div>
-          <p className="mt-1 text-sm text-stone-500">Successful visits still ahead this week.</p>
+          <p className="mt-1 text-sm text-stone-500">The next five successful visits.</p>
           {bookings === null ? (
             <LuxuryMark size="block" label="Loading bookings" />
-          ) : weekVisits.length === 0 ? (
-            <p className="py-8 text-sm text-stone-500">Nothing else booked this week.</p>
+          ) : upcomingPreview.length === 0 ? (
+            <p className="py-8 text-sm text-stone-500">Nothing upcoming.</p>
           ) : (
             <ul className="mt-4">
-              {weekVisits.map((visit) => (
+              {upcomingPreview.map((visit) => (
                 <li
                   key={`${visit.date}-${visit.timeSlot}-${visit.name}`}
-                  className="flex items-center justify-between gap-4 border-b border-stone-200 py-3 last:border-b-0"
+                  className="flex items-center justify-between gap-4 border-b border-[#f3d0db] py-3 last:border-b-0"
                 >
                   <span className="truncate font-medium text-stone-900">{visit.name}</span>
                   <span className="shrink-0 text-sm text-stone-500">{visitLabel(visit.date, visit.timeSlot)}</span>
@@ -255,7 +255,7 @@ function visitLabel(date: string, timeSlot: string): string {
 
 function SnapshotTile({ label, value, detail }: { label: string; value: string; detail: string }) {
   return (
-    <div className="rounded-3xl border border-stone-200 bg-white px-5 py-5">
+    <div className="rounded-3xl border border-stone-200 [border-top-color:#e7b4c4] bg-white px-5 py-5">
       <p className="text-[11px] uppercase tracking-[0.22em] text-stone-400">{label}</p>
       <p className="mt-3 font-serif text-3xl text-stone-900">{value}</p>
       <p className="mt-1 text-sm text-stone-500">{detail}</p>
@@ -274,7 +274,7 @@ function SummaryLink({
   detail: string
   onClick?: () => void
 }) {
-  const className = "rounded-3xl border border-stone-200 bg-white px-5 py-4 text-left"
+  const className = "rounded-3xl border border-stone-200 [border-top-color:#e7b4c4] bg-white px-5 py-4 text-left"
   const body = (
     <>
       <p className="text-[11px] uppercase tracking-[0.22em] text-stone-400">{label}</p>

@@ -67,6 +67,14 @@ function TicketStub({ visit }: { visit: Visit }) {
   )
 }
 
+function DiscountTag() {
+  return (
+    <span className="inline-flex shrink-0 items-center rounded-full border border-pink-200 bg-pink-50 px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.14em] text-brand-pink">
+      30% visit
+    </span>
+  )
+}
+
 function ServiceLine({ names }: { names: string[] }) {
   return <p className="mt-2 text-sm leading-relaxed text-stone-600">{names.join(" · ")}</p>
 }
@@ -236,10 +244,13 @@ export default function AccountPage() {
                           </div>
                           <TicketStub visit={visit} />
                           <div className="px-5 py-5">
-                            <div className="flex flex-wrap items-baseline justify-between gap-2">
-                              <p className="font-serif text-lg text-stone-900">
-                                {dayParts(visit.date).weekday}, {dayParts(visit.date).full}
-                              </p>
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <p className="font-serif text-lg text-stone-900">
+                                  {dayParts(visit.date).weekday}, {dayParts(visit.date).full}
+                                </p>
+                                {visit.discountApplied && <DiscountTag />}
+                              </div>
                               <p className="text-sm text-stone-500">{formatTime(visit.timeSlot)}</p>
                             </div>
                             <ServiceLine names={visit.serviceNames} />
@@ -294,8 +305,11 @@ export default function AccountPage() {
                           <span className="font-serif text-2xl leading-none">{when.day}</span>
                         </div>
                         <div className="min-w-0 flex-1">
-                          <div className="flex items-baseline justify-between gap-3">
-                            <p className="font-serif text-lg text-stone-900">{when.weekday}</p>
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="flex min-w-0 flex-wrap items-center gap-2">
+                              <p className="font-serif text-lg text-stone-900">{when.weekday}</p>
+                              {visit.discountApplied && <DiscountTag />}
+                            </div>
                             <p className="shrink-0 text-sm text-stone-500">{formatTime(visit.timeSlot)}</p>
                           </div>
                           <p className="text-xs text-stone-400">{when.full}</p>

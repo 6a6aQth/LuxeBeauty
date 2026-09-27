@@ -116,24 +116,21 @@ export type WeekVisit = {
   timeSlot: string
 }
 
-export function visitsThisWeek(
+export function upcomingVisits(
   bookings: { name?: string | null; date: string; timeSlot?: string | null; status?: string | null }[],
+  limit = 5,
   now = new Date(),
 ): WeekVisit[] {
-  const today = blantyreToday(now)
-  const todayKey = dateKey(today)
-  const weekEnd = dateKey(addCalendarDays(startOfWeekMonday(today), 6))
+  const todayKey = dateKey(blantyreToday(now))
   return bookings
     .filter((booking) => booking.status === "successful" && booking.date)
-    .filter((booking) => {
-      const key = bookingDay(booking.date)
-      return key >= todayKey && key <= weekEnd
-    })
+    .filter((booking) => bookingDay(booking.date) >= todayKey)
     .sort((a, b) => {
       const byDate = bookingDay(a.date).localeCompare(bookingDay(b.date))
       if (byDate !== 0) return byDate
       return slotMinutes(a.timeSlot ?? "") - slotMinutes(b.timeSlot ?? "")
     })
+    .slice(0, limit)
     .map((booking) => ({
       name: booking.name?.trim() || "Guest",
       date: bookingDay(booking.date),

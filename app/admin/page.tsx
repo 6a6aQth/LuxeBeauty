@@ -776,14 +776,14 @@ export default function AdminPage() {
                 <button
                   type="button"
                   onClick={() => { setView('all'); setShowAll(true) }}
-                  className={`rounded-full px-4 py-1.5 text-sm ${view === 'all' ? 'bg-black text-white' : 'text-stone-500'}`}
+                  className={`rounded-full px-4 py-1.5 text-sm ${view === 'all' ? 'bg-[#f4c6d4] text-[#6e243f]' : 'text-stone-500'}`}
                 >
                   All
                 </button>
                 <button
                   type="button"
                   onClick={() => { setView('upcoming'); setShowAll(false) }}
-                  className={`rounded-full px-4 py-1.5 text-sm ${view === 'upcoming' ? 'bg-black text-white' : 'text-stone-500'}`}
+                  className={`rounded-full px-4 py-1.5 text-sm ${view === 'upcoming' ? 'bg-[#f4c6d4] text-[#6e243f]' : 'text-stone-500'}`}
                 >
                   Upcoming
                 </button>
@@ -811,7 +811,7 @@ export default function AdminPage() {
             />
           </div>
           <div className="overflow-hidden rounded-3xl border border-stone-200 bg-white">
-                <div className="divide-y divide-stone-200">
+                <div className="divide-y divide-[#f3d0db]">
                   {filteredBookings.length > 0 ? filteredBookings.map(booking => (
                     <div key={booking.id} className="space-y-4 px-5 py-5">
                       <div className="flex justify-between items-start">
@@ -914,8 +914,8 @@ export default function AdminPage() {
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <div className="inline-flex rounded-full bg-white p-1">
-                <button type="button" onClick={() => setManageServicesTab('services')} className={`rounded-full px-4 py-1.5 text-sm ${manageServicesTab === 'services' ? 'bg-black text-white' : 'text-stone-500'}`}>Services</button>
-                <button type="button" onClick={() => setManageServicesTab('categories')} className={`rounded-full px-4 py-1.5 text-sm ${manageServicesTab === 'categories' ? 'bg-black text-white' : 'text-stone-500'}`}>Categories</button>
+                <button type="button" onClick={() => setManageServicesTab('services')} className={`rounded-full px-4 py-1.5 text-sm ${manageServicesTab === 'services' ? 'bg-[#f4c6d4] text-[#6e243f]' : 'text-stone-500'}`}>Services</button>
+                <button type="button" onClick={() => setManageServicesTab('categories')} className={`rounded-full px-4 py-1.5 text-sm ${manageServicesTab === 'categories' ? 'bg-[#f4c6d4] text-[#6e243f]' : 'text-stone-500'}`}>Categories</button>
               </div>
               {manageServicesTab === 'services' ? (
                 <Button onClick={() => handleOpenServiceModal(null)} className="rounded-full bg-black text-white hover:bg-black/80">
@@ -961,7 +961,7 @@ export default function AdminPage() {
                         <button
                           key={cat}
                           onClick={() => setCategoryFilter(cat)}
-                          className={`capitalize whitespace-nowrap rounded-full px-3 py-1 text-sm ${categoryFilter === cat ? 'bg-black text-white' : 'text-stone-500 hover:bg-stone-100'}`}
+                          className={`capitalize whitespace-nowrap rounded-full px-3 py-1 text-sm ${categoryFilter === cat ? 'bg-[#f4c6d4] text-[#6e243f]' : 'text-stone-500 hover:bg-stone-100'}`}
                         >
                           {cat.replace('-', ' ')}
                         </button>
@@ -1178,7 +1178,7 @@ export default function AdminPage() {
       {section === 'users' && <UsersPanel />}
 
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent key={selectedDate?.toISOString() || 'default'} className="rounded-2xl">
+        <DialogContent key={selectedDate?.toISOString() || 'default'} className="rounded-2xl border-[#f3d0db] [border-top-color:#e7b4c4]">
           <DialogHeader>
             <DialogTitle className="font-serif text-2xl">Manage Availability for {selectedDate && format(selectedDate, 'PPP')}</DialogTitle>
             <DialogDescription>Select the time slots that are unavailable on this day. Booked slots are disabled.</DialogDescription>
@@ -1206,7 +1206,7 @@ export default function AdminPage() {
                 const isBooked = bookedTimeSlots.includes(slot);
                 const isManagedUnavailable = managedSlots.includes(slot);
                 return (
-                  <div key={slot} className="flex items-center space-x-2">
+                  <div key={slot} className={`flex items-center space-x-2 rounded-lg px-2 py-1 ${isManagedUnavailable ? 'bg-[#fff5f8]' : ''}`}>
                     <Checkbox
                       id={`slot-${slot}`}
                       checked={isManagedUnavailable}
@@ -1224,7 +1224,7 @@ export default function AdminPage() {
                 );
               })}
             </div>
-            <Button onClick={handleSaveAvailability} className="w-full rounded-full bg-black text-white hover:bg-black/80">
+            <Button onClick={handleSaveAvailability} className="w-full rounded-full bg-[#f4c6d4] text-[#6e243f] hover:bg-[#f0b7c8]">
               Save Availability
             </Button>
           </div>
