@@ -54,7 +54,13 @@ export default function ContinuePage() {
         return
       }
       if (response.status === 401) {
-        router.replace("/sign-in")
+        const finishingGoogle = new URLSearchParams(window.location.search).has("neon_auth_session_verifier")
+        if (!finishingGoogle) {
+          router.replace("/sign-in")
+          return
+        }
+        setError("Google sign-in did not finish. Try again.")
+        setReady(true)
         return
       }
       const data = await response.json().catch(() => ({}))
