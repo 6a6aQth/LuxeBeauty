@@ -1,11 +1,9 @@
 import {
   Body,
-  Button,
   Container,
   Head,
   Hr,
   Html,
-  Img,
   Preview,
   Section,
   Text,
@@ -27,13 +25,12 @@ export const NewsletterEmail = ({ subject, content, unsubscribeUrl, baseUrl }: N
     <Body style={main}>
       <Container style={container}>
         <Section style={logoContainer}>
-          <Img
-            src={`${baseUrl}/lauryn-luxe-logo.png`}
-            width="160"
-            alt="Lauryn Luxe Beauty Studio"
-            style={logo}
-          />
+          <Text style={est}>ESTD — 2022</Text>
+          <Text style={wordmark}>LAURYN</Text>
+          <Text style={script}>luxe</Text>
+          <Text style={studio}>BEAUTY STUDIO</Text>
         </Section>
+        <Hr style={rule} />
         <Section style={contentSection}>
           <Text style={heading}>{subject}</Text>
           <Text style={paragraph}>{content}</Text>
@@ -41,7 +38,10 @@ export const NewsletterEmail = ({ subject, content, unsubscribeUrl, baseUrl }: N
         <Hr style={hr} />
         <Section style={footer}>
           <Text style={footerText}>
-            Lauryn Luxe Beauty Studio, Blantyre, Malawi.
+            Lauryn Luxe Beauty Studio · Blantyre
+          </Text>
+          <Text style={footerLink}>
+            <a href={baseUrl} style={link}>Visit the studio</a>
           </Text>
           <Text style={footerLink}>
             Changed your mind? <a href={unsubscribeUrl} style={link}>Unsubscribe</a>
@@ -59,65 +59,97 @@ export const renderNewsletterEmail = (props: NewsletterEmailProps) =>
 
 // Styles
 const main = {
-  backgroundColor: '#f6f9fc',
-  fontFamily: '-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Ubuntu,sans-serif',
+  backgroundColor: '#f6f3ef',
+  fontFamily: "Georgia, 'Times New Roman', serif",
 };
 
 const container = {
   backgroundColor: '#ffffff',
   margin: '0 auto',
-  padding: '20px 0 48px',
-  marginBottom: '64px',
-  borderRadius: '8px',
-  boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
+  padding: '0 0 28px',
+  marginBottom: '32px',
+  borderRadius: '28px',
+  overflow: 'hidden' as const,
 };
-
-const logo = {
-  display: 'block',
-  margin: '0 auto',
-}
 
 const logoContainer = {
-  padding: '20px 0',
+  backgroundColor: '#0c0c0c',
+  padding: '32px 24px 24px',
+  textAlign: 'center' as const,
 };
 
+const est = {
+  margin: '0',
+  fontSize: '11px',
+  letterSpacing: '0.42em',
+  color: '#a8a29e',
+}
+
+const wordmark = {
+  margin: '14px 0 0',
+  fontSize: '28px',
+  letterSpacing: '0.22em',
+  color: '#f4f0ea',
+}
+
+const script = {
+  margin: '0',
+  fontSize: '34px',
+  fontStyle: 'italic' as const,
+  color: '#f4f0ea',
+}
+
+const studio = {
+  margin: '6px 0 0',
+  fontSize: '10px',
+  letterSpacing: '0.38em',
+  color: '#a8a29e',
+}
+
+const rule = {
+  borderColor: '#f4c6d4',
+  borderWidth: '2px',
+  margin: '0',
+}
+
 const contentSection = {
-  padding: '0 35px',
+  padding: '28px 32px 8px',
 };
 
 const heading = {
-  fontSize: '24px',
-  fontWeight: 'bold',
-  lineHeight: '1.3',
-  color: '#484848',
+  fontSize: '28px',
+  lineHeight: '1.2',
+  color: '#1c1917',
+  fontWeight: 'normal' as const,
 };
 
 const paragraph = {
   fontSize: '16px',
-  lineHeight: '1.5',
-  color: '#484848',
+  lineHeight: '1.6',
+  color: '#44403c',
 };
 
 const hr = {
-  borderColor: '#e6ebf1',
-  margin: '20px 0',
+  borderColor: '#f3d0db',
+  margin: '12px 32px 0',
 };
 
 const footer = {
-  color: '#8898aa',
+  color: '#78716c',
   fontSize: '12px',
-  lineHeight: '16px',
+  lineHeight: '18px',
   textAlign: 'center' as const,
 };
 
 const footerText = {
-  margin: '0 0 5px 0',
+  margin: '16px 0 4px 0',
+  letterSpacing: '0.06em',
 }
 
 const footerLink = {
-  textDecoration: 'underline',
+  margin: '0',
 };
 
 const link = {
-  color: '#8898aa',
+  color: '#6e243f',
 } 
