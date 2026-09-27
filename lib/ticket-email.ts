@@ -4,6 +4,8 @@ import { formatTime } from "@/lib/time-slots"
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 
+export const STUDIO_INBOX = "lambatlauryn@gmail.com"
+
 const cream = "#f6f3ef"
 const ink = "#1c1917"
 const blush = "#f4c6d4"
@@ -58,6 +60,57 @@ export async function sendTicketEmail(booking: {
   }
 }
 
+export async function sendStudioBookingEmail(booking: {
+  name: string
+  phone: string
+  email: string | null
+  date: string
+  timeSlot: string
+  ticketId: string
+  discountApplied: boolean
+  serviceNames: string[]
+}) {
+  const visitDate = formatVisitDate(booking.date)
+  const visitTime = formatTime(booking.timeSlot)
+  const services = booking.serviceNames.filter(Boolean)
+  const deposit = formatDeposit()
+  const guestEmail = booking.email || "No email on the booking"
+  const text = [
+    `New booking ${booking.ticketId}`,
+    `Guest: ${booking.name}`,
+    `Phone: ${booking.phone}`,
+    `Email: ${guestEmail}`,
+    `Date: ${visitDate}`,
+    `Time: ${visitTime}`,
+    `Services: ${services.join(", ")}`,
+    `Deposit: ${deposit}`,
+    booking.discountApplied ? "A 30% loyalty discount is noted on this visit." : "",
+  ]
+    .filter(Boolean)
+    .join("\n")
+
+  const { error } = await resend.emails.send({
+    from: "Lauryn Luxe Beauty Studio <noreply@laurynbeautystudio.com>",
+    to: STUDIO_INBOX,
+    replyTo: booking.email || undefined,
+    subject: `New booking ${booking.ticketId} · ${booking.name}`,
+    html: ticketHtml({
+      name: booking.name,
+      visitDate,
+      visitTime,
+      services,
+      deposit,
+      ticketId: booking.ticketId,
+      discountApplied: booking.discountApplied,
+      studio: { phone: booking.phone, email: guestEmail },
+    }),
+    text,
+  })
+  if (error) {
+    throw new Error(error.message)
+  }
+}
+
 function formatVisitDate(isoDate: string): string {
   const [year, month, day] = isoDate.split("-").map(Number)
   if (!year || !month || !day) return isoDate
@@ -79,6 +132,7 @@ function ticketHtml(booking: {
   deposit: string
   ticketId: string
   discountApplied: boolean
+  studio?: { phone: string; email: string }
 }): string {
   const serviceRows = booking.services
     .map(
@@ -130,11 +184,15 @@ function ticketHtml(booking: {
             <tr>
               <td style="padding:32px 32px 8px 32px;">
                 <p style="margin:0 0 18px 0;">
-                  <span style="display:inline-block;background:${blush};color:${blushInk};font-family:Georgia,'Times New Roman',serif;font-size:11px;letter-spacing:0.22em;padding:7px 14px;border-radius:999px;">CONFIRMED</span>
+                  <span style="display:inline-block;background:${blush};color:${blushInk};font-family:Georgia,'Times New Roman',serif;font-size:11px;letter-spacing:0.22em;padding:7px 14px;border-radius:999px;">${booking.studio ? "NEW BOOKING" : "CONFIRMED"}</span>
                 </p>
-                <p style="margin:0;font-family:Georgia,'Times New Roman',serif;font-size:30px;line-height:1.15;color:${ink};">Your appointment is set</p>
+                <p style="margin:0;font-family:Georgia,'Times New Roman',serif;font-size:30px;line-height:1.15;color:${ink};">${booking.studio ? "A visit was just booked" : "Your appointment is set"}</p>
                 <p style="margin:14px 0 0 0;font-family:Georgia,'Times New Roman',serif;font-size:16px;line-height:1.6;color:${stone};">
-                  Hi ${escapeHtml(booking.name)}, your visit at Lauryn Luxe is booked. Keep this note and show it at the studio.
+                  ${
+                    booking.studio
+                      ? `${escapeHtml(booking.name)} booked a visit. Phone ${escapeHtml(booking.studio.phone)}. Email ${escapeHtml(booking.studio.email)}.`
+                      : `Hi ${escapeHtml(booking.name)}, your visit at Lauryn Luxe is booked. Keep this note and show it at the studio.`
+                  }
                 </p>
               </td>
             </tr>

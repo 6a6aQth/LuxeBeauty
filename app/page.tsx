@@ -173,17 +173,7 @@ function HomeContent() {
       <AnimatedSection className="py-20 bg-white">
         <div className="container mx-auto px-4">
           <div className="grid md:grid-cols-2 gap-12 items-center">
-            <div>
-              <div className="aspect-[3/4] relative overflow-hidden rounded-lg shadow-glow">
-                <Image 
-                  src="/lauryn.jpg" 
-                  alt="Lauryn Lambat" 
-                  fill 
-                  className="object-cover"
-                  sizes="(max-width: 768px) 100vw, 50vw"
-                />
-              </div>
-            </div>
+            <div className="hidden aspect-[3/4] md:block" aria-hidden="true" />
             <div>
               <h2 className="text-3xl font-serif mb-6">Meet Lauryn</h2>
               <p className="text-gray-700 mb-6">

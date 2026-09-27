@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation'
 import Header from "@/components/header"
 import Footer from "@/components/footer"
 import WhatsAppButton from "@/components/whatsapp-button"
+import { FirstVisitGuide } from "@/components/first-visit-guide"
 
 export default function LayoutProvider({
   children,
@@ -24,6 +25,7 @@ export default function LayoutProvider({
       <main className="flex-1">{children}</main>
       <Footer />
       <WhatsAppButton />
+      <FirstVisitGuide />
     </div>
   )
 } 

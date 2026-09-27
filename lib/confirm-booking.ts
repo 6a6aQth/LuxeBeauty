@@ -2,7 +2,7 @@ import prisma from "@/lib/prisma"
 import { logPaymentEvent } from "@/lib/paymentLogger"
 import { successfulBookingsForPhone } from "@/lib/booking-phones"
 import { sendBookingSMS } from "@/lib/sms"
-import { sendTicketEmail } from "@/lib/ticket-email"
+import { sendStudioBookingEmail, sendTicketEmail } from "@/lib/ticket-email"
 import { formatTime } from "@/lib/time-slots"
 
 export async function confirmPaidBooking(chargeId: string) {
@@ -96,6 +96,35 @@ export async function confirmPaidBooking(chargeId: string) {
         message,
       })
     }
+  }
+
+  try {
+    await sendStudioBookingEmail({
+      name: fresh.name,
+      phone: fresh.phone,
+      email: fresh.email,
+      date: fresh.date,
+      timeSlot: fresh.timeSlot,
+      ticketId: fresh.ticketId,
+      discountApplied: fresh.discountApplied,
+      serviceNames,
+    })
+    await logPaymentEvent({
+      txRef: chargeId,
+      bookingId: fresh.id,
+      eventType: "studio_email_sent",
+      status: "sent",
+      message: "Studio copy sent",
+    })
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Studio email failed"
+    await logPaymentEvent({
+      txRef: chargeId,
+      bookingId: fresh.id,
+      eventType: "studio_email_sent",
+      status: "error",
+      message,
+    })
   }
 
   return { ok: true as const, booking: fresh, alreadyConfirmed: false }
