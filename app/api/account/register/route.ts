@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getNeonAuth } from "@/lib/auth/neon";
-import { EMAIL_TAKEN_MESSAGE, findNeonIdentityByEmail } from "@/lib/auth/one-email";
+import { EMAIL_TAKEN_MESSAGE, findNeonIdentityByEmail, markNeonEmailVerified } from "@/lib/auth/one-email";
 import { canonicalPhone } from "@/lib/phone";
 
 function readUserId(data: unknown): string | null {
@@ -65,6 +65,15 @@ export async function POST(req: Request) {
   const neonUserId = readUserId(data);
   if (!neonUserId) {
     return NextResponse.json({ error: "Sign-up did not return a user id." }, { status: 502 });
+  }
+
+  try {
+    await markNeonEmailVerified(neonUserId);
+  } catch {
+    return NextResponse.json(
+      { error: "The account was created, but Google sign-in could not be enabled for this email." },
+      { status: 500 }
+    );
   }
 
   try {

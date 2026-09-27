@@ -43,6 +43,16 @@ export async function findNeonIdentityByEmail(email: string): Promise<NeonIdenti
   return { userId: rows[0].userId, providers };
 }
 
+/** Neon links Google onto a password account only when this flag is already true. */
+export async function markNeonEmailVerified(neonUserId: string): Promise<void> {
+  await prisma.$executeRaw`
+    UPDATE neon_auth."user"
+    SET "emailVerified" = true
+    WHERE id = ${neonUserId}::uuid
+      AND "emailVerified" = false
+  `;
+}
+
 export async function emailBelongsToOtherProfile(email: string, neonUserId: string): Promise<boolean> {
   const normalized = email.trim().toLowerCase();
   if (!normalized) return false;
