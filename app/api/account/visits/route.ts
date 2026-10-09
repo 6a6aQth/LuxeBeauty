@@ -52,10 +52,13 @@ export async function GET(req: NextRequest) {
       discountApplied: booking.discountApplied,
       rescheduleCount: booking.rescheduleCount,
       originalDate: booking.originalDate,
+      serviceTotal: booking.serviceTotal,
     }
     if (isPastVisit(booking.date, booking.timeSlot)) past.push(item)
     else upcoming.push(item)
   }
+
+  const expenditure = past.reduce((sum, item) => sum + (item.serviceTotal ?? 0), 0)
 
   past.reverse()
   const page = Math.max(1, Number(new URL(req.url).searchParams.get("pastPage") || "1") || 1)
@@ -70,6 +73,7 @@ export async function GET(req: NextRequest) {
     name: profile.name,
     phone: profile.phone,
     newsletter: Boolean(subscription),
+    expenditure,
     upcoming,
     past: visiblePast,
     pastTotal: past.length,

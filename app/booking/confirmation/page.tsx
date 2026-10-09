@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/animated-download-button'
 import { Mail, Phone, Home } from 'lucide-react'
 import { Service } from '@/types/types';
 import { format, parseISO } from 'date-fns'
-import { formatDeposit } from '@/lib/deposit'
+import { formatMwk } from '@/lib/money'
 import { LuxuryMark } from '@/components/luxury-mark'
 
 interface BookingDetails {
@@ -46,12 +46,10 @@ export default function BookingConfirmationPage() {
       try {
         // We may still have session data (to get ticketId/fee), but booking details come from DB
         const stored = sessionStorage.getItem('lauryn-luxe-booking');
-        let fallbackFee: string | undefined = undefined;
         let ticketIdFromSession: string | undefined = undefined;
         if (stored) {
           try {
             const parsed = JSON.parse(stored);
-            fallbackFee = parsed?.fee;
             ticketIdFromSession = parsed?.ticketId;
           } catch {}
         }
@@ -80,7 +78,7 @@ export default function BookingConfirmationPage() {
         }
 
         const isReschedule = (b.rescheduleCount ?? 0) > 0;
-        const feeString = isReschedule ? 'Rescheduled - No Additional Charge' : (fallbackFee || `${formatDeposit()} (Paid)`);
+        const feeString = typeof b.serviceTotal === "number" && b.serviceTotal > 0 ? formatMwk(b.serviceTotal) : "";
         setLoadError('');
 
         setBookingDetails({
@@ -248,9 +246,11 @@ export default function BookingConfirmationPage() {
                   <strong>Services:</strong>{' '}
                   {getServiceNames(bookingDetails.services).join(', ')}
                 </p>
-                <p>
-                  <strong>Booking Fee:</strong> {bookingDetails.fee}
-                </p>
+                {bookingDetails.fee ? (
+                  <p>
+                    <strong>Total:</strong> {bookingDetails.fee}
+                  </p>
+                ) : null}
                 {bookingDetails.isReschedule && bookingDetails.originalDate && (
                   <p>
                     <strong>Originally Scheduled:</strong> {format(parseISO(bookingDetails.originalDate), 'MMMM dd, yyyy')}

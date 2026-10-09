@@ -78,6 +78,7 @@ export async function confirmPaidBooking(chargeId: string) {
         ticketId: fresh.ticketId,
         discountApplied: fresh.discountApplied,
         serviceNames,
+        serviceTotal: fresh.serviceTotal,
       })
       await logPaymentEvent({
         txRef: chargeId,
@@ -108,6 +109,7 @@ export async function confirmPaidBooking(chargeId: string) {
       ticketId: fresh.ticketId,
       discountApplied: fresh.discountApplied,
       serviceNames,
+      serviceTotal: fresh.serviceTotal,
     })
     await logPaymentEvent({
       txRef: chargeId,

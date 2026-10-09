@@ -21,6 +21,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
 import { getSlotsForDate, formatTime, generateTimeSlots } from "@/lib/time-slots"
 import { canonicalPhone, sanitizePhoneInput } from "@/lib/phone"
+import { formatMwk } from "@/lib/money"
 import Logo from "@/components/logo";
 import NewsletterForm from '@/components/newsletter-form';
 import { Separator } from "@/components/ui/separator";
@@ -64,6 +65,7 @@ interface Service {
   duration: number;
   category: string;
   isAvailable: boolean;
+  price: number | null;
 }
 
 interface Category {
@@ -103,6 +105,7 @@ const emptyService: Service = {
   duration: 60,
   category: '',
   isAvailable: true,
+  price: null,
 }
 
 export default function AdminPage() {
@@ -118,7 +121,6 @@ export default function AdminPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date())
   const [isModalOpen, setIsModalOpen] = useState(false)
-  const [isSavingPrices, setIsSavingPrices] = useState(false)
   const [isManageDateOpen, setIsManageDateOpen] = useState(false)
   const [managedSlots, setManagedSlots] = useState<string[]>([])
   const [showAll, setShowAll] = useState(false)
@@ -216,35 +218,6 @@ export default function AdminPage() {
       const service = services.find(s => s.id === id);
       return service ? service.name : id; // Fallback to ID if name not found
     });
-  };
-
-  const handlePriceChange = (id: string, newPrice: string) => {
-    const price = parseInt(newPrice, 10);
-    if (isNaN(price)) return;
-    setServices(prev =>
-      prev.map(s => s.id === id ? { ...s, price } : s)
-    );
-  };
-
-  const handleSaveChanges = async () => {
-    setIsSavingPrices(true);
-    try {
-      const response = await fetch('/api/services', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ services }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to save prices');
-      }
-
-      toast({ title: "Success", description: "Service prices have been updated." });
-    } catch (error) {
-      toast({ title: "Error", description: "Could not save prices.", variant: "destructive" });
-    } finally {
-      setIsSavingPrices(false);
-    }
   };
 
   const handleSavePriceList = async () => {
@@ -460,11 +433,19 @@ export default function AdminPage() {
   const handleSaveService = async () => {
     if (!editingService) return
 
-    const { id, name, description, duration, category } = editingService
+    const { id, name, description, duration, category, price } = editingService
+    if (price != null && (!Number.isInteger(price) || price <= 0)) {
+      toast({
+        title: 'Price',
+        description: 'Enter a whole MWK amount greater than zero, or leave the price blank.',
+        variant: 'destructive',
+      })
+      return
+    }
 
     const url = id ? `/api/services/${id}` : '/api/services'
     const method = id ? 'PUT' : 'POST'
-    const body = JSON.stringify({ name, description, duration, category })
+    const body = JSON.stringify({ name, description, duration, category, price: price ?? null })
 
     try {
       const response = await fetch(url, {
@@ -473,7 +454,10 @@ export default function AdminPage() {
         body,
       })
 
-      if (!response.ok) throw new Error('Failed to save service')
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}))
+        throw new Error(typeof data.error === 'string' ? data.error : 'Failed to save service')
+      }
 
       toast({
         title: 'Success',
@@ -485,7 +469,7 @@ export default function AdminPage() {
     } catch (error) {
       toast({
         title: 'Error',
-        description: 'Could not save service.',
+        description: error instanceof Error ? error.message : 'Could not save service.',
         variant: 'destructive',
       })
     }
@@ -977,7 +961,8 @@ export default function AdminPage() {
                               <span className="font-semibold text-left">{service.name}</span>
                             </AccordionTrigger>
                             <AccordionContent className="px-4 py-3">
-                              <p className="text-sm text-gray-600 mb-4">{service.description || 'No description.'}</p>
+                              <p className="text-sm text-gray-600 mb-2">{service.description || 'No description.'}</p>
+                              <p className="mb-4 text-sm font-medium text-stone-800">{service.price != null && service.price > 0 ? formatMwk(service.price) : 'No price yet'}</p>
                               <div className="flex items-center justify-between">
                                 <Label htmlFor={`switch-${service.id}`} className="flex items-center gap-2 text-sm font-medium">
                                   <Switch
@@ -1008,6 +993,7 @@ export default function AdminPage() {
                                   {service.description}
                                 </p>
                               )}
+                              <p className="text-sm text-stone-600">{service.price != null && service.price > 0 ? formatMwk(service.price) : 'No price yet'}</p>
                             </div>
                             <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
                               <Switch
@@ -1241,6 +1227,15 @@ export default function AdminPage() {
           <div className="space-y-4 py-4">
             <Input placeholder="Service Name" value={editingService?.name || ''} onChange={(e) => setEditingService(s => s ? { ...s, name: e.target.value } : null)} />
             <Textarea placeholder="Description" value={editingService?.description || ''} onChange={(e) => setEditingService(s => s ? { ...s, description: e.target.value } : null)} />
+            <Input
+              inputMode="numeric"
+              placeholder="Price (MWK)"
+              value={editingService?.price ?? ''}
+              onChange={(e) => {
+                const raw = e.target.value.replace(/[^\d]/g, '')
+                setEditingService(s => s ? { ...s, price: raw ? Number(raw) : null } : null)
+              }}
+            />
             <Input
               type="number"
               placeholder="Duration (minutes)"

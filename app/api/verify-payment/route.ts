@@ -1,10 +1,32 @@
 import { NextRequest, NextResponse } from "next/server"
 import prisma from "@/lib/prisma"
 import { logPaymentEvent } from "@/lib/paymentLogger"
-import { verifyDirectCharge } from "@/lib/paychangu-direct"
-import { classifyChargeStatus } from "@/lib/mobile-money"
-import { DEPOSIT_AMOUNT_MWK, chargedAmountMatches } from "@/lib/deposit"
 import { confirmPaidBooking } from "@/lib/confirm-booking"
+import { checkCharge } from "@/lib/charge-check"
+
+function bookingPayload(booking: {
+  id: string
+  name: string
+  date: string
+  timeSlot: string
+  services: string[]
+  ticketId: string
+  discountApplied: boolean
+  email: string | null
+  serviceTotal: number | null
+}) {
+  return {
+    id: booking.id,
+    name: booking.name,
+    date: booking.date,
+    timeSlot: booking.timeSlot,
+    services: booking.services,
+    ticketId: booking.ticketId,
+    discountApplied: booking.discountApplied,
+    email: booking.email,
+    serviceTotal: booking.serviceTotal,
+  }
+}
 
 export async function POST(req: NextRequest) {
   let chargeId = "unknown"
@@ -18,12 +40,12 @@ export async function POST(req: NextRequest) {
     await logPaymentEvent({
       txRef: chargeId,
       eventType: "verification_started",
-      message: "Verify poll started",
+      message: "Verify started",
     })
 
     let result
     try {
-      result = await verifyDirectCharge(chargeId)
+      result = await checkCharge(chargeId)
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : "Verify failed"
       const status = typeof error === "object" && error && "status" in error ? Number((error as { status?: number }).status) : 0
@@ -44,31 +66,48 @@ export async function POST(req: NextRequest) {
       eventType: "paychangu_verify_response",
       status: result.status,
       message: `Verify returned ${result.status}`,
-      payload: { amount: result.amount, currency: result.currency, mode: result.mode },
+      payload: { amount: result.amount, currency: result.currency, bank: result.bank },
     })
 
-    const outcome = classifyChargeStatus(result.status)
-    if (outcome === "pending") {
+    if (result.bank) {
+      if (!result.paid || !result.amountOk) {
+        const mismatch = result.paid && !result.amountOk
+        if (mismatch) {
+          await logPaymentEvent({
+            txRef: chargeId,
+            eventType: "paychangu_verify_response",
+            status: "amount_mismatch",
+            message: `Expected ${result.serviceTotal}, got ${result.amount}`,
+          })
+        }
+        return NextResponse.json(
+          {
+            status: "pending",
+            message: mismatch
+              ? "The amount received does not match this booking. It stays unpaid."
+              : "The transfer is not confirmed yet. You can verify again.",
+          },
+          { status: 202 },
+        )
+      }
+    } else if (!result.paid) {
+      if (result.failed) {
+        await prisma.booking.updateMany({
+          where: { ticketId: chargeId, status: "pending" },
+          data: { status: "failed" },
+        })
+        return NextResponse.json({
+          status: "failed",
+          message: "Payment was not approved. You can try again.",
+        })
+      }
       return NextResponse.json({ status: "pending" }, { status: 202 })
-    }
-
-    if (outcome === "failed") {
-      await prisma.booking.updateMany({
-        where: { ticketId: chargeId, status: "pending" },
-        data: { status: "failed" },
-      })
-      return NextResponse.json({
-        status: "failed",
-        message: "Payment was not approved. You can try again.",
-      })
-    }
-
-    if (!chargedAmountMatches(result.amount)) {
+    } else if (!result.amountOk) {
       await logPaymentEvent({
         txRef: chargeId,
         eventType: "paychangu_verify_response",
         status: "amount_mismatch",
-        message: `Expected ${DEPOSIT_AMOUNT_MWK}, got ${result.amount}`,
+        message: `Expected ${result.serviceTotal}, got ${result.amount}`,
       })
       return NextResponse.json({
         status: "review",
@@ -81,19 +120,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ status: "failed", message: "Booking not found." }, { status: 404 })
     }
 
-    const booking = confirmed.booking
     return NextResponse.json({
       status: "success",
-      booking: {
-        id: booking.id,
-        name: booking.name,
-        date: booking.date,
-        timeSlot: booking.timeSlot,
-        services: booking.services,
-        ticketId: booking.ticketId,
-        discountApplied: booking.discountApplied,
-        email: booking.email,
-      },
+      booking: bookingPayload(confirmed.booking),
     })
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Internal Server Error"

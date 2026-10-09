@@ -121,12 +121,12 @@ This file combines the planned development roadmap and the reactive work log (fi
 16.0 Direct Charge booking payment (generated against SDD v5)
 - [x] 16.1 Remove hosted PayChangu checkout from the booking flow: no checkout URL, no redirect, and no use of the public key
 - [x] 16.2 Add a booking payment step that offers TNM Mpamba (`08`) and Airtel Money (`09`), in the studio UI, and stays on the site
-- [x] 16.3 Initialize a Direct Charge for MWK 100 with a new server-generated charge id, create the booking as pending, and ignore any amount from the browser
+- [x] 16.3 Initialize a Direct Charge for MWK 100 with a new server-generated charge id, create the booking as pending, and ignore any amount from the browser [SUPERSEDED BY 20.0]
 - [x] 16.4 Poll PayChangu verify from that same page. On success, mark the booking successful, apply loyalty, send the SMS, show the ticket, and allow the PNG download
 - [x] 16.5 Email the ticket through Resend when the booking has an email. A failed send does not undo the booking
 - [x] 16.6 Keep the webhook route, reject it while `PAYCHANGU_WEBHOOK_SECRET` is missing, and when the secret exists require a valid `Signature` plus a fresh verify before the shared confirm path runs
 - [x] 16.7 Log initialize, verify, confirm, ticket email, and webhook attempts on `PaymentEvent`
-- [ ] 16.8 Restore the charged amount to K10,000 before this flow is used for real deposits
+- [ ] 16.8 Restore the charged amount to K10,000 before this flow is used for real deposits [SUPERSEDED BY 20.0]
 
 17.0 Luxury loading mark (generated against SDD v5)
 - [x] 17.1 Add one shared mark from `/Llogo.png` with two sizes: a full-page black field, centered mark, soft glow, and at most one quiet line; and a smaller mark that leaves the header and footer in place
@@ -147,6 +147,16 @@ This file combines the planned development roadmap and the reactive work log (fi
 - [x] 19.3 Users lists each account's name, email, and phone, for the admin screen only. Each row has a three-dot menu. The menu must not block, delete, or change the account.
 - [x] 19.4 Place the current booking list, availability editor, service and category editor, newsletter form, and price-list upload into those nav sections. Leave what each tool already does unchanged. Categories stay inside Services.
 
+20.0 Service prices, booking totals, expenditure, and bank transfer (generated against SDD v6)
+- [x] 20.1 Add a whole-MWK `price` on Service, required and greater than zero before that service can be booked, and edit it from the admin Services section. Add a nullable whole-MWK `serviceTotal` on Booking. Leave existing services unpriced until an admin sets a price. Do not backfill old bookings.
+- [x] 20.2 On the booking service step, show each service name, its description when one is saved, and its price. On a narrow screen, stack name, description, and price, and keep the running total of the selected prices on screen. Do not continue to payment when a selected service has no positive price.
+- [x] 20.3 When a charge is initialized, the server sums the current prices of the selected service ids, stores that sum on the pending booking, and sends that sum to PayChangu. Ignore any amount from the browser. TNM and Airtel verify, and the webhook, confirm only when PayChangu's amount equals that stored total. The 30% loyalty flag does not reduce the charge.
+- [x] 20.4 On the payment step, hide the mobile-number field until TNM Mpamba or Airtel Money is selected. TNM still requires a number starting with 08. Airtel still requires a number starting with 09.
+- [x] 20.5 Add Bank Transfer beside those two. Choosing it calls PayChangu `POST /direct-charge/payments/initialize` with `payment_method` `mobile_bank_transfer`, currency MWK, the stored total, a new charge id, and `create_permanent_account` false. Show the returned bank name, account number, and account name (LaurynStudio), the amount, and the expiration when PayChangu sends one. Do not show a mobile number.
+- [x] 20.6 Verify is a button, not a poll. It calls `GET /direct-charge/transactions/{charge_id}/details`. Confirm only when `data.transaction.status` is `success` and the amount equals the stored total, then run the existing confirm path and show the ticket. A mismatch or any other status stays pending, tells the customer, and allows another press. A webhook for this charge uses the same status and amount check.
+- [x] 20.7 On the account page, under Newsletter, show Expenditure: the sum of stored totals for successful bookings on that phone whose Blantyre slot has passed. Each upcoming visit, each past visit, and the confirmation ticket show that booking's stored total. A booking with no stored total adds nothing and shows no amount.
+- [x] 20.8 Keep the booking picker, the running total, the payment methods, the bank details, Expenditure, and the visit totals readable on a phone without a horizontal page scroll.
+
 ## Reactive Log
 
 F1.0 — 26 Sept 2026 — After a successful PayChangu payment the ticket is shown (“Appointment confirmed”) and a destructive toast still says “Time Slot Unavailable / The time slot you selected is no longer available.”
@@ -159,6 +169,15 @@ F1.0 — 26 Sept 2026 — After a successful PayChangu payment the ticket is sho
 - Status: Resolved
 
 ## Recent Activity Index
+- 9 Oct 2026 — 20.0 Service prices, booking totals, expenditure, and bank transfer
+- 9 Oct 2026 — 20.1 Service price and stored booking total
+- 9 Oct 2026 — 20.2 Booking rows show description, price, and a running total
+- 9 Oct 2026 — 20.3 Server charges the stored service total
+- 9 Oct 2026 — 20.4 Mobile number only after TNM or Airtel
+- 9 Oct 2026 — 20.5 One-off LaurynStudio bank transfer
+- 9 Oct 2026 — 20.6 Verify matches status and amount, then the ticket
+- 9 Oct 2026 — 20.7 Expenditure after the slot, totals on every visit
+- 9 Oct 2026 — 20.8 Phone layout for prices, bank details, and expenditure
 - 27 Sept 2026 — 19.0 Admin phone dashboard
 - 27 Sept 2026 — 19.1 Phone-first nav in black, silver, and a little pink
 - 27 Sept 2026 — 19.2 Overview line of bookings by week, month, and year

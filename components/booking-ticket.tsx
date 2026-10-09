@@ -21,7 +21,7 @@ export type TicketDetails = {
 export const TicketFace = forwardRef<HTMLDivElement, { details: TicketDetails; serviceNames: string[] }>(
   function TicketFace({ details, serviceNames }, ref) {
     return (
-      <div ref={ref} className="relative w-[320px] rounded-xl bg-white shadow-2xl">
+      <div ref={ref} className="relative w-full max-w-[320px] rounded-xl bg-white shadow-2xl">
         <div className="absolute -top-6 left-1/2 h-12 w-12 -translate-x-1/2 rounded-full bg-gray-200" />
         <div className="p-8 text-center">
           <div className="mb-6 flex justify-center">
@@ -41,8 +41,8 @@ export const TicketFace = forwardRef<HTMLDivElement, { details: TicketDetails; s
             <p><strong>Name:</strong> {details.name}</p>
             <p><strong>Date:</strong> {details.date}</p>
             <p><strong>Time:</strong> {formatTime(details.timeSlot)}</p>
-            <p><strong>Services:</strong> {serviceNames.join(", ")}</p>
-            <p><strong>Booking Fee:</strong> {details.fee}</p>
+            <p className="break-words"><strong>Services:</strong> {serviceNames.join(", ")}</p>
+            {details.fee ? <p><strong>Total:</strong> {details.fee}</p> : null}
             {details.isReschedule && details.originalDate && (
               <p><strong>Originally Scheduled:</strong> {format(parseISO(details.originalDate), "MMMM dd, yyyy")}</p>
             )}

@@ -21,6 +21,12 @@ model Booking {
   inspirationPhotos String[] @default([])
   rescheduleCount   Int      @default(0)
   originalDate      String?
+  serviceTotal      Int?
+  paymentMethod     String?
+  bankName          String?
+  bankAccountNumber String?
+  bankAccountName   String?
+  bankExpiresAt     String?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
   status            String   @default("successful")
@@ -47,6 +53,7 @@ model Service {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   isAvailable Boolean  @default(true)
+  price       Int?
 }
 
 /// Logical service categories (e.g., manicure, pedicure, refills, nail art, soak off)

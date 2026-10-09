@@ -17,7 +17,7 @@ import { MultiStepLoader } from "@/components/ui/multi-step-loader"
 import { BookingForm } from "@/components/booking-form"
 import useSWR from 'swr';
 import { authClient } from "@/lib/auth/client"
-import { formatDeposit } from "@/lib/deposit"
+import { formatMwk } from "@/lib/money"
 import { LuxuryMark } from "@/components/luxury-mark"
 import { localMobileMoneyNumber, type MobileOperator } from "@/lib/mobile-money"
 import { paychanguText } from "@/lib/paychangu-direct"
@@ -32,12 +32,24 @@ const loadingStates = [
 
 const PENDING_CHARGE_KEY = "lauryn-luxe-pending-charge"
 
+type PayMethod = MobileOperator | "bank"
+
+type BankDetails = {
+  bankName: string
+  accountNumber: string
+  accountName: string
+  expiresAt: string | null
+  amount: number | null
+}
+
 type PendingCharge = {
   chargeId: string
-  operator: MobileOperator
+  operator: PayMethod
   mobile: string
   formData: Record<string, unknown>
   useSession: boolean
+  amount?: number | null
+  bank?: BankDetails | null
 }
 
 function readPendingCharge(): PendingCharge | null {
@@ -45,14 +57,17 @@ function readPendingCharge(): PendingCharge | null {
     const raw = sessionStorage.getItem(PENDING_CHARGE_KEY)
     if (!raw) return null
     const parsed = JSON.parse(raw) as Partial<PendingCharge>
-    if (!parsed.chargeId || !parsed.mobile || !parsed.formData) return null
-    if (parsed.operator !== "tnm" && parsed.operator !== "airtel") return null
+    if (!parsed.chargeId || !parsed.formData) return null
+    if (parsed.operator !== "tnm" && parsed.operator !== "airtel" && parsed.operator !== "bank") return null
+    if (parsed.operator !== "bank" && !parsed.mobile) return null
     return {
       chargeId: parsed.chargeId,
       operator: parsed.operator,
-      mobile: parsed.mobile,
+      mobile: parsed.mobile || "",
       formData: parsed.formData,
       useSession: Boolean(parsed.useSession),
+      amount: parsed.amount,
+      bank: parsed.bank,
     }
   } catch {
     return null
@@ -91,8 +106,11 @@ function BookingContent() {
   })
   const [date, setDate] = useState<Date | undefined>()
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [step, setStep] = useState<'form' | 'payment' | 'awaiting' | 'failed' | 'ticket'>('form')
-  const [operator, setOperator] = useState<MobileOperator>('airtel')
+  const [step, setStep] = useState<'form' | 'payment' | 'awaiting' | 'bank' | 'failed' | 'ticket'>('form')
+  const [operator, setOperator] = useState<PayMethod | null>(null)
+  const [bankDetails, setBankDetails] = useState<BankDetails | null>(null)
+  const [verifyingBank, setVerifyingBank] = useState(false)
+  const [chargedAmount, setChargedAmount] = useState<number | null>(null)
   const [payerNumber, setPayerNumber] = useState('')
   const [chargeId, setChargeId] = useState('')
   const [failureMessage, setFailureMessage] = useState('')
@@ -176,7 +194,15 @@ function BookingContent() {
     const openCharge = readPendingCharge();
     if (openCharge) {
       setChargeId(openCharge.chargeId);
-      setStep('awaiting');
+      setOperator(openCharge.operator);
+      setPayerNumber(openCharge.mobile);
+      if (typeof openCharge.amount === "number") setChargedAmount(openCharge.amount);
+      if (openCharge.operator === "bank") {
+        setBankDetails(openCharge.bank ?? null);
+        setStep("bank");
+      } else {
+        setStep("awaiting");
+      }
       setIsPaying(true);
     }
   }, [searchParams]);
@@ -429,6 +455,7 @@ function BookingContent() {
 
   const payLock = useRef(false);
   const initializeSent = useRef('');
+  const [bankSetupAttempt, setBankSetupAttempt] = useState(0);
 
   const showTicket = (booking: {
     name: string
@@ -437,18 +464,20 @@ function BookingContent() {
     services: string[]
     ticketId: string
     discountApplied?: boolean
+    serviceTotal?: number | null
   }) => {
     clearPendingCharge();
+    const fee = booking.serviceTotal != null && booking.serviceTotal > 0 ? formatMwk(booking.serviceTotal) : ""
     sessionStorage.setItem('lauryn-luxe-booking', JSON.stringify({
       ticketId: booking.ticketId,
-      fee: formatDeposit(),
+      fee,
     }));
     setTicketDetails({
       name: booking.name,
       date: booking.date,
       timeSlot: booking.timeSlot,
       services: booking.services,
-      fee: formatDeposit(),
+      fee,
       ticketId: booking.ticketId,
       discountApplied: booking.discountApplied,
     });
@@ -462,7 +491,13 @@ function BookingContent() {
     const openCharge = readPendingCharge();
     if (openCharge) {
       setChargeId(openCharge.chargeId);
-      setStep('awaiting');
+      setOperator(openCharge.operator);
+      if (openCharge.operator === "bank") {
+        setBankDetails(openCharge.bank ?? null);
+        setStep("bank");
+      } else {
+        setStep("awaiting");
+      }
       setIsPaying(true);
       toast({
         title: "Payment still open",
@@ -471,16 +506,29 @@ function BookingContent() {
       return;
     }
 
-    const payer = localMobileMoneyNumber(payerNumber, operator);
-    if (!payer) {
+    if (operator !== "tnm" && operator !== "airtel" && operator !== "bank") {
       toast({
-        title: "Mobile money number",
-        description: operator === "tnm"
-          ? "TNM Mpamba needs a Malawi number starting with 08."
-          : "Airtel Money needs a Malawi number starting with 09.",
+        title: "Choose how to pay",
+        description: "Select TNM Mpamba, Airtel Money, or Bank Transfer.",
         variant: "destructive",
       });
       return;
+    }
+
+    let payer = "";
+    if (operator !== "bank") {
+      const local = localMobileMoneyNumber(payerNumber, operator);
+      if (!local) {
+        toast({
+          title: "Mobile money number",
+          description: operator === "tnm"
+            ? "TNM Mpamba needs a Malawi number starting with 08."
+            : "Airtel Money needs a Malawi number starting with 09.",
+          variant: "destructive",
+        });
+        return;
+      }
+      payer = local;
     }
 
     if (payLock.current) return;
@@ -508,10 +556,12 @@ function BookingContent() {
         mobile: payer,
         formData,
         useSession: accountBooking || Boolean(session?.user),
+        amount: typeof data.amount === "number" ? data.amount : null,
       };
       writePendingCharge(pending);
       setChargeId(data.chargeId);
-      setStep('awaiting');
+      if (typeof data.amount === "number") setChargedAmount(data.amount);
+      setStep(operator === "bank" ? "bank" : "awaiting");
     } catch (error: any) {
       payLock.current = false;
       toast({
@@ -610,7 +660,7 @@ function BookingContent() {
   };
 
   useEffect(() => {
-    if (step !== 'awaiting' || !chargeId) return;
+    if ((step !== 'awaiting' && step !== 'bank') || !chargeId) return;
     const pending = readPendingCharge();
     if (!pending || pending.chargeId !== chargeId) return;
     if (initializeSent.current === chargeId) return;
@@ -628,19 +678,71 @@ function BookingContent() {
         mobile: pending.mobile,
       }),
     }).then(async (initResponse) => {
-      if (initResponse.ok) return;
       const body = await initResponse.json().catch(() => ({}));
-      const message = paychanguText(body.message) || paychanguText(body.error);
-      const lower = message.toLowerCase();
-      if (!message || message === '[object Object]' || lower.includes('expired') || lower.includes('already')) {
+      if (initResponse.ok) {
+        if (pending.operator === "bank" && !body.bank?.accountNumber) {
+          initializeSent.current = "";
+          setFailureMessage("PayChangu did not return the bank account.");
+          return;
+        }
+        if (typeof body.amount === "number") setChargedAmount(body.amount);
+        if (body.bank?.accountNumber) {
+          const details: BankDetails = {
+            bankName: String(body.bank.bankName || ""),
+            accountNumber: String(body.bank.accountNumber),
+            accountName: String(body.bank.accountName || ""),
+            expiresAt: body.bank.expiresAt ? String(body.bank.expiresAt) : null,
+            amount: typeof body.bank.amount === "number" ? body.bank.amount : (typeof body.amount === "number" ? body.amount : null),
+          };
+          setBankDetails(details);
+          writePendingCharge({ ...pending, bank: details, amount: typeof body.amount === "number" ? body.amount : pending.amount });
+        }
         return;
       }
-      setFailureMessage(message);
+      const message = paychanguText(body.message) || paychanguText(body.error);
+      const lower = message.toLowerCase();
+      if (pending.operator !== "bank" && (!message || message === '[object Object]' || lower.includes('expired') || lower.includes('already'))) {
+        return;
+      }
+      initializeSent.current = '';
+      setFailureMessage(message || 'PayChangu could not start this payment.');
     }).catch(() => {
       initializeSent.current = '';
-      setFailureMessage('The connection dropped. If you already approved the PIN, stay on this page.');
+      setFailureMessage(pending.operator === "bank"
+        ? 'The connection dropped. You can stay on this page and try again.'
+        : 'The connection dropped. If you already approved the PIN, stay on this page.');
     });
-  }, [step, chargeId]);
+  }, [step, chargeId, bankSetupAttempt]);
+
+  const handleVerifyBank = async () => {
+    const id = chargeId || readPendingCharge()?.chargeId || '';
+    if (!id || verifyingBank) return;
+    setVerifyingBank(true);
+    setFailureMessage('');
+    try {
+      const response = await fetch('/api/verify-payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chargeId: id }),
+      });
+      const data = await response.json();
+      if (data.status === 'success' && data.booking) {
+        showTicket(data.booking);
+        return;
+      }
+      setFailureMessage(paychanguText(data.message) || 'The transfer is not confirmed yet. You can verify again.');
+    } catch {
+      setFailureMessage('The connection dropped. You can verify again.');
+    } finally {
+      setVerifyingBank(false);
+    }
+  };
+
+  const retryBankSetup = () => {
+    initializeSent.current = '';
+    setFailureMessage('');
+    setBankSetupAttempt((attempt) => attempt + 1);
+  };
 
   useEffect(() => {
     if (step !== 'awaiting' || !chargeId) return;
@@ -689,7 +791,7 @@ function BookingContent() {
         backgroundImage="/IMG_7410.png"
       />
 
-      <div className="container mx-auto py-12 px-4" ref={bookingFormRef}>
+      <div className="container mx-auto overflow-x-hidden px-4 py-12" ref={bookingFormRef}>
         <BookingForm
           formData={formData}
           setFormData={setFormData}
@@ -721,6 +823,11 @@ function BookingContent() {
           onCancelPayment={handleCancelPayment}
           cancelConfirm={cancelConfirm}
           ticketDetails={ticketDetails}
+          bankDetails={bankDetails}
+          onVerifyBank={handleVerifyBank}
+          verifyingBank={verifyingBank}
+          chargedAmount={chargedAmount}
+          onRetryBankSetup={retryBankSetup}
         />
       </div>
 

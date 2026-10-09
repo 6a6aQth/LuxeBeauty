@@ -2,10 +2,8 @@ import { NextRequest, NextResponse } from "next/server"
 import { createHmac, timingSafeEqual } from "crypto"
 import prisma from "@/lib/prisma"
 import { logPaymentEvent } from "@/lib/paymentLogger"
-import { verifyDirectCharge } from "@/lib/paychangu-direct"
-import { classifyChargeStatus } from "@/lib/mobile-money"
-import { DEPOSIT_AMOUNT_MWK, chargedAmountMatches } from "@/lib/deposit"
 import { confirmPaidBooking } from "@/lib/confirm-booking"
+import { checkCharge } from "@/lib/charge-check"
 
 function signaturesMatch(payload: string, signature: string | null, secret: string) {
   if (!signature) return false
@@ -69,7 +67,7 @@ export async function POST(req: NextRequest) {
 
   let result
   try {
-    result = await verifyDirectCharge(chargeId)
+    result = await checkCharge(chargeId)
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Verify failed"
     await logPaymentEvent({
@@ -86,26 +84,37 @@ export async function POST(req: NextRequest) {
     eventType: "paychangu_verify_response",
     status: result.status,
     message: `Webhook verify returned ${result.status}`,
-    payload: { amount: result.amount, currency: result.currency },
+    payload: { amount: result.amount, currency: result.currency, bank: result.bank },
   })
 
-  const outcome = classifyChargeStatus(result.status)
-  if (outcome === "pending") {
+  if (result.bank) {
+    if (!result.paid || !result.amountOk) {
+      if (result.paid && !result.amountOk) {
+        await logPaymentEvent({
+          txRef: chargeId,
+          eventType: "paychangu_verify_response",
+          status: "amount_mismatch",
+          message: `Expected ${result.serviceTotal}, got ${result.amount}`,
+        })
+        return NextResponse.json({ received: true, status: "amount_mismatch" })
+      }
+      return NextResponse.json({ received: true, status: "pending" })
+    }
+  } else if (!result.paid) {
+    if (result.failed) {
+      await prisma.booking.updateMany({
+        where: { ticketId: chargeId, status: "pending" },
+        data: { status: "failed" },
+      })
+      return NextResponse.json({ received: true, status: "failed" })
+    }
     return NextResponse.json({ received: true, status: "pending" })
-  }
-  if (outcome === "failed") {
-    await prisma.booking.updateMany({
-      where: { ticketId: chargeId, status: "pending" },
-      data: { status: "failed" },
-    })
-    return NextResponse.json({ received: true, status: "failed" })
-  }
-  if (!chargedAmountMatches(result.amount)) {
+  } else if (!result.amountOk) {
     await logPaymentEvent({
       txRef: chargeId,
       eventType: "paychangu_verify_response",
       status: "amount_mismatch",
-      message: `Expected ${DEPOSIT_AMOUNT_MWK}, got ${result.amount}`,
+      message: `Expected ${result.serviceTotal}, got ${result.amount}`,
     })
     return NextResponse.json({ received: true, status: "amount_mismatch" })
   }

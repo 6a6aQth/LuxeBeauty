@@ -39,7 +39,7 @@ import { StudioPoliciesContent } from "@/components/studio-policies";
 import useSWR from 'swr';
 import { toast } from '@/hooks/use-toast';
 import { sanitizePhoneInput } from '@/lib/phone';
-import { formatDeposit } from '@/lib/deposit';
+import { bankExpiryLabel, formatMwk } from '@/lib/money';
 import { BookingTicket } from '@/components/booking-ticket';
 
 export function BookingForm({
@@ -73,6 +73,11 @@ export function BookingForm({
   onCancelPayment,
   cancelConfirm,
   ticketDetails,
+  bankDetails,
+  onVerifyBank,
+  verifyingBank,
+  chargedAmount,
+  onRetryBankSetup,
 }: BookingFormProps) {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [showPoliciesDialog, setShowPoliciesDialog] = useState(false);
@@ -97,16 +102,15 @@ export function BookingForm({
     if (!Array.isArray(services) || services.length === 0) return;
     setFormData((prev: any) => {
       const stillAvailable = prev.services.filter((id: string) =>
-        services.some((s) => s.id === id && s.isAvailable)
+        services.some((s) => s.id === id && s.isAvailable && s.price != null && s.price > 0)
       );
-      // Only show toast if the change was not user-initiated
       if (
         stillAvailable.length !== prev.services.length &&
         prevServices.current.length === prev.services.length
       ) {
         toast({
           title: 'Service(s) Unavailable',
-          description: 'Some of the services you selected are no longer available. Please review your selection.',
+          description: 'Some of the services you selected are no longer available, or have no price yet.',
           variant: 'destructive',
         });
       }
@@ -166,6 +170,20 @@ export function BookingForm({
     if (!selectedCategory || !Array.isArray(services)) return [];
     return services.filter((s: any) => s.category === selectedCategory);
   }, [services, selectedCategory]);
+
+  const selectedServices = React.useMemo((): Service[] => {
+    if (!Array.isArray(services)) return [];
+    return formData.services
+      .map((id: string) => services.find((service: Service) => service.id === id))
+      .filter((service: Service | undefined): service is Service => Boolean(service));
+  }, [services, formData.services]);
+
+  const missingPrice = selectedServices.some((service) => service.price == null || service.price <= 0);
+  const runningTotal = selectedServices.reduce(
+    (sum, service) => sum + (service.price != null && service.price > 0 ? service.price : 0),
+    0,
+  );
+  const payAmount = chargedAmount != null && chargedAmount > 0 ? chargedAmount : runningTotal;
 
   const handleChange = (e: any) => {
     const { name, value } = e.target;
@@ -258,29 +276,33 @@ export function BookingForm({
             </div>
           </div>
 
-          <div className="p-8 bg-white">
+          <div className="overflow-x-hidden bg-white p-4 sm:p-8">
             <CardHeader className="p-0 mb-6 text-center">
               <CardTitle className="text-2xl font-bold text-gray-900">
                 {step === "form"
                   ? "Book Your Slot"
                   : step === "awaiting"
                     ? "Approve on your phone"
-                    : step === "ticket"
-                      ? "Appointment confirmed"
-                      : step === "failed"
-                        ? "Payment not completed"
-                        : "Confirm & Pay"}
+                    : step === "bank"
+                      ? "Bank transfer"
+                      : step === "ticket"
+                        ? "Appointment confirmed"
+                        : step === "failed"
+                          ? "Payment not completed"
+                          : "Confirm & Pay"}
               </CardTitle>
               <CardDescription className="text-sm text-gray-500">
                 {step === "form"
-                  ? `A ${formatDeposit()} non-refundable deposit is required.`
+                  ? "The total of the services you choose is what you pay."
                   : step === "awaiting"
                     ? "A prompt was sent to the mobile money number. Approve it with your PIN."
-                    : step === "ticket"
-                      ? "Your deposit is paid. Download the ticket below."
-                      : step === "failed"
-                        ? failureMessage || "The payment was not approved."
-                        : `Review your details and pay ${formatDeposit()}.`}
+                    : step === "bank"
+                      ? "Transfer the total to this account, then press Verify."
+                      : step === "ticket"
+                        ? "Your payment is confirmed. Download the ticket below."
+                        : step === "failed"
+                          ? failureMessage || "The payment was not approved."
+                          : `Review your details and pay ${payAmount > 0 ? formatMwk(payAmount) : "the service total"}.`}
               </CardDescription>
             </CardHeader>
             <CardContent className="p-0">
@@ -358,7 +380,7 @@ export function BookingForm({
                             >
                               {category
                                 .replace(/-/g, " ")
-                                .replace(/\b\w/g, (l) => l.toUpperCase())}
+                                .replace(/\b\w/g, (l: string) => l.toUpperCase())}
                             </SelectItem>
                           ))
                         )}
@@ -372,40 +394,48 @@ export function BookingForm({
                       <Label className="text-base font-medium text-gray-900">
                         Select Services
                       </Label>
-                      <div className="grid grid-cols-2 gap-x-6 gap-y-4">
-                        {filteredServices.map((service) => (
-                          <div
-                            key={service.id}
-                            className="flex items-center space-x-3"
-                          >
-                            <Checkbox
-                              id={`service-${service.id}`}
-                              name="services"
-                              value={service.id}
-                              checked={formData.services.includes(service.id)}
-                              disabled={!service.isAvailable}
-                              onCheckedChange={() => {
-                                const newServices = formData.services.includes(
-                                  service.id
-                                )
-                                  ? formData.services.filter(
-                                    (s: any) => s !== service.id
-                                  )
-                                  : [...formData.services, service.id];
-                                setFormData((prev: any) => ({
-                                  ...prev,
-                                  services: newServices,
-                                }));
-                              }}
-                            />
-                            <Label
-                              htmlFor={`service-${service.id}`}
-                              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                      <div className="space-y-3">
+                        {filteredServices.map((service) => {
+                          const priced = service.price != null && service.price > 0;
+                          return (
+                            <div
+                              key={service.id}
+                              className="flex min-w-0 flex-col gap-2 rounded-xl border border-gray-200 p-3 sm:flex-row sm:items-start sm:justify-between"
                             >
-                              {service.name}
-                            </Label>
-                          </div>
-                        ))}
+                              <div className="flex min-w-0 items-start gap-3">
+                                <Checkbox
+                                  id={`service-${service.id}`}
+                                  name="services"
+                                  value={service.id}
+                                  checked={formData.services.includes(service.id)}
+                                  disabled={!service.isAvailable || !priced}
+                                  onCheckedChange={() => {
+                                    const newServices = formData.services.includes(service.id)
+                                      ? formData.services.filter((s: string) => s !== service.id)
+                                      : [...formData.services, service.id];
+                                    setFormData((prev: any) => ({
+                                      ...prev,
+                                      services: newServices,
+                                    }));
+                                  }}
+                                  className="mt-0.5"
+                                />
+                                <Label
+                                  htmlFor={`service-${service.id}`}
+                                  className="min-w-0 font-medium leading-snug peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                                >
+                                  <span className="block break-words">{service.name}</span>
+                                  {service.description ? (
+                                    <span className="mt-1 block break-words text-sm font-normal text-gray-500">{service.description}</span>
+                                  ) : null}
+                                </Label>
+                              </div>
+                              <p className="break-words pl-7 text-sm font-medium text-gray-900 sm:shrink-0 sm:pl-0 sm:text-right">
+                                {priced ? formatMwk(service.price as number) : "No price yet"}
+                              </p>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   )}
@@ -553,6 +583,20 @@ export function BookingForm({
                     />
                   </div>
 
+                  {formData.services.length > 0 && (
+                    <div className="sticky bottom-3 z-20 rounded-2xl border border-stone-200 bg-white/95 px-4 py-3 shadow-sm backdrop-blur">
+                      <div className="flex items-baseline justify-between gap-3">
+                        <span className="text-sm text-stone-600">Total</span>
+                        <span className="break-words font-semibold text-stone-900">
+                          {missingPrice || runningTotal <= 0 ? "—" : formatMwk(runningTotal)}
+                        </span>
+                      </div>
+                      {missingPrice ? (
+                        <p className="mt-1 text-sm text-red-600">A selected service has no price yet.</p>
+                      ) : null}
+                    </div>
+                  )}
+
                   <Button
                     type="submit"
                     className="w-full bg-brand-pink text-white hover:bg-brand-pink/90 transition-colors"
@@ -560,7 +604,9 @@ export function BookingForm({
                       isSubmitting ||
                       !formData.date ||
                       formData.services.length === 0 ||
-                      !formData.timeSlot
+                      !formData.timeSlot ||
+                      missingPrice ||
+                      runningTotal <= 0
                     }
                   >
                     {isSubmitting ? "Submitting..." : "Proceed"}
@@ -578,7 +624,7 @@ export function BookingForm({
                 <div className="space-y-4 text-center">
                   <div className="mx-auto h-8 w-8 animate-spin rounded-full border-b-2 border-brand-pink" />
                   <p className="text-gray-700">Check your phone and approve the PIN prompt. This page will update when the payment is confirmed.</p>
-                  <p className="text-sm text-gray-500">Charge {formatDeposit()}. Stay on this page. Refreshing will not start a second charge.</p>
+                  <p className="text-sm text-gray-500">Charge {payAmount > 0 ? formatMwk(payAmount) : "the service total"}. Stay on this page. Refreshing will not start a second charge.</p>
                   {failureMessage ? (
                     <p className="text-sm text-red-600">{failureMessage}</p>
                   ) : null}
@@ -592,6 +638,58 @@ export function BookingForm({
                     </button>
                   </div>
                 </div>
+              ) : step === "bank" ? (
+                <div className="space-y-4">
+                  {bankDetails ? (
+                    <div className="space-y-3 rounded-xl border border-gray-200 bg-gray-50 p-4">
+                      <div>
+                        <p className="text-xs uppercase tracking-[0.16em] text-gray-500">Bank</p>
+                        <p className="mt-1 break-words font-medium text-gray-900">{bankDetails.bankName}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs uppercase tracking-[0.16em] text-gray-500">Account number</p>
+                        <p className="mt-1 break-all font-mono text-lg text-gray-900">{bankDetails.accountNumber}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs uppercase tracking-[0.16em] text-gray-500">Account name</p>
+                        <p className="mt-1 break-words font-medium text-gray-900">{bankDetails.accountName || "LaurynStudio"}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs uppercase tracking-[0.16em] text-gray-500">Amount</p>
+                        <p className="mt-1 break-words font-semibold text-gray-900">
+                          {formatMwk(bankDetails.amount && bankDetails.amount > 0 ? bankDetails.amount : payAmount)}
+                        </p>
+                      </div>
+                      {bankExpiryLabel(bankDetails.expiresAt) ? (
+                        <div>
+                          <p className="text-xs uppercase tracking-[0.16em] text-gray-500">Expires</p>
+                          <p className="mt-1 break-words text-gray-900">{bankExpiryLabel(bankDetails.expiresAt)}</p>
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <div className="space-y-3 text-center">
+                      <p className="text-sm text-gray-600">Opening the transfer account…</p>
+                      {failureMessage ? (
+                        <Button type="button" variant="outline" onClick={onRetryBankSetup} className="w-full">
+                          Try again
+                        </Button>
+                      ) : null}
+                    </div>
+                  )}
+                  {failureMessage ? (
+                    <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{failureMessage}</p>
+                  ) : null}
+                  <Button
+                    type="button"
+                    onClick={onVerifyBank}
+                    disabled={!bankDetails || verifyingBank}
+                    className="w-full bg-green-500 text-white hover:bg-green-600"
+                  >
+                    {verifyingBank ? "Checking…" : "Verify"}
+                  </Button>
+                  <p className="text-center text-sm text-gray-500">The appointment stays unpaid until this transfer is confirmed.</p>
+                </div>
               ) : step === "failed" ? (
                 <div className="space-y-4 text-center">
                   <p className="text-gray-700">{failureMessage || "Payment was not approved."}</p>
@@ -602,27 +700,33 @@ export function BookingForm({
               ) : (
                 <div className="space-y-6">
                   {loyaltyDiscountEligible && (
-                    <div className="rounded-lg bg-green-50 border border-green-200 p-4 text-green-800 text-center font-semibold text-base mb-2">
-                      🎉 Congratulations! You qualify for a <span className="font-bold">30% loyalty discount</span> on this booking.
+                    <div className="rounded-lg bg-green-50 border border-green-200 p-4 text-green-800 text-center text-base mb-2">
+                      This visit is marked for the 30% loyalty note. The charge stays the full total.
                     </div>
                   )}
                   <div className="space-y-3 rounded-lg border border-gray-200 bg-gray-50 p-4">
-                    <div className="flex justify-between">
-                      <span className="font-medium">Full Name:</span>
-                      <span className="text-gray-900 font-semibold">{formData.name}</span>
+                    <div className="flex flex-col gap-1 sm:flex-row sm:justify-between sm:gap-4">
+                      <span className="shrink-0 font-medium">Full Name</span>
+                      <span className="min-w-0 break-words font-semibold text-gray-900 sm:text-right">{formData.name}</span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="font-medium">Phone:</span>
-                      <span className="text-gray-900 font-semibold">{formData.phone}</span>
+                    <div className="flex flex-col gap-1 sm:flex-row sm:justify-between sm:gap-4">
+                      <span className="shrink-0 font-medium">Phone</span>
+                      <span className="min-w-0 break-all font-semibold text-gray-900 sm:text-right">{formData.phone}</span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="font-medium">Date:</span>
-                      <span className="text-gray-900 font-semibold">{formData.date ? format(new Date(formData.date), "PPP") : ""}</span>
+                    <div className="flex flex-col gap-1 sm:flex-row sm:justify-between sm:gap-4">
+                      <span className="shrink-0 font-medium">Date</span>
+                      <span className="min-w-0 break-words font-semibold text-gray-900 sm:text-right">{formData.date ? format(new Date(formData.date), "PPP") : ""}</span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="font-medium">Time Slot:</span>
-                      <span className="text-gray-900 font-semibold">{formatTime(formData.timeSlot)}</span>
+                    <div className="flex flex-col gap-1 sm:flex-row sm:justify-between sm:gap-4">
+                      <span className="shrink-0 font-medium">Time</span>
+                      <span className="font-semibold text-gray-900 sm:text-right">{formatTime(formData.timeSlot)}</span>
                     </div>
+                    {!isReschedule && payAmount > 0 ? (
+                      <div className="flex flex-col gap-1 border-t border-gray-200 pt-3 sm:flex-row sm:justify-between sm:gap-4">
+                        <span className="shrink-0 font-medium">Total</span>
+                        <span className="break-words font-semibold text-gray-900 sm:text-right">{formatMwk(payAmount)}</span>
+                      </div>
+                    ) : null}
                     {formData.services && formData.services.length > 0 && (
                       <div>
                         <span className="font-medium">Selected Services:</span>
@@ -663,38 +767,54 @@ export function BookingForm({
                     {failureMessage ? (
                       <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{failureMessage}</p>
                     ) : null}
-                    <p className="text-sm font-medium text-gray-900">Pay {formatDeposit()} with</p>
-                    <div className="grid grid-cols-2 gap-3">
-                      <Button
-                        type="button"
-                        variant={operator === "tnm" ? "default" : "outline"}
-                        className={operator === "tnm" ? "bg-brand-pink text-white hover:bg-brand-pink/90" : ""}
-                        onClick={() => setOperator("tnm")}
-                      >
-                        TNM Mpamba
-                      </Button>
-                      <Button
-                        type="button"
-                        variant={operator === "airtel" ? "default" : "outline"}
-                        className={operator === "airtel" ? "bg-brand-pink text-white hover:bg-brand-pink/90" : ""}
-                        onClick={() => setOperator("airtel")}
-                      >
-                        Airtel Money
-                      </Button>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="payer-number">
-                        {operator === "tnm" ? "TNM number (starts with 08)" : "Airtel number (starts with 09)"}
-                      </Label>
-                      <Input
-                        id="payer-number"
-                        inputMode="tel"
-                        autoComplete="tel"
-                        placeholder={operator === "tnm" ? "0881234567" : "0991234567"}
-                        value={payerNumber}
-                        onChange={(event) => setPayerNumber(event.target.value)}
-                      />
-                    </div>
+                    {!isReschedule ? (
+                      <>
+                        <p className="text-sm font-medium text-gray-900">
+                          Pay {payAmount > 0 ? formatMwk(payAmount) : "the service total"} with
+                        </p>
+                        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                          <Button
+                            type="button"
+                            variant={operator === "tnm" ? "default" : "outline"}
+                            className={`h-auto whitespace-normal py-3 ${operator === "tnm" ? "bg-brand-pink text-white hover:bg-brand-pink/90" : ""}`}
+                            onClick={() => setOperator("tnm")}
+                          >
+                            TNM Mpamba
+                          </Button>
+                          <Button
+                            type="button"
+                            variant={operator === "airtel" ? "default" : "outline"}
+                            className={`h-auto whitespace-normal py-3 ${operator === "airtel" ? "bg-brand-pink text-white hover:bg-brand-pink/90" : ""}`}
+                            onClick={() => setOperator("airtel")}
+                          >
+                            Airtel Money
+                          </Button>
+                          <Button
+                            type="button"
+                            variant={operator === "bank" ? "default" : "outline"}
+                            className={`h-auto whitespace-normal py-3 ${operator === "bank" ? "bg-brand-pink text-white hover:bg-brand-pink/90" : ""}`}
+                            onClick={() => setOperator("bank")}
+                          >
+                            Bank Transfer
+                          </Button>
+                        </div>
+                        {operator === "tnm" || operator === "airtel" ? (
+                          <div className="space-y-2">
+                            <Label htmlFor="payer-number">
+                              {operator === "tnm" ? "TNM number (starts with 08)" : "Airtel number (starts with 09)"}
+                            </Label>
+                            <Input
+                              id="payer-number"
+                              inputMode="tel"
+                              autoComplete="tel"
+                              placeholder={operator === "tnm" ? "0881234567" : "0991234567"}
+                              value={payerNumber}
+                              onChange={(event) => setPayerNumber(event.target.value)}
+                            />
+                          </div>
+                        ) : null}
+                      </>
+                    ) : null}
                   </div>
 
                   <div className="items-top flex space-x-2">
@@ -740,7 +860,7 @@ export function BookingForm({
                     </Button>
                     <Button
                       onClick={isReschedule ? handleSubmit : handlePayment}
-                      disabled={isPaying || !agreedToTerms}
+                      disabled={isPaying || !agreedToTerms || (!isReschedule && !operator)}
                       className="w-full bg-green-500 text-white hover:bg-green-600"
                     >
                       {isPaying ? "Processing..." : isReschedule ? "Reschedule Appointment" : "Pay"}

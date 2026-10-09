@@ -125,3 +125,97 @@ export async function verifyDirectCharge(chargeId: string): Promise<VerifyDirect
     raw: body.data,
   }
 }
+
+export type BankTransferDetails = {
+  bankName: string
+  accountNumber: string
+  accountName: string
+  expiresAt: string | null
+  amount: number
+  status: string
+  currency: string
+  raw: unknown
+}
+
+function record(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" ? (value as Record<string, unknown>) : {}
+}
+
+function expiryRaw(value: unknown): string | null {
+  if (typeof value === "number" && value > 0) return String(value)
+  if (typeof value === "string" && value.trim() && value.trim() !== "0") return value.trim()
+  return null
+}
+
+export async function initializeBankTransfer(params: {
+  amount: number
+  chargeId: string
+  email?: string
+  firstName?: string
+  lastName?: string
+}) {
+  const res = await fetch(`${PAYCHANGU_BASE_URL}/direct-charge/payments/initialize`, {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${getSecretKey()}`,
+    },
+    body: JSON.stringify({
+      amount: String(params.amount),
+      currency: "MWK",
+      payment_method: "mobile_bank_transfer",
+      charge_id: params.chargeId,
+      create_permanent_account: false,
+      email: params.email,
+      first_name: params.firstName,
+      last_name: params.lastName,
+    }),
+    cache: "no-store",
+  })
+  const body = await res.json().catch(() => ({}))
+  if (!res.ok || body.status !== "success") {
+    throw new Error(paychanguText(body.message) || "PayChangu could not open a bank transfer.")
+  }
+  const opened = readBankTransfer(body, params.amount)
+  if (!opened.bankName || !opened.accountNumber) {
+    throw new Error("PayChangu did not return the bank account.")
+  }
+  return opened
+}
+
+export async function bankTransferDetails(chargeId: string): Promise<BankTransferDetails> {
+  const res = await fetch(
+    `${PAYCHANGU_BASE_URL}/direct-charge/transactions/${encodeURIComponent(chargeId)}/details`,
+    {
+      headers: { Accept: "application/json", Authorization: `Bearer ${getSecretKey()}` },
+      cache: "no-store",
+    },
+  )
+  const body = await res.json().catch(() => ({}))
+  if (!res.ok) {
+    const error = new Error(paychanguText(body.message) || "PayChangu could not read this transfer.") as Error & {
+      status?: number
+    }
+    error.status = res.status
+    throw error
+  }
+  return readBankTransfer(body, Number.NaN)
+}
+
+function readBankTransfer(body: { data?: unknown }, fallbackAmount: number): BankTransferDetails {
+  const data = record(body.data)
+  const details = record(data.payment_account_details)
+  const transaction = record(data.transaction)
+  const amount = Number(transaction.amount ?? data.amount ?? fallbackAmount)
+  return {
+    bankName: String(details.bank_name ?? data.bank_name ?? ""),
+    accountNumber: String(details.account_number ?? data.account_number ?? ""),
+    accountName: String(details.account_name ?? data.account_name ?? ""),
+    expiresAt: expiryRaw(details.account_expiration_timestamp ?? data.account_expiration_timestamp),
+    amount,
+    status: String(transaction.status ?? data.status ?? ""),
+    currency: String(transaction.currency ?? ""),
+    raw: body.data,
+  }
+}

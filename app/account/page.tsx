@@ -9,6 +9,7 @@ import { TicketFace, downloadTicketPng, TicketDetails } from "@/components/booki
 import { formatTime } from "@/lib/time-slots"
 import { LuxuryMark } from "@/components/luxury-mark"
 import { authClient } from "@/lib/auth/client"
+import { formatMwk } from "@/lib/money"
 
 type Visit = {
   id: string
@@ -21,6 +22,7 @@ type Visit = {
   discountApplied: boolean
   rescheduleCount: number
   originalDate: string | null
+  serviceTotal: number | null
 }
 
 type VisitsPayload = {
@@ -29,6 +31,7 @@ type VisitsPayload = {
   pastTotal: number
     pastHasMore: boolean
     newsletter: boolean
+    expenditure: number
     loyalty: {
     copy: string
     successfulCount: number
@@ -123,7 +126,7 @@ export default function AccountPage() {
       date: visit.date,
       timeSlot: visit.timeSlot,
       services: visit.services,
-      fee: visit.rescheduleCount > 0 ? "Rescheduled - No Additional Charge" : "K10,000 (Paid)",
+      fee: visit.serviceTotal != null && visit.serviceTotal > 0 ? formatMwk(visit.serviceTotal) : "",
       ticketId: visit.ticketId,
       discountApplied: visit.discountApplied,
       isReschedule: visit.rescheduleCount > 0,
@@ -169,7 +172,7 @@ export default function AccountPage() {
   }
 
   return (
-    <div className="min-h-[70vh] bg-[#fdf6f8]">
+    <div className="min-h-[70vh] overflow-x-hidden bg-[#fdf6f8]">
       <div className="bg-stone-950">
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-7 sm:gap-8 sm:py-10 md:py-12">
           <div className="min-w-0">
@@ -250,6 +253,11 @@ export default function AccountPage() {
                   {payload.newsletter ? "Unsubscribe" : "Subscribe"}
                 </button>
               </div>
+              <div className="mt-6 border-t border-pink-100 pt-5">
+                <p className="text-[11px] uppercase tracking-[0.28em] text-brand-pink">Expenditure</p>
+                <p className="mt-3 break-words font-serif text-2xl text-stone-900">{formatMwk(payload.expenditure)}</p>
+                <p className="mt-2 text-sm text-stone-500">Successful visits after the appointment time has passed.</p>
+              </div>
             </aside>
 
             <div className="space-y-12">
@@ -289,6 +297,9 @@ export default function AccountPage() {
                               <p className="text-sm text-stone-500">{formatTime(visit.timeSlot)}</p>
                             </div>
                             <ServiceLine names={visit.serviceNames} />
+                            {visit.serviceTotal != null && visit.serviceTotal > 0 ? (
+                              <p className="mt-2 break-words text-sm font-medium text-stone-800">{formatMwk(visit.serviceTotal)}</p>
+                            ) : null}
                             <div className="mt-5 flex flex-wrap gap-3">
                               <Button
                                 className="rounded-md bg-brand-pink text-white hover:bg-brand-pink/90"
@@ -349,6 +360,9 @@ export default function AccountPage() {
                           </div>
                           <p className="text-xs text-stone-400">{when.full}</p>
                           <ServiceLine names={visit.serviceNames} />
+                          {visit.serviceTotal != null && visit.serviceTotal > 0 ? (
+                            <p className="mt-2 break-words text-sm font-medium text-stone-800">{formatMwk(visit.serviceTotal)}</p>
+                          ) : null}
                         </div>
                       </li>
                     )
