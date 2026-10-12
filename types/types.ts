@@ -37,7 +37,7 @@ export interface BookingFormProps {
     number: string;
   } | null;
   onVerifyBank?: () => void;
-  verifyingBank?: boolean;
+  bankWatching?: boolean;
   paymentExpiresAt?: string | null;
   reference?: string;
   payerNumber: string;
