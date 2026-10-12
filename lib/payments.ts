@@ -1,7 +1,7 @@
 import { Prisma } from "@prisma/client"
 import prisma from "@/lib/prisma"
 import { confirmPaidBooking } from "@/lib/confirm-booking"
-import { FIXED_AMOUNT_MWK } from "@/lib/money"
+import { amountForMethod } from "@/lib/money"
 import { localMobileMoneyNumber, type MobileOperator } from "@/lib/mobile-money"
 import { successfulBookingsForPhone } from "@/lib/booking-phones"
 import { heldBookingWhere } from "@/lib/slots"
@@ -98,18 +98,12 @@ async function openView(payment: PaymentWithBooking): Promise<StartResult> {
     reference: payment.booking.reference,
     method: payment.method as Method,
     expiresAt: (payment.booking.expiresAt ?? payment.createdAt).toISOString(),
-    amount: FIXED_AMOUNT_MWK,
+    amount: amountForMethod(payment.method),
     account: accountFrom(payment),
   }
 }
 
 export async function startPayment(input: StartBookingInput): Promise<StartResult> {
-  const amount = FIXED_AMOUNT_MWK
-  if (!Number.isInteger(amount) || amount <= 0) {
-    alertOps("FIXED_AMOUNT_MWK is not a positive integer")
-    return { ok: false, message: GENERIC_START_ERROR }
-  }
-
   let method: Method = "bank_transfer"
   let local: string | null = null
   let operatorRefId: string | null = null
@@ -131,6 +125,12 @@ export async function startPayment(input: StartBookingInput): Promise<StartResul
       alertOps("Mobile money operator list unavailable")
       return { ok: false, message: GENERIC_START_ERROR }
     }
+  }
+
+  const amount = amountForMethod(method)
+  if (!Number.isInteger(amount) || amount <= 0) {
+    alertOps("Test amount is not a positive integer")
+    return { ok: false, message: GENERIC_START_ERROR }
   }
 
   const existing = await prisma.booking.findUnique({
@@ -368,8 +368,9 @@ export async function settle(paymentId: string): Promise<void> {
   }
 
   const received = status.amount
-  if (received !== FIXED_AMOUNT_MWK) {
-    const detail = `Expected ${FIXED_AMOUNT_MWK}, got ${received}`
+  const expected = amountForMethod(payment.method)
+  if (received !== expected) {
+    const detail = `Expected ${expected}, got ${received}`
     await prisma.$transaction(async (tx) => {
       const hit = await tx.payment.updateMany({
         where: { id: payment.id, status: { in: ["pending", "expired"] } },
@@ -498,6 +499,7 @@ export async function getPaymentView(chargeId: string) {
             timeSlot: booking.timeSlot,
             services: booking.services,
             reference: booking.reference,
+            method: payment.method,
             discountApplied: booking.discountApplied,
             email: booking.email,
           }

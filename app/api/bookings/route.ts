@@ -35,6 +35,7 @@ export async function GET(req: NextRequest) {
       orderBy: {
         createdAt: 'desc',
       },
+      include: referenceFilter ? { payment: { select: { method: true } } } : undefined,
     });
 
     if (referenceFilter && bookings.length > 0) {

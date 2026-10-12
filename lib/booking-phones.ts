@@ -11,6 +11,7 @@ export async function successfulBookingsForPhone(phone: string, excludeTicketId?
       status: "successful",
       ...(excludeTicketId ? { NOT: { reference: excludeTicketId } } : {}),
     },
+    include: { payment: { select: { method: true } } },
     orderBy: { date: "asc" },
   })
 

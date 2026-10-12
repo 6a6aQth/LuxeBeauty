@@ -2,11 +2,14 @@ import prisma from "@/lib/prisma"
 import { logPaymentEvent } from "@/lib/paymentLogger"
 import { sendBookingSMS } from "@/lib/sms"
 import { sendStudioBookingEmail, sendTicketEmail } from "@/lib/ticket-email"
-import { FIXED_AMOUNT_MWK } from "@/lib/money"
+import { amountForMethod } from "@/lib/money"
 import { formatTime } from "@/lib/time-slots"
 
 export async function confirmPaidBooking(bookingId: string) {
-  const fresh = await prisma.booking.findUnique({ where: { id: bookingId } })
+  const fresh = await prisma.booking.findUnique({
+    where: { id: bookingId },
+    include: { payment: { select: { method: true } } },
+  })
   if (!fresh) {
     return { ok: false as const, reason: "missing" as const }
   }
@@ -27,6 +30,7 @@ export async function confirmPaidBooking(bookingId: string) {
     select: { id: true, name: true },
   })
   const serviceNames = fresh.services.map((id) => services.find((service) => service.id === id)?.name ?? id)
+  const amount = amountForMethod(fresh.payment?.method)
   const when = `${fresh.date} at ${formatTime(fresh.timeSlot)}`
 
   try {
@@ -62,7 +66,7 @@ export async function confirmPaidBooking(bookingId: string) {
         ticketId: fresh.reference,
         discountApplied: fresh.discountApplied,
         serviceNames,
-        amount: FIXED_AMOUNT_MWK,
+        amount,
       })
       await logPaymentEvent({
         txRef: fresh.reference,
@@ -93,7 +97,7 @@ export async function confirmPaidBooking(bookingId: string) {
       ticketId: fresh.reference,
       discountApplied: fresh.discountApplied,
       serviceNames,
-      amount: FIXED_AMOUNT_MWK,
+      amount,
     })
     await logPaymentEvent({
       txRef: fresh.reference,

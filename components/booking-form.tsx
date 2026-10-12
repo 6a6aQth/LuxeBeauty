@@ -39,7 +39,7 @@ import { StudioPoliciesContent } from "@/components/studio-policies";
 import useSWR from 'swr';
 import { toast } from '@/hooks/use-toast';
 import { sanitizePhoneInput } from '@/lib/phone';
-import { DEPOSIT_AMOUNT_MWK, formatMwk } from '@/lib/money';
+import { amountForMethod, formatMwk } from '@/lib/money';
 import { localMobileMoneyNumber } from '@/lib/mobile-money';
 import { BookingTicket } from '@/components/booking-ticket';
 
@@ -206,8 +206,8 @@ export function BookingForm({
     (sum, service) => sum + (service.price != null && service.price > 0 ? service.price : 0),
     0,
   );
-  const bookingFee = formatMwk(DEPOSIT_AMOUNT_MWK);
   const payingByBank = operator === "bank";
+  const bookingFee = formatMwk(amountForMethod(payingByBank ? "bank" : operator));
   const payerReady = operator === "bank" || (operator != null && localMobileMoneyNumber(payerNumber, operator) != null);
   const payerError = operator === "tnm" || operator === "airtel"
     ? payerNumber.trim() && !localMobileMoneyNumber(payerNumber, operator)

@@ -1,11 +1,16 @@
-/** Booking fee for mobile money and bank transfer. Service prices on the form are a guide. */
-export const FIXED_AMOUNT_MWK = 10000
+/** UAT test fee. Mobile money is charged this amount. */
+export const MOBILE_AMOUNT_MWK = 100
 
-/** Same fee for every method. Kept so older call sites stay on this one figure. */
-export const DEPOSIT_AMOUNT_MWK = FIXED_AMOUNT_MWK
+/** UAT test fee. Bank transfer is charged this amount. */
+export const BANK_TRANSFER_AMOUNT_MWK = 1000
 
-/** Bank transfer uses the same fee. Amount checks compare against this, not a stored column. */
-export const BANK_TRANSFER_AMOUNT_MWK = FIXED_AMOUNT_MWK
+/** Mobile-money fee. Kept so older call sites stay on the mobile figure. */
+export const DEPOSIT_AMOUNT_MWK = MOBILE_AMOUNT_MWK
+
+export function amountForMethod(method: string | null | undefined): number {
+  if (method === "bank" || method === "bank_transfer") return BANK_TRANSFER_AMOUNT_MWK
+  return MOBILE_AMOUNT_MWK
+}
 
 export function formatMwk(amount: number): string {
   return `MWK ${Math.round(amount).toLocaleString("en-US")}`

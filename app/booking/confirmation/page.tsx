@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/animated-download-button'
 import { Mail, Phone, Home } from 'lucide-react'
 import { Service } from '@/types/types';
 import { format, parseISO } from 'date-fns'
-import { DEPOSIT_AMOUNT_MWK, formatMwk } from '@/lib/money'
+import { amountForMethod, formatMwk } from '@/lib/money'
 import { LuxuryMark } from '@/components/luxury-mark'
 
 interface BookingDetails {
@@ -78,7 +78,7 @@ export default function BookingConfirmationPage() {
         }
 
         const isReschedule = (b.rescheduleCount ?? 0) > 0;
-        const paid = DEPOSIT_AMOUNT_MWK
+        const paid = amountForMethod(b.payment?.method)
         const feeString = isReschedule ? "Rescheduled - No Additional Charge" : `${formatMwk(paid)} (Paid)`;
         setLoadError('');
 

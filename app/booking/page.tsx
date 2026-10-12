@@ -17,7 +17,7 @@ import { MultiStepLoader } from "@/components/ui/multi-step-loader"
 import { BookingForm } from "@/components/booking-form"
 import useSWR from 'swr';
 import { authClient } from "@/lib/auth/client"
-import { DEPOSIT_AMOUNT_MWK, formatMwk } from "@/lib/money"
+import { amountForMethod, formatMwk } from "@/lib/money"
 import { LuxuryMark } from "@/components/luxury-mark"
 import { localMobileMoneyNumber, type MobileOperator } from "@/lib/mobile-money"
 import type { TicketDetails } from "@/components/booking-ticket"
@@ -467,11 +467,12 @@ function BookingContent() {
     reference?: string
     ticketId?: string
     discountApplied?: boolean
+    method?: string
   }) => {
     clearPendingCharge();
     submitToken.current = "";
     const ticket = booking.reference || booking.ticketId || "";
-    const fee = `${formatMwk(DEPOSIT_AMOUNT_MWK)} (Paid)`
+    const fee = `${formatMwk(amountForMethod(booking.method))} (Paid)`
     sessionStorage.setItem('lauryn-luxe-booking', JSON.stringify({
       ticketId: ticket,
       reference: ticket,
@@ -620,6 +621,7 @@ function BookingContent() {
       services: string[]
       reference?: string
       discountApplied?: boolean
+      method?: string
     }
   }) => {
     if (data.expiresAt) setPaymentExpiresAt(data.expiresAt);

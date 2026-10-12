@@ -9,7 +9,7 @@ import { TicketFace, downloadTicketPng, TicketDetails } from "@/components/booki
 import { formatTime } from "@/lib/time-slots"
 import { LuxuryMark } from "@/components/luxury-mark"
 import { authClient } from "@/lib/auth/client"
-import { FIXED_AMOUNT_MWK, formatMwk } from "@/lib/money"
+import { amountForMethod, formatMwk } from "@/lib/money"
 
 type Visit = {
   id: string
@@ -22,6 +22,7 @@ type Visit = {
   discountApplied: boolean
   rescheduleCount: number
   originalDate: string | null
+  method?: string
 }
 
 type VisitsPayload = {
@@ -126,7 +127,7 @@ export default function AccountPage() {
       services: visit.services,
       fee: visit.rescheduleCount > 0
         ? "Rescheduled - No Additional Charge"
-        : `${formatMwk(FIXED_AMOUNT_MWK)} (Paid)`,
+        : `${formatMwk(amountForMethod(visit.method))} (Paid)`,
       ticketId: visit.ticketId,
       discountApplied: visit.discountApplied,
       isReschedule: visit.rescheduleCount > 0,
