@@ -22,6 +22,7 @@ import { PageHeader } from "@/components/page-header"
 interface Booking {
   id: string;
   ticketId: string;
+  reference?: string;
   name: string;
   phone: string;
   email?: string;
@@ -114,7 +115,7 @@ function RescheduleContent() {
       try {
         const [blockedResponse, bookingsResponse] = await Promise.all([
           fetch('/api/unavailable-dates'),
-          fetch('/api/bookings?status=successful'),
+          fetch('/api/bookings?availability=1'),
         ])
         if (blockedResponse.ok) {
           const blocked = await blockedResponse.json()
@@ -130,9 +131,9 @@ function RescheduleContent() {
           const bookings = await bookingsResponse.json()
           const byDate: Record<string, string[]> = {}
           if (Array.isArray(bookings)) {
-            bookings.forEach((item: { ticketId?: string; status?: string; date: string; timeSlot: string }) => {
-              if (item.status && item.status !== 'successful') return
-              if (ticketId && item.ticketId === ticketId) return
+            bookings.forEach((item: { reference?: string; ticketId?: string; date: string; timeSlot: string }) => {
+              const itemReference = item.reference || item.ticketId
+              if (ticketId && itemReference === ticketId) return
               if (!byDate[item.date]) byDate[item.date] = []
               byDate[item.date].push(item.timeSlot)
             })
@@ -192,7 +193,7 @@ function RescheduleContent() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          ticketId: booking.ticketId,
+          ticketId: booking.reference || booking.ticketId,
           newDate: format(date, "yyyy-MM-dd"),
           newTimeSlot: selectedTimeSlot,
           fromAccount,
@@ -211,7 +212,7 @@ function RescheduleContent() {
         isReschedule: true,
       }))
 
-      router.push(`/booking/confirmation?ticketId=${encodeURIComponent(data.booking.ticketId)}`)
+      router.push(`/booking/confirmation?ticketId=${encodeURIComponent(data.booking.reference || data.booking.ticketId)}`)
 
     } catch (error: any) {
       console.error('Reschedule error:', error)

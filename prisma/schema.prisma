@@ -16,14 +16,38 @@ model Booking {
   timeSlot          String
   services          String[]
   notes             String?
-  ticketId          String   @unique
+  reference         String   @unique
   discountApplied   Boolean  @default(false)
   inspirationPhotos String[] @default([])
   rescheduleCount   Int      @default(0)
   originalDate      String?
+  expiresAt         DateTime?
+  paidAt            DateTime?
+  submitToken       String?  @unique
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
-  status            String   @default("successful")
+  status            String   @default("pending")
+  payment           Payment?
+}
+
+/// One charge per booking. `id` is the Paychangu charge id (airtel-…, tnm-…, bank-…).
+model Payment {
+  id             String    @id
+  bookingId      String    @unique
+  booking        Booking   @relation(fields: [bookingId], references: [id])
+  reference      String
+  customerName   String?
+  method         String
+  mobile         String?
+  status         String    @default("pending")
+  ids            Json?
+  bankDetails    Json?
+  note           String?
+  lastVerifiedAt DateTime?
+  finalizedAt    DateTime?
+  createdAt      DateTime  @default(now())
+
+  @@index([status, createdAt])
 }
 
 model UnavailableDate {
@@ -47,6 +71,7 @@ model Service {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   isAvailable Boolean  @default(true)
+  price       Int?
 }
 
 /// Logical service categories (e.g., manicure, pedicure, refills, nail art, soak off)

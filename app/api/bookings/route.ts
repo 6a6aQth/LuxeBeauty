@@ -1,31 +1,33 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { phonesMatch } from '@/lib/phone';
+import { heldBookingWhere } from '@/lib/slots';
 
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const statusFilter = searchParams.get('status');
     const phoneFilter = searchParams.get('phone');
-    const ticketIdFilter = searchParams.get('ticketId');
+    const referenceFilter = searchParams.get('reference') || searchParams.get('ticketId');
+
+    if (searchParams.get('availability') === '1') {
+      const rows = await prisma.booking.findMany({
+        where: heldBookingWhere(),
+        select: { date: true, timeSlot: true, reference: true, status: true },
+      });
+      return NextResponse.json(rows);
+    }
     
     let whereClause = {};
     
-    // If ticketId is provided, find specific booking
-    if (ticketIdFilter) {
-      whereClause = { ticketId: ticketIdFilter };
+    if (referenceFilter) {
+      whereClause = { reference: referenceFilter };
+    } else if (!statusFilter || statusFilter === 'successful') {
+      whereClause = { status: 'successful' };
+    } else if (statusFilter === 'all') {
+      whereClause = {};
     } else {
-      // If no status filter is specified, only show successful bookings
-      if (!statusFilter || statusFilter === 'successful') {
-        whereClause = { status: 'successful' };
-      } else if (statusFilter === 'all') {
-        // Show all bookings regardless of status
-        whereClause = {};
-      } else {
-        // Filter by specific status
-        whereClause = { status: statusFilter };
-      }
-
+      whereClause = { status: statusFilter };
     }
 
     const bookings = await prisma.booking.findMany({
@@ -35,12 +37,10 @@ export async function GET(req: NextRequest) {
       },
     });
 
-    // If ticketId filter is used, fetch service names for the booking
-    if (ticketIdFilter && bookings.length > 0) {
+    if (referenceFilter && bookings.length > 0) {
       const booking = bookings[0];
       const serviceIds = booking.services;
       
-      // Fetch service names from the database
       const services = await prisma.service.findMany({
         where: {
           id: {
@@ -53,21 +53,19 @@ export async function GET(req: NextRequest) {
         }
       });
 
-      // Create a mapping of service names to IDs for the booking form
       const serviceMapping = services.reduce((acc, service) => {
         acc[service.name] = service.id;
         return acc;
       }, {} as Record<string, string>);
 
-      // Update the booking with both service names and IDs
       const updatedBooking = {
         ...booking,
-        services: serviceIds, // Keep original IDs for form
+        services: serviceIds,
         serviceNames: serviceIds.map(id => {
           const service = services.find(s => s.id === id);
-          return service ? service.name : id; // Fallback to ID if service not found
+          return service ? service.name : id;
         }),
-        serviceMapping // Include mapping for reference
+        serviceMapping
       };
 
       return NextResponse.json([updatedBooking]);

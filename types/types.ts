@@ -5,6 +5,7 @@ export interface Service {
   description: string | null;
   duration: number;
   category: string;
+  price: number | null;
 }
 
 export interface BookingFormProps {
@@ -13,7 +14,7 @@ export interface BookingFormProps {
   date: Date | undefined;
   handleDateSelect: (date: Date | undefined) => void;
   fullyBookedDates: Date[];
-  step: 'form' | 'payment' | 'awaiting' | 'failed' | 'ticket';
+  step: 'form' | 'payment' | 'awaiting' | 'bank' | 'failed' | 'ticket';
   isSubmitting: boolean;
   handleSubmit: (e: React.FormEvent) => void;
   handleSelectChange: (name: string, value: string) => void;
@@ -24,15 +25,25 @@ export interface BookingFormProps {
   agreedToTerms: boolean;
   setAgreedToTerms: React.Dispatch<React.SetStateAction<boolean>>;
   handlePayment: () => Promise<void>;
-  setStep: React.Dispatch<React.SetStateAction<'form' | 'payment' | 'awaiting' | 'failed' | 'ticket'>>;
+  setStep: React.Dispatch<React.SetStateAction<'form' | 'payment' | 'awaiting' | 'bank' | 'failed' | 'ticket'>>;
   loyaltyDiscountEligible?: boolean;
   isReschedule?: boolean;
   accountBooking?: boolean;
-  operator: 'tnm' | 'airtel';
-  setOperator: React.Dispatch<React.SetStateAction<'tnm' | 'airtel'>>;
+  operator: 'tnm' | 'airtel' | 'bank' | null;
+  setOperator: React.Dispatch<React.SetStateAction<'tnm' | 'airtel' | 'bank' | null>>;
+  bankDetails?: {
+    bank: string;
+    name: string;
+    number: string;
+  } | null;
+  onVerifyBank?: () => void;
+  verifyingBank?: boolean;
+  paymentExpiresAt?: string | null;
+  reference?: string;
   payerNumber: string;
   setPayerNumber: React.Dispatch<React.SetStateAction<string>>;
   failureMessage?: string;
+  allowRetry?: boolean;
   onRetry: () => void;
   onAwaitingRetry?: () => void;
   onCancelPayment?: () => void;

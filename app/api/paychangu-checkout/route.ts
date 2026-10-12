@@ -1,52 +1,56 @@
-import { NextResponse } from "next/server"
+import { after, NextResponse } from "next/server"
 import prisma from "@/lib/prisma"
-import { logPaymentEvent } from "@/lib/paymentLogger"
-import { getSlotsForDate } from "@/lib/time-slots"
-import { canonicalPhone } from "@/lib/phone"
 import { getSessionUser } from "@/lib/auth/session"
-import { DEPOSIT_AMOUNT_MWK } from "@/lib/deposit"
-import { localMobileMoneyNumber, type MobileOperator } from "@/lib/mobile-money"
-import { chargeMobileMoney, operatorRefId } from "@/lib/paychangu-direct"
+import { canonicalPhone } from "@/lib/phone"
+import { reconcile, startPayment } from "@/lib/payments"
+import { sumServicePrices } from "@/lib/service-total"
+import { getSlotsForDate } from "@/lib/time-slots"
+import type { MobileOperator } from "@/lib/mobile-money"
+
+export const maxDuration = 60
+
+type PayMethod = MobileOperator | "bank"
+
+function sweepSoon() {
+  after(() => {
+    reconcile(3).catch((error) => console.error("[payments] sweep", error))
+  })
+}
 
 export async function POST(req: Request) {
-  let chargeId = "unknown"
   try {
     const body = await req.json()
-    const { formData, useSession, operator, mobile, action, chargeId: existingChargeId } = body as {
+    const { formData, useSession, operator, mobile, submitToken } = body as {
       formData?: Record<string, unknown>
       useSession?: boolean
-      operator?: MobileOperator
+      operator?: PayMethod
       mobile?: string
-      action?: string
-      chargeId?: string
+      submitToken?: string
     }
 
     if (!formData) {
-      return NextResponse.json({ message: "Booking details are required." }, { status: 400 })
+      return NextResponse.json({ ok: false, message: "Booking details are required." }, { status: 400 })
     }
-    if (operator !== "tnm" && operator !== "airtel") {
-      return NextResponse.json({ message: "Choose TNM Mpamba or Airtel Money." }, { status: 400 })
+    if (operator !== "tnm" && operator !== "airtel" && operator !== "bank") {
+      return NextResponse.json({ ok: false, message: "Choose TNM Mpamba, Airtel Money, or Bank Transfer." }, { status: 400 })
     }
-
-    const payer = localMobileMoneyNumber(String(mobile ?? ""), operator)
-    if (!payer) {
-      const hint = operator === "tnm" ? "TNM Mpamba needs a number starting with 08." : "Airtel Money needs a number starting with 09."
-      return NextResponse.json({ message: hint }, { status: 400 })
+    if (!submitToken || typeof submitToken !== "string") {
+      return NextResponse.json({ ok: false, message: "Refresh the page and try the payment again." }, { status: 400 })
     }
 
     if (useSession) {
       const session = await getSessionUser()
       if (!session.configured) {
-        return NextResponse.json({ message: "Neon Auth is not configured." }, { status: 503 })
+        return NextResponse.json({ ok: false, message: "Neon Auth is not configured." }, { status: 503 })
       }
       if (!session.user) {
-        return NextResponse.json({ message: "Sign in required." }, { status: 401 })
+        return NextResponse.json({ ok: false, message: "Sign in required." }, { status: 401 })
       }
       const profile = await prisma.customerProfile.findUnique({
         where: { neonUserId: session.user.id },
       })
       if (!profile) {
-        return NextResponse.json({ message: "Finish your account details before booking." }, { status: 409 })
+        return NextResponse.json({ ok: false, message: "Finish your account details before booking." }, { status: 409 })
       }
       formData.name = profile.name
       formData.email = profile.email
@@ -55,9 +59,8 @@ export async function POST(req: Request) {
 
     const phone = canonicalPhone(String(formData.phone ?? ""))
     if (!phone) {
-      return NextResponse.json({ message: "That phone number format is not okay." }, { status: 400 })
+      return NextResponse.json({ ok: false, message: "That phone number format is not okay." }, { status: 400 })
     }
-    formData.phone = phone
 
     const date = String(formData.date ?? "")
     const timeSlot = String(formData.timeSlot ?? "")
@@ -65,109 +68,45 @@ export async function POST(req: Request) {
       const possibleSlots = getSlotsForDate(new Date(date))
       if (!possibleSlots.includes(timeSlot)) {
         return NextResponse.json(
-          { message: `The time slot ${timeSlot} is not available for ${date}.` },
+          { ok: false, message: `The time slot ${timeSlot} is not available for ${date}.` },
           { status: 400 },
         )
       }
     }
 
     const name = String(formData.name ?? "").trim()
-    const services = Array.isArray(formData.services) ? formData.services.map(String) : []
+    const services = Array.isArray(formData.services) ? [...new Set(formData.services.map(String))] : []
     if (!name || !date || !timeSlot || services.length === 0) {
-      return NextResponse.json({ message: "Booking details are incomplete." }, { status: 400 })
+      return NextResponse.json({ ok: false, message: "Booking details are incomplete." }, { status: 400 })
     }
 
-    if (action === "initialize") {
-      chargeId = String(existingChargeId || "")
-      if (!chargeId) {
-        return NextResponse.json({ message: "Missing charge id." }, { status: 400 })
-      }
-      const booking = await prisma.booking.findUnique({ where: { ticketId: chargeId } })
-      if (!booking) {
-        return NextResponse.json({ message: "Booking not found." }, { status: 404 })
-      }
-      if (booking.status === "successful") {
-        return NextResponse.json({ chargeId, status: "success" })
-      }
-      const nameParts = String(booking.name).trim().split(/\s+/)
-      const refId = await operatorRefId(operator)
-      const charged = await chargeMobileMoney({
-        mobile: payer,
-        mobileMoneyOperatorRefId: refId,
-        amount: DEPOSIT_AMOUNT_MWK,
-        chargeId,
-        email: booking.email ?? undefined,
-        firstName: nameParts[0],
-        lastName: nameParts.slice(1).join(" ") || nameParts[0],
-      })
-      await logPaymentEvent({
-        txRef: chargeId,
-        bookingId: booking.id,
-        eventType: "paychangu_initialize",
-        status: charged.initialStatus,
-        message: charged.message || "PayChangu accepted the charge",
-      })
-      await logPaymentEvent({
-        txRef: chargeId,
-        bookingId: booking.id,
-        eventType: "awaiting_pin",
-        status: "pending",
-        message: "Waiting for the customer to approve the phone prompt",
-      })
-      return NextResponse.json({ chargeId, status: "pending", amount: DEPOSIT_AMOUNT_MWK })
+    const priced = await sumServicePrices(services)
+    if ("message" in priced) {
+      return NextResponse.json({ ok: false, message: priced.message }, { status: 400 })
     }
 
-    chargeId = `LLB-${Date.now()}-${Math.floor(Math.random() * 1000000)}`
-    await logPaymentEvent({
-      txRef: chargeId,
-      eventType: "charge_initiated",
-      status: "pending",
-      message: "Direct Charge started",
-      payload: { operator, amount: DEPOSIT_AMOUNT_MWK },
+    const result = await startPayment({
+      name,
+      phone,
+      email: formData.email ? String(formData.email) : null,
+      date,
+      timeSlot,
+      services,
+      notes: formData.notes ? String(formData.notes) : null,
+      inspirationPhotos: Array.isArray(formData.inspirationPhotos) ? formData.inspirationPhotos.map(String) : [],
+      operator,
+      mobile: operator === "bank" ? undefined : String(mobile ?? ""),
+      submitToken,
     })
 
-    const booking = await prisma.booking.create({
-      data: {
-        name,
-        phone,
-        email: formData.email ? String(formData.email) : null,
-        date,
-        timeSlot,
-        services,
-        notes: formData.notes ? String(formData.notes) : null,
-        inspirationPhotos: Array.isArray(formData.inspirationPhotos) ? formData.inspirationPhotos.map(String) : [],
-        ticketId: chargeId,
-        discountApplied: false,
-        rescheduleCount: 0,
-        originalDate: null,
-        status: "pending",
-      },
-    })
-
-    await logPaymentEvent({
-      txRef: chargeId,
-      bookingId: booking.id,
-      eventType: "booking_created",
-      status: "pending",
-      message: "Pending booking stored",
-    })
-
-    return NextResponse.json({
-      chargeId,
-      status: "pending",
-      amount: DEPOSIT_AMOUNT_MWK,
-    })
+    sweepSoon()
+    return NextResponse.json(result, { status: result.ok ? 200 : 400 })
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Internal server error."
-    if (chargeId !== "unknown") {
-      await logPaymentEvent({
-        txRef: chargeId,
-        eventType: "paychangu_initialize",
-        status: "error",
-        message,
-      })
-    }
-    const status = message === "Internal server error." ? 500 : 400
-    return NextResponse.json({ message }, { status: message.includes("PAYCHANGU_SECRET_KEY") ? 500 : status })
+    console.error("[payments] start", error)
+    return NextResponse.json(
+      { ok: false, message: message.includes("PAYCHANGU_SECRET_KEY") ? "Payments are not available right now." : "We couldn't start your payment. Please try again in a moment." },
+      { status: 500 },
+    )
   }
 }

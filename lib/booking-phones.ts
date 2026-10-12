@@ -9,7 +9,7 @@ export async function successfulBookingsForPhone(phone: string, excludeTicketId?
   const rows = await prisma.booking.findMany({
     where: {
       status: "successful",
-      ...(excludeTicketId ? { NOT: { ticketId: excludeTicketId } } : {}),
+      ...(excludeTicketId ? { NOT: { reference: excludeTicketId } } : {}),
     },
     orderBy: { date: "asc" },
   })

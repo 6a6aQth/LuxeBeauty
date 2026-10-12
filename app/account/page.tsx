@@ -9,6 +9,7 @@ import { TicketFace, downloadTicketPng, TicketDetails } from "@/components/booki
 import { formatTime } from "@/lib/time-slots"
 import { LuxuryMark } from "@/components/luxury-mark"
 import { authClient } from "@/lib/auth/client"
+import { FIXED_AMOUNT_MWK, formatMwk } from "@/lib/money"
 
 type Visit = {
   id: string
@@ -123,7 +124,9 @@ export default function AccountPage() {
       date: visit.date,
       timeSlot: visit.timeSlot,
       services: visit.services,
-      fee: visit.rescheduleCount > 0 ? "Rescheduled - No Additional Charge" : "K10,000 (Paid)",
+      fee: visit.rescheduleCount > 0
+        ? "Rescheduled - No Additional Charge"
+        : `${formatMwk(FIXED_AMOUNT_MWK)} (Paid)`,
       ticketId: visit.ticketId,
       discountApplied: visit.discountApplied,
       isReschedule: visit.rescheduleCount > 0,
@@ -169,7 +172,7 @@ export default function AccountPage() {
   }
 
   return (
-    <div className="min-h-[70vh] bg-[#fdf6f8]">
+    <div className="min-h-[70vh] overflow-x-hidden bg-[#fdf6f8]">
       <div className="bg-stone-950">
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-7 sm:gap-8 sm:py-10 md:py-12">
           <div className="min-w-0">

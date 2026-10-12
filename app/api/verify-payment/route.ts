@@ -1,102 +1,30 @@
-import { NextRequest, NextResponse } from "next/server"
-import prisma from "@/lib/prisma"
-import { logPaymentEvent } from "@/lib/paymentLogger"
-import { verifyDirectCharge } from "@/lib/paychangu-direct"
-import { classifyChargeStatus } from "@/lib/mobile-money"
-import { DEPOSIT_AMOUNT_MWK, chargedAmountMatches } from "@/lib/deposit"
-import { confirmPaidBooking } from "@/lib/confirm-booking"
+import { after, NextResponse } from "next/server"
+import { getPaymentView, reconcile } from "@/lib/payments"
 
-export async function POST(req: NextRequest) {
-  let chargeId = "unknown"
+function sweepSoon() {
+  after(() => {
+    reconcile(3).catch((error) => console.error("[payments] sweep", error))
+  })
+}
+
+export async function POST(req: Request) {
   try {
     const body = await req.json()
-    chargeId = String(body.chargeId || body.tx_ref || "")
+    const chargeId = String(body.chargeId || "")
     if (!chargeId) {
       return NextResponse.json({ error: "Missing charge id" }, { status: 400 })
     }
 
-    await logPaymentEvent({
-      txRef: chargeId,
-      eventType: "verification_started",
-      message: "Verify poll started",
-    })
-
-    let result
-    try {
-      result = await verifyDirectCharge(chargeId)
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : "Verify failed"
-      const status = typeof error === "object" && error && "status" in error ? Number((error as { status?: number }).status) : 0
-      await logPaymentEvent({
-        txRef: chargeId,
-        eventType: "paychangu_verify_response",
-        status: status === 404 ? "absent" : "error",
-        message,
-      })
-      if (status === 404) {
-        return NextResponse.json({ status: "absent" }, { status: 202 })
-      }
-      return NextResponse.json({ status: "pending", message: "Still waiting for PayChangu." }, { status: 202 })
+    const view = await getPaymentView(chargeId)
+    sweepSoon()
+    if (!view) {
+      return NextResponse.json({ status: "absent" }, { status: 404 })
     }
 
-    await logPaymentEvent({
-      txRef: chargeId,
-      eventType: "paychangu_verify_response",
-      status: result.status,
-      message: `Verify returned ${result.status}`,
-      payload: { amount: result.amount, currency: result.currency, mode: result.mode },
-    })
-
-    const outcome = classifyChargeStatus(result.status)
-    if (outcome === "pending") {
-      return NextResponse.json({ status: "pending" }, { status: 202 })
-    }
-
-    if (outcome === "failed") {
-      await prisma.booking.updateMany({
-        where: { ticketId: chargeId, status: "pending" },
-        data: { status: "failed" },
-      })
-      return NextResponse.json({
-        status: "failed",
-        message: "Payment was not approved. You can try again.",
-      })
-    }
-
-    if (!chargedAmountMatches(result.amount)) {
-      await logPaymentEvent({
-        txRef: chargeId,
-        eventType: "paychangu_verify_response",
-        status: "amount_mismatch",
-        message: `Expected ${DEPOSIT_AMOUNT_MWK}, got ${result.amount}`,
-      })
-      return NextResponse.json({
-        status: "review",
-        message: "PayChangu reported a different amount. Stay on this page and do not start another payment.",
-      })
-    }
-
-    const confirmed = await confirmPaidBooking(chargeId)
-    if (!confirmed.ok) {
-      return NextResponse.json({ status: "failed", message: "Booking not found." }, { status: 404 })
-    }
-
-    const booking = confirmed.booking
-    return NextResponse.json({
-      status: "success",
-      booking: {
-        id: booking.id,
-        name: booking.name,
-        date: booking.date,
-        timeSlot: booking.timeSlot,
-        services: booking.services,
-        ticketId: booking.ticketId,
-        discountApplied: booking.discountApplied,
-        email: booking.email,
-      },
-    })
+    const waiting = view.status === "pending"
+    return NextResponse.json(view, { status: waiting ? 202 : 200 })
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Internal Server Error"
-    return NextResponse.json({ error: message, chargeId }, { status: 500 })
+    return NextResponse.json({ error: message }, { status: 500 })
   }
 }

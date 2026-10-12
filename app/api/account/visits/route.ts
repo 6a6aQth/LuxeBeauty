@@ -43,7 +43,8 @@ export async function GET(req: NextRequest) {
   for (const booking of bookings) {
     const item = {
       id: booking.id,
-      ticketId: booking.ticketId,
+      reference: booking.reference,
+      ticketId: booking.reference,
       name: booking.name,
       date: booking.date,
       timeSlot: booking.timeSlot,

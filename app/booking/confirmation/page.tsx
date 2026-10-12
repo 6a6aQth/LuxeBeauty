@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/animated-download-button'
 import { Mail, Phone, Home } from 'lucide-react'
 import { Service } from '@/types/types';
 import { format, parseISO } from 'date-fns'
-import { formatDeposit } from '@/lib/deposit'
+import { DEPOSIT_AMOUNT_MWK, formatMwk } from '@/lib/money'
 import { LuxuryMark } from '@/components/luxury-mark'
 
 interface BookingDetails {
@@ -46,12 +46,10 @@ export default function BookingConfirmationPage() {
       try {
         // We may still have session data (to get ticketId/fee), but booking details come from DB
         const stored = sessionStorage.getItem('lauryn-luxe-booking');
-        let fallbackFee: string | undefined = undefined;
         let ticketIdFromSession: string | undefined = undefined;
         if (stored) {
           try {
             const parsed = JSON.parse(stored);
-            fallbackFee = parsed?.fee;
             ticketIdFromSession = parsed?.ticketId;
           } catch {}
         }
@@ -80,7 +78,8 @@ export default function BookingConfirmationPage() {
         }
 
         const isReschedule = (b.rescheduleCount ?? 0) > 0;
-        const feeString = isReschedule ? 'Rescheduled - No Additional Charge' : (fallbackFee || `${formatDeposit()} (Paid)`);
+        const paid = DEPOSIT_AMOUNT_MWK
+        const feeString = isReschedule ? "Rescheduled - No Additional Charge" : `${formatMwk(paid)} (Paid)`;
         setLoadError('');
 
         setBookingDetails({
@@ -90,7 +89,7 @@ export default function BookingConfirmationPage() {
           timeSlot: b.timeSlot,
           services: b.services,
           fee: feeString,
-          ticketId: b.ticketId,
+          ticketId: b.reference || b.ticketId,
           email: b.email,
           discountApplied: !!b.discountApplied,
           isReschedule,

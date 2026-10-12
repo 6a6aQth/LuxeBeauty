@@ -17,10 +17,9 @@ import { MultiStepLoader } from "@/components/ui/multi-step-loader"
 import { BookingForm } from "@/components/booking-form"
 import useSWR from 'swr';
 import { authClient } from "@/lib/auth/client"
-import { formatDeposit } from "@/lib/deposit"
+import { DEPOSIT_AMOUNT_MWK, formatMwk } from "@/lib/money"
 import { LuxuryMark } from "@/components/luxury-mark"
 import { localMobileMoneyNumber, type MobileOperator } from "@/lib/mobile-money"
-import { paychanguText } from "@/lib/paychangu-direct"
 import type { TicketDetails } from "@/components/booking-ticket"
 
 const loadingStates = [
@@ -32,12 +31,24 @@ const loadingStates = [
 
 const PENDING_CHARGE_KEY = "lauryn-luxe-pending-charge"
 
+type PayMethod = MobileOperator | "bank"
+
+type BankDetails = {
+  bank: string
+  name: string
+  number: string
+}
+
 type PendingCharge = {
   chargeId: string
-  operator: MobileOperator
+  reference: string
+  operator: PayMethod
   mobile: string
   formData: Record<string, unknown>
   useSession: boolean
+  expiresAt: string | null
+  submitToken: string
+  bank?: BankDetails | null
 }
 
 function readPendingCharge(): PendingCharge | null {
@@ -45,14 +56,19 @@ function readPendingCharge(): PendingCharge | null {
     const raw = sessionStorage.getItem(PENDING_CHARGE_KEY)
     if (!raw) return null
     const parsed = JSON.parse(raw) as Partial<PendingCharge>
-    if (!parsed.chargeId || !parsed.mobile || !parsed.formData) return null
-    if (parsed.operator !== "tnm" && parsed.operator !== "airtel") return null
+    if (!parsed.chargeId || !parsed.formData) return null
+    if (parsed.operator !== "tnm" && parsed.operator !== "airtel" && parsed.operator !== "bank") return null
+    if (parsed.operator !== "bank" && !parsed.mobile) return null
     return {
       chargeId: parsed.chargeId,
+      reference: parsed.reference || "",
       operator: parsed.operator,
-      mobile: parsed.mobile,
+      mobile: parsed.mobile || "",
       formData: parsed.formData,
       useSession: Boolean(parsed.useSession),
+      expiresAt: parsed.expiresAt ?? null,
+      submitToken: parsed.submitToken || "",
+      bank: parsed.bank,
     }
   } catch {
     return null
@@ -91,11 +107,17 @@ function BookingContent() {
   })
   const [date, setDate] = useState<Date | undefined>()
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [step, setStep] = useState<'form' | 'payment' | 'awaiting' | 'failed' | 'ticket'>('form')
-  const [operator, setOperator] = useState<MobileOperator>('airtel')
+  const [step, setStep] = useState<'form' | 'payment' | 'awaiting' | 'bank' | 'failed' | 'ticket'>('form')
+  const [operator, setOperator] = useState<PayMethod | null>(null)
+  const [bankDetails, setBankDetails] = useState<BankDetails | null>(null)
+  const [verifyingBank, setVerifyingBank] = useState(false)
+  const [paymentExpiresAt, setPaymentExpiresAt] = useState<string | null>(null)
+  const [reference, setReference] = useState("")
+  const submitToken = useRef("")
   const [payerNumber, setPayerNumber] = useState('')
   const [chargeId, setChargeId] = useState('')
   const [failureMessage, setFailureMessage] = useState('')
+  const [allowRetry, setAllowRetry] = useState(true)
   const [cancelConfirm, setCancelConfirm] = useState(false)
   const [ticketDetails, setTicketDetails] = useState<TicketDetails | null>(null)
   const [isPaying, setIsPaying] = useState(false)
@@ -176,7 +198,17 @@ function BookingContent() {
     const openCharge = readPendingCharge();
     if (openCharge) {
       setChargeId(openCharge.chargeId);
-      setStep('awaiting');
+      setReference(openCharge.reference);
+      setOperator(openCharge.operator);
+      setPayerNumber(openCharge.mobile);
+      setPaymentExpiresAt(openCharge.expiresAt);
+      submitToken.current = openCharge.submitToken;
+      if (openCharge.operator === "bank") {
+        setBankDetails(openCharge.bank ?? null);
+        setStep("bank");
+      } else {
+        setStep("awaiting");
+      }
       setIsPaying(true);
     }
   }, [searchParams]);
@@ -220,7 +252,7 @@ function BookingContent() {
 
   const fetcher = (url: string) => fetch(url).then(res => res.json());
   const { data: unavailableDatesData = [] } = useSWR('/api/unavailable-dates', fetcher, { refreshInterval: 1000 });
-  const { data: bookingsData = [] } = useSWR('/api/bookings?status=successful', fetcher, { refreshInterval: 1000 });
+  const { data: bookingsData = [] } = useSWR('/api/bookings?availability=1', fetcher, { refreshInterval: 1000 });
 
   const unavailableSlots = useMemo(() => {
     const transformed: Record<string, string[]> = {};
@@ -235,12 +267,10 @@ function BookingContent() {
   const bookedSlots = useMemo(() => {
     const slots: Record<string, string[]> = {};
     if (Array.isArray(bookingsData)) {
-      bookingsData.forEach((booking: any) => {
-        // Only count successful bookings for slot availability
-        if (booking.status === 'successful') {
-          if (!slots[booking.date]) slots[booking.date] = [];
-          slots[booking.date].push(booking.timeSlot);
-        }
+      bookingsData.forEach((booking: { date?: string; timeSlot?: string }) => {
+        if (!booking.date || !booking.timeSlot) return;
+        if (!slots[booking.date]) slots[booking.date] = [];
+        slots[booking.date].push(booking.timeSlot);
       });
     }
     return slots;
@@ -409,7 +439,7 @@ function BookingContent() {
         });
 
         // Redirect to confirmation page
-        router.push(`/booking/confirmation?ticketId=${encodeURIComponent(data.booking.ticketId)}`);
+        router.push(`/booking/confirmation?ticketId=${encodeURIComponent(data.booking.reference || data.booking.ticketId)}`);
       } catch (error: any) {
         console.error('Reschedule error:', error);
         toast({
@@ -428,28 +458,32 @@ function BookingContent() {
   };
 
   const payLock = useRef(false);
-  const initializeSent = useRef('');
 
   const showTicket = (booking: {
     name: string
     date: string
     timeSlot: string
     services: string[]
-    ticketId: string
+    reference?: string
+    ticketId?: string
     discountApplied?: boolean
   }) => {
     clearPendingCharge();
+    submitToken.current = "";
+    const ticket = booking.reference || booking.ticketId || "";
+    const fee = `${formatMwk(DEPOSIT_AMOUNT_MWK)} (Paid)`
     sessionStorage.setItem('lauryn-luxe-booking', JSON.stringify({
-      ticketId: booking.ticketId,
-      fee: formatDeposit(),
+      ticketId: ticket,
+      reference: ticket,
+      fee,
     }));
     setTicketDetails({
       name: booking.name,
       date: booking.date,
       timeSlot: booking.timeSlot,
       services: booking.services,
-      fee: formatDeposit(),
-      ticketId: booking.ticketId,
+      fee,
+      ticketId: ticket,
       discountApplied: booking.discountApplied,
     });
     setFailureMessage('');
@@ -462,7 +496,16 @@ function BookingContent() {
     const openCharge = readPendingCharge();
     if (openCharge) {
       setChargeId(openCharge.chargeId);
-      setStep('awaiting');
+      setReference(openCharge.reference);
+      setPaymentExpiresAt(openCharge.expiresAt);
+      setOperator(openCharge.operator);
+      submitToken.current = openCharge.submitToken;
+      if (openCharge.operator === "bank") {
+        setBankDetails(openCharge.bank ?? null);
+        setStep("bank");
+      } else {
+        setStep("awaiting");
+      }
       setIsPaying(true);
       toast({
         title: "Payment still open",
@@ -471,16 +514,29 @@ function BookingContent() {
       return;
     }
 
-    const payer = localMobileMoneyNumber(payerNumber, operator);
-    if (!payer) {
+    if (operator !== "tnm" && operator !== "airtel" && operator !== "bank") {
       toast({
-        title: "Mobile money number",
-        description: operator === "tnm"
-          ? "TNM Mpamba needs a Malawi number starting with 08."
-          : "Airtel Money needs a Malawi number starting with 09.",
+        title: "Choose how to pay",
+        description: "Select TNM Mpamba, Airtel Money, or Bank Transfer.",
         variant: "destructive",
       });
       return;
+    }
+
+    let payer = "";
+    if (operator !== "bank") {
+      const local = localMobileMoneyNumber(payerNumber, operator);
+      if (!local) {
+        toast({
+          title: "Mobile money number",
+          description: operator === "tnm"
+            ? "TNM Mpamba needs a Malawi number starting with 08."
+            : "Airtel Money needs a Malawi number starting with 09.",
+          variant: "destructive",
+        });
+        return;
+      }
+      payer = local;
     }
 
     if (payLock.current) return;
@@ -488,6 +544,8 @@ function BookingContent() {
     setIsPaying(true);
     setFailureMessage('');
     try {
+      const token = submitToken.current || crypto.randomUUID();
+      submitToken.current = token;
       const response = await fetch('/api/paychangu-checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -496,22 +554,34 @@ function BookingContent() {
           useSession: accountBooking || Boolean(session?.user),
           operator,
           mobile: payer,
+          submitToken: token,
         }),
       });
       const data = await response.json();
-      if (!response.ok || !data.chargeId) {
-        throw new Error(paychanguText(data.message) || 'Failed to start the payment.');
+      if (!response.ok || !data.ok || !data.chargeId) {
+        submitToken.current = "";
+        throw new Error(data.message || 'Failed to start the payment.');
       }
+      const details: BankDetails | null = data.account?.number
+        ? { bank: String(data.account.bank || ""), name: String(data.account.name || ""), number: String(data.account.number) }
+        : null;
       const pending: PendingCharge = {
         chargeId: data.chargeId,
+        reference: String(data.reference || ""),
         operator,
         mobile: payer,
         formData,
         useSession: accountBooking || Boolean(session?.user),
+        expiresAt: data.expiresAt ? String(data.expiresAt) : null,
+        submitToken: token,
+        bank: details,
       };
       writePendingCharge(pending);
       setChargeId(data.chargeId);
-      setStep('awaiting');
+      setReference(pending.reference);
+      setPaymentExpiresAt(pending.expiresAt);
+      setBankDetails(details);
+      setStep(operator === "bank" ? "bank" : "awaiting");
     } catch (error: any) {
       payLock.current = false;
       toast({
@@ -525,8 +595,12 @@ function BookingContent() {
 
   const handleRetryPayment = () => {
     clearPendingCharge();
+    submitToken.current = "";
     payLock.current = false;
     setChargeId('');
+    setReference('');
+    setPaymentExpiresAt(null);
+    setBankDetails(null);
     setFailureMessage('');
     setCancelConfirm(false);
     setIsPaying(false);
@@ -534,148 +608,149 @@ function BookingContent() {
     setStep('payment');
   };
 
-  const handleCancelPayment = async () => {
-    if (cancelConfirm) {
-      clearPendingCharge();
-      payLock.current = false;
-      setChargeId('');
-      setCancelConfirm(false);
+  const applyPaymentView = (data: {
+    status?: string
+    message?: string
+    expiresAt?: string | null
+    account?: { bank?: string; name?: string; number?: string }
+    booking?: {
+      name: string
+      date: string
+      timeSlot: string
+      services: string[]
+      reference?: string
+      discountApplied?: boolean
+    }
+  }) => {
+    if (data.expiresAt) setPaymentExpiresAt(data.expiresAt);
+    if (data.account?.number) {
+      const details: BankDetails = {
+        bank: String(data.account.bank || ""),
+        name: String(data.account.name || ""),
+        number: String(data.account.number),
+      };
+      setBankDetails(details);
+      const pending = readPendingCharge();
+      if (pending) writePendingCharge({ ...pending, bank: details, expiresAt: data.expiresAt ?? pending.expiresAt });
+    }
+    if (data.status === "successful" && data.booking) {
+      showTicket(data.booking);
+      return true;
+    }
+    if (data.status && ["failed", "expired", "cancelled", "review", "refund"].includes(data.status)) {
+      if (data.status !== "review" && data.status !== "refund") clearPendingCharge();
+      setFailureMessage(data.message || "Payment was not completed.");
+      setAllowRetry(data.status !== "review" && data.status !== "refund");
+      setStep("failed");
       setIsPaying(false);
-      setLoading(false);
-      setFailureMessage('This page is no longer waiting. If you already approved the PIN, do not start another payment until you have checked your phone.');
-      setStep('payment');
+      payLock.current = false;
+      return true;
+    }
+    if (data.message) setFailureMessage(data.message);
+    return false;
+  };
+
+  const handleCancelPayment = async () => {
+    if (!cancelConfirm) {
+      setCancelConfirm(true);
+      setFailureMessage("Cancelling closes this payment here. If you already approved it, we will still record it.");
       return;
     }
 
-    const openCharge = readPendingCharge();
-    const id = chargeId || openCharge?.chargeId || '';
+    const id = chargeId || readPendingCharge()?.chargeId || "";
     if (!id) {
       handleRetryPayment();
       return;
     }
     try {
-      const response = await fetch('/api/verify-payment', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const response = await fetch("/api/pay/cancel", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ chargeId: id }),
       });
       const data = await response.json();
-      if (data.status === 'success' && data.booking) {
-        showTicket(data.booking);
+      if (data.result === "already_paid" && data.view?.booking) {
+        showTicket(data.view.booking);
         return;
       }
-      if (data.status === 'failed' || data.status === 'absent') {
-        handleRetryPayment();
+      if (data.result === "cancelled") {
+        clearPendingCharge();
+        submitToken.current = "";
+        setFailureMessage("Payment cancelled.");
+        setCancelConfirm(false);
+        setIsPaying(false);
+        payLock.current = false;
+        setStep("payment");
         return;
       }
+      if (data.view) applyPaymentView(data.view);
     } catch {
-      // The charge may still be open. Ask before leaving the page.
+      setFailureMessage("The connection dropped. Stay on this page if you already approved the payment.");
     }
-    setCancelConfirm(true);
-    setFailureMessage('This payment is still open. If you already approved the PIN, leaving this page does not stop it.');
   };
 
-  const handleAwaitingRetry = async () => {
-    const openCharge = readPendingCharge();
-    const id = chargeId || openCharge?.chargeId || '';
-    if (!id) {
-      handleRetryPayment();
-      return;
-    }
+  const handleVerifyBank = async () => {
+    const id = chargeId || readPendingCharge()?.chargeId || "";
+    if (!id || verifyingBank) return;
+    setVerifyingBank(true);
+    setFailureMessage("");
     try {
-      const response = await fetch('/api/verify-payment', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const response = await fetch("/api/verify-payment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ chargeId: id }),
       });
       const data = await response.json();
-      if (data.status === 'success' && data.booking) {
-        showTicket(data.booking);
-        return;
+      const finished = applyPaymentView(data);
+      if (!finished) {
+        setFailureMessage(data.message || "We haven't received it yet. This can take a few minutes. Try again shortly.");
       }
-      if (data.status === 'failed' || data.status === 'absent') {
-        handleRetryPayment();
-        return;
-      }
-      toast({
-        title: "Payment still open",
-        description: "Stay on this page. Starting again would charge you a second time.",
-      });
     } catch {
-      toast({
-        title: "Still checking",
-        description: "The connection dropped. Stay on this page if you already approved the PIN.",
-      });
+      setFailureMessage("The connection dropped. You can check again.");
+    } finally {
+      setVerifyingBank(false);
     }
   };
 
   useEffect(() => {
-    if (step !== 'awaiting' || !chargeId) return;
-    const pending = readPendingCharge();
-    if (!pending || pending.chargeId !== chargeId) return;
-    if (initializeSent.current === chargeId) return;
-    initializeSent.current = chargeId;
-
-    void fetch('/api/paychangu-checkout', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        action: 'initialize',
-        chargeId: pending.chargeId,
-        formData: pending.formData,
-        useSession: pending.useSession,
-        operator: pending.operator,
-        mobile: pending.mobile,
-      }),
-    }).then(async (initResponse) => {
-      if (initResponse.ok) return;
-      const body = await initResponse.json().catch(() => ({}));
-      const message = paychanguText(body.message) || paychanguText(body.error);
-      const lower = message.toLowerCase();
-      if (!message || message === '[object Object]' || lower.includes('expired') || lower.includes('already')) {
-        return;
-      }
-      setFailureMessage(message);
-    }).catch(() => {
-      initializeSent.current = '';
-      setFailureMessage('The connection dropped. If you already approved the PIN, stay on this page.');
-    });
-  }, [step, chargeId]);
-
-  useEffect(() => {
-    if (step !== 'awaiting' || !chargeId) return;
+    if ((step !== "awaiting" && step !== "bank") || !chargeId) return;
     let stopped = false;
+    let checking = false;
+    let timer = 0;
+    const started = Date.now();
 
     const tick = async () => {
+      if (stopped || checking) return;
+      checking = true;
+      let finished = false;
       try {
-        const response = await fetch('/api/verify-payment', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+        const response = await fetch("/api/verify-payment", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ chargeId }),
         });
         const data = await response.json();
-        if (stopped) return;
-        if (data.status === 'success' && data.booking) {
-          showTicket(data.booking);
-        } else if (data.status === 'failed') {
-          clearPendingCharge();
-          setFailureMessage(paychanguText(data.message) || 'Payment was not approved.');
-          setStep('failed');
-          setIsPaying(false);
-          payLock.current = false;
-        } else if (data.status === 'review' && data.message) {
-          setFailureMessage(paychanguText(data.message) || 'Stay on this page and do not start another payment.');
-        }
+        if (!stopped) finished = applyPaymentView(data);
       } catch {
-        // Keep polling. A closed request is not a failed payment.
+        // A dropped request is not a failed payment.
+      } finally {
+        checking = false;
       }
+      if (stopped || finished) return;
+      const elapsed = Date.now() - started;
+      const delay = step === "bank" ? 10000 : elapsed < 120000 ? 5000 : 10000;
+      timer = window.setTimeout(tick, delay);
     };
 
     tick();
-    const interval = setInterval(tick, 4000);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void tick();
+    };
+    document.addEventListener("visibilitychange", onVisible);
     return () => {
       stopped = true;
-      clearInterval(interval);
+      window.clearTimeout(timer);
+      document.removeEventListener("visibilitychange", onVisible);
     };
   }, [step, chargeId]);
 
@@ -689,7 +764,7 @@ function BookingContent() {
         backgroundImage="/IMG_7410.png"
       />
 
-      <div className="container mx-auto py-12 px-4" ref={bookingFormRef}>
+      <div className="container mx-auto overflow-x-hidden px-4 py-12" ref={bookingFormRef}>
         <BookingForm
           formData={formData}
           setFormData={setFormData}
@@ -716,11 +791,16 @@ function BookingContent() {
           payerNumber={payerNumber}
           setPayerNumber={setPayerNumber}
           failureMessage={failureMessage}
+          allowRetry={allowRetry}
           onRetry={handleRetryPayment}
-          onAwaitingRetry={handleAwaitingRetry}
           onCancelPayment={handleCancelPayment}
           cancelConfirm={cancelConfirm}
           ticketDetails={ticketDetails}
+          bankDetails={bankDetails}
+          onVerifyBank={handleVerifyBank}
+          verifyingBank={verifyingBank}
+          paymentExpiresAt={paymentExpiresAt}
+          reference={reference}
         />
       </div>
 

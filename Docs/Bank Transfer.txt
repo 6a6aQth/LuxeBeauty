@@ -1,0 +1,290 @@
+Bank Transfer
+POST https://api.paychangu.com/direct-charge/payments/initialize
+
+
+Create dynamic virtual accounts to facilitate instant payments through bank transfers. Before getting started, we recommend reviewing the method overview for a better understanding.
+
+Body Params
+amount
+string
+required
+The amount of money to be paid
+
+currency
+string
+required
+Defaults to MWK
+Currency to charge in. [ 'MWK' ]
+
+MWK
+payment_method
+string
+required
+Defaults to mobile_bank_transfer
+mobile_bank_transfer
+charge_id
+string
+required
+Used to Identify the transaction. This MUST be unique for every transaction.
+
+email
+string
+This is the email address of your customer. Transaction notification will be sent to this email address. Optional
+
+first_name
+string
+This is the first name of your customer. Optional
+
+last_name
+string
+This is the last name of your customer. Optional
+
+mobile
+string
+This is the mobile number of your customer. Optional
+
+create_permanent_account
+boolean
+This allows you to create a static account number i.e. the account number doesn't change and customers can pay into the account number multiple times.
+
+
+true
+Responses
+
+200
+200
+
+Response body
+object
+status
+string
+message
+string
+data
+object
+payment_account_details
+object
+
+payment_account_details object
+bank_name
+string
+account_number
+string
+account_name
+string
+account_expiration_timestamp
+integer
+Defaults to 0
+transaction
+object
+
+transaction object
+charge_id
+string
+ref_id
+string
+trans_id
+string
+currency
+string
+amount
+integer
+Defaults to 0
+first_name
+string
+last_name
+string
+email
+string
+type
+string
+trace_id
+string
+status
+string
+mobile
+string
+attempts
+integer
+Defaults to 0
+mode
+string
+created_at
+string
+completed_at
+string
+event_type
+string
+transaction_charges
+object
+
+transaction_charges object
+currency
+string
+amount
+string
+authorization
+object
+
+authorization object
+channel
+string
+card_number
+string
+expiry
+string
+brand
+string
+provider
+string
+mobile_number
+string
+payer_bank
+string
+payer_account_number
+string
+payer_account_name
+string
+completed_at
+string
+logs
+array of objects
+object
+type
+string
+message
+string
+created_at
+string
+
+
+400
+400
+
+Response body
+object
+status
+string
+message
+string
+data
+string
+
+
+Single Transaction
+GET https://api.paychangu.com/direct-charge/transactions/{charge_id} /details
+
+
+
+This shows you how to get charge details using the chargeID
+
+This endpoint enables you to retrieve a single Bank Transfer transaction.
+
+Path Params
+charge_id
+string
+required
+Defaults to 12354
+12354
+Responses
+
+200
+200
+
+Response body
+object
+status
+string
+message
+string
+data
+object
+transaction
+object
+
+transaction object
+charge_id
+string
+ref_id
+string
+trans_id
+string
+currency
+string
+amount
+integer
+Defaults to 0
+first_name
+string
+last_name
+string
+email
+string
+type
+string
+trace_id
+string
+status
+string
+mobile
+string
+attempts
+integer
+Defaults to 0
+mode
+string
+created_at
+string
+completed_at
+string
+event_type
+string
+transaction_charges
+object
+
+transaction_charges object
+currency
+string
+amount
+string
+authorization
+object
+
+authorization object
+channel
+string
+card_number
+string
+expiry
+string
+brand
+string
+provider
+string
+mobile_number
+string
+payer_bank_uuid
+string
+payer_bank
+string
+payer_account_number
+string
+payer_account_name
+string
+completed_at
+string
+logs
+array of objects
+object
+type
+string
+message
+string
+created_at
+string
+
+400
+400
+
+Response body
+object
