@@ -42,7 +42,7 @@ export const TicketFace = forwardRef<HTMLDivElement, { details: TicketDetails; s
             <p><strong>Date:</strong> {details.date}</p>
             <p><strong>Time:</strong> {formatTime(details.timeSlot)}</p>
             <p className="break-words"><strong>Services:</strong> {serviceNames.join(", ")}</p>
-            {details.fee ? <p><strong>Total:</strong> {details.fee}</p> : null}
+            {details.fee ? <p><strong>Booking Fee:</strong> {details.fee}</p> : null}
             {details.isReschedule && details.originalDate && (
               <p><strong>Originally Scheduled:</strong> {format(parseISO(details.originalDate), "MMMM dd, yyyy")}</p>
             )}

@@ -32,16 +32,14 @@ export interface BookingFormProps {
   operator: 'tnm' | 'airtel' | 'bank' | null;
   setOperator: React.Dispatch<React.SetStateAction<'tnm' | 'airtel' | 'bank' | null>>;
   bankDetails?: {
-    bankName: string;
-    accountNumber: string;
-    accountName: string;
-    expiresAt: string | null;
-    amount: number | null;
+    bank: string;
+    name: string;
+    number: string;
   } | null;
   onVerifyBank?: () => void;
   verifyingBank?: boolean;
-  chargedAmount?: number | null;
-  onRetryBankSetup?: () => void;
+  paymentExpiresAt?: string | null;
+  reference?: string;
   payerNumber: string;
   setPayerNumber: React.Dispatch<React.SetStateAction<string>>;
   failureMessage?: string;

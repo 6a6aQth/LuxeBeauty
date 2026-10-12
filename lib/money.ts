@@ -1,4 +1,12 @@
-/** Whole MWK display. There is no flat deposit. */
+/** Booking fee for mobile money and bank transfer. Service prices on the form are a guide. */
+export const FIXED_AMOUNT_MWK = 10000
+
+/** Same fee for every method. Kept so older call sites stay on this one figure. */
+export const DEPOSIT_AMOUNT_MWK = FIXED_AMOUNT_MWK
+
+/** Bank transfer uses the same fee. Amount checks compare against this, not a stored column. */
+export const BANK_TRANSFER_AMOUNT_MWK = FIXED_AMOUNT_MWK
+
 export function formatMwk(amount: number): string {
   return `MWK ${Math.round(amount).toLocaleString("en-US")}`
 }

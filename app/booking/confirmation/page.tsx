@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/animated-download-button'
 import { Mail, Phone, Home } from 'lucide-react'
 import { Service } from '@/types/types';
 import { format, parseISO } from 'date-fns'
-import { formatMwk } from '@/lib/money'
+import { DEPOSIT_AMOUNT_MWK, formatMwk } from '@/lib/money'
 import { LuxuryMark } from '@/components/luxury-mark'
 
 interface BookingDetails {
@@ -78,7 +78,8 @@ export default function BookingConfirmationPage() {
         }
 
         const isReschedule = (b.rescheduleCount ?? 0) > 0;
-        const feeString = typeof b.serviceTotal === "number" && b.serviceTotal > 0 ? formatMwk(b.serviceTotal) : "";
+        const paid = DEPOSIT_AMOUNT_MWK
+        const feeString = isReschedule ? "Rescheduled - No Additional Charge" : `${formatMwk(paid)} (Paid)`;
         setLoadError('');
 
         setBookingDetails({
@@ -88,7 +89,7 @@ export default function BookingConfirmationPage() {
           timeSlot: b.timeSlot,
           services: b.services,
           fee: feeString,
-          ticketId: b.ticketId,
+          ticketId: b.reference || b.ticketId,
           email: b.email,
           discountApplied: !!b.discountApplied,
           isReschedule,
@@ -246,11 +247,9 @@ export default function BookingConfirmationPage() {
                   <strong>Services:</strong>{' '}
                   {getServiceNames(bookingDetails.services).join(', ')}
                 </p>
-                {bookingDetails.fee ? (
-                  <p>
-                    <strong>Total:</strong> {bookingDetails.fee}
-                  </p>
-                ) : null}
+                <p>
+                  <strong>Booking Fee:</strong> {bookingDetails.fee}
+                </p>
                 {bookingDetails.isReschedule && bookingDetails.originalDate && (
                   <p>
                     <strong>Originally Scheduled:</strong> {format(parseISO(bookingDetails.originalDate), 'MMMM dd, yyyy')}

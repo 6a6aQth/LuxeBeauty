@@ -43,7 +43,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
     // Validate status if provided
     if (status) {
-      const allowedStatuses = ['pending', 'successful', 'failed'];
+      const allowedStatuses = ['pending', 'successful', 'failed', 'cancelled', 'expired', 'refund', 'refunded', 'review'];
       if (!allowedStatuses.includes(status)) {
         return NextResponse.json({
           error: `Invalid status. Allowed: ${allowedStatuses.join(', ')}`

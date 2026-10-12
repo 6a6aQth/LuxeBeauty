@@ -78,7 +78,8 @@ interface Category {
 
 interface Booking {
   id: string;
-  ticketId: string;
+  reference?: string;
+  ticketId?: string;
   name: string;
   date: string;
   timeSlot: string;
@@ -113,6 +114,7 @@ export default function AdminPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [section, setSection] = useState<AdminSectionId>('overview')
   const [password, setPassword] = useState('')
+  const [sweeping, setSweeping] = useState(false)
   const [bookings, setBookings] = useState<Booking[]>([])
   const [services, setServices] = useState<Service[]>([])
   const [categories, setCategories] = useState<Category[]>([])
@@ -409,6 +411,32 @@ export default function AdminPage() {
     sessionStorage.removeItem("llb_admin_auth")
     setIsAuthenticated(false)
     router.push('/');
+  }
+
+  const handleSweep = async () => {
+    setSweeping(true)
+    try {
+      const response = await fetch("/api/admin/reconcile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ adminPassword: password || "luxe" }),
+      })
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.error || "Sweep failed")
+      toast({
+        title: "Payments checked",
+        description: `Checked ${data.checked} open payment${data.checked === 1 ? "" : "s"}. Paychangu key: ${data.key}.`,
+      })
+      fetchAdminData()
+    } catch (error: unknown) {
+      toast({
+        title: "Sweep failed",
+        description: error instanceof Error ? error.message : "Could not check payments.",
+        variant: "destructive",
+      })
+    } finally {
+      setSweeping(false)
+    }
   }
 
   const handleDateClick = (date: Date) => {
@@ -772,6 +800,15 @@ export default function AdminPage() {
                   Upcoming
                 </button>
               </div>
+              <Button
+                type="button"
+                variant="outline"
+                className="rounded-full border-stone-200 bg-white"
+                disabled={sweeping}
+                onClick={handleSweep}
+              >
+                {sweeping ? "Checking…" : "Sweep payments"}
+              </Button>
               <Select value={statusFilter} onValueChange={setStatusFilter}>
                 <SelectTrigger className="w-40 rounded-full border-stone-200 bg-white">
                   <SelectValue placeholder="Filter by status" />
@@ -781,6 +818,10 @@ export default function AdminPage() {
                   <SelectItem value="successful">Successful</SelectItem>
                   <SelectItem value="pending">Pending</SelectItem>
                   <SelectItem value="failed">Failed</SelectItem>
+                  <SelectItem value="expired">Expired</SelectItem>
+                  <SelectItem value="cancelled">Cancelled</SelectItem>
+                  <SelectItem value="refund">Refund</SelectItem>
+                  <SelectItem value="review">Review</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -856,7 +897,7 @@ export default function AdminPage() {
                         )}
                       </div>
                       <div className="flex flex-wrap items-center justify-between gap-3 border-t border-stone-200 pt-3">
-                        <p className="text-xs tracking-wide text-stone-400">Ticket {booking.ticketId}</p>
+                        <p className="text-xs tracking-wide text-stone-400">Ticket {booking.reference || booking.ticketId}</p>
                         <div className="flex flex-wrap gap-2">
                         <Button
                           variant="outline"

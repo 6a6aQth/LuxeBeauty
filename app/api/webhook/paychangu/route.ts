@@ -1,9 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createHmac, timingSafeEqual } from "crypto"
-import prisma from "@/lib/prisma"
-import { logPaymentEvent } from "@/lib/paymentLogger"
-import { confirmPaidBooking } from "@/lib/confirm-booking"
-import { checkCharge } from "@/lib/charge-check"
+import { settle } from "@/lib/payments"
 
 function signaturesMatch(payload: string, signature: string | null, secret: string) {
   if (!signature) return false
@@ -36,101 +33,19 @@ export async function POST(req: NextRequest) {
   } catch {
     body = {}
   }
-  const chargeId = chargeIdFromBody(body) || "unknown"
 
   if (!signaturesMatch(payload, signature, secret)) {
-    await logPaymentEvent({
-      txRef: chargeId,
-      eventType: "webhook_received",
-      status: "unauthorized",
-      message: signature ? "Invalid signature" : "No signature header",
-    })
     return NextResponse.json({ error: "Invalid signature" }, { status: 401 })
   }
 
-  await logPaymentEvent({
-    txRef: chargeId,
-    eventType: "webhook_received",
-    status: "accepted",
-    message: "Webhook received",
-  })
-  await logPaymentEvent({
-    txRef: chargeId,
-    eventType: "signature_verified",
-    status: "ok",
-    message: "Signature matched",
-  })
-
-  if (chargeId === "unknown") {
-    return NextResponse.json({ received: true })
-  }
-
-  let result
-  try {
-    result = await checkCharge(chargeId)
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : "Verify failed"
-    await logPaymentEvent({
-      txRef: chargeId,
-      eventType: "paychangu_verify_response",
-      status: "error",
-      message,
-    })
-    return NextResponse.json({ error: "Verification failed" }, { status: 500 })
-  }
-
-  await logPaymentEvent({
-    txRef: chargeId,
-    eventType: "paychangu_verify_response",
-    status: result.status,
-    message: `Webhook verify returned ${result.status}`,
-    payload: { amount: result.amount, currency: result.currency, bank: result.bank },
-  })
-
-  if (result.bank) {
-    if (!result.paid || !result.amountOk) {
-      if (result.paid && !result.amountOk) {
-        await logPaymentEvent({
-          txRef: chargeId,
-          eventType: "paychangu_verify_response",
-          status: "amount_mismatch",
-          message: `Expected ${result.serviceTotal}, got ${result.amount}`,
-        })
-        return NextResponse.json({ received: true, status: "amount_mismatch" })
-      }
-      return NextResponse.json({ received: true, status: "pending" })
+  const chargeId = chargeIdFromBody(body)
+  if (chargeId) {
+    try {
+      await settle(chargeId)
+    } catch (error: unknown) {
+      console.error("[payments] webhook settle", error)
     }
-  } else if (!result.paid) {
-    if (result.failed) {
-      await prisma.booking.updateMany({
-        where: { ticketId: chargeId, status: "pending" },
-        data: { status: "failed" },
-      })
-      return NextResponse.json({ received: true, status: "failed" })
-    }
-    return NextResponse.json({ received: true, status: "pending" })
-  } else if (!result.amountOk) {
-    await logPaymentEvent({
-      txRef: chargeId,
-      eventType: "paychangu_verify_response",
-      status: "amount_mismatch",
-      message: `Expected ${result.serviceTotal}, got ${result.amount}`,
-    })
-    return NextResponse.json({ received: true, status: "amount_mismatch" })
   }
 
-  const confirmed = await confirmPaidBooking(chargeId)
-  if (!confirmed.ok) {
-    return NextResponse.json({ received: true, bookingNotFound: true })
-  }
-
-  await logPaymentEvent({
-    txRef: chargeId,
-    bookingId: confirmed.booking.id,
-    eventType: "booking_confirmed",
-    status: confirmed.alreadyConfirmed ? "already" : "successful",
-    message: confirmed.alreadyConfirmed ? "Booking was already successful" : "Booking confirmed from webhook",
-  })
-
-  return NextResponse.json({ received: true, status: "success" })
+  return NextResponse.json({ received: true })
 }

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { heldBookingWhere } from '@/lib/slots';
 import { logPaymentEvent } from '@/lib/paymentLogger';
 import { parseISO, isAfter, subDays, isValid } from 'date-fns';
 import { rejectOtherPhone, sessionPhoneForAccount } from '@/lib/account-reschedule';
@@ -22,6 +23,7 @@ export async function POST(req: NextRequest) {
         error: 'Ticket ID, new date, and new time slot are required' 
       }, { status: 400 });
     }
+    const reference = String(ticketId)
 
     // Validate services if provided
     if (newServices && (!Array.isArray(newServices) || newServices.length === 0)) {
@@ -32,7 +34,7 @@ export async function POST(req: NextRequest) {
 
     // Find the booking
     const booking = await prisma.booking.findUnique({
-      where: { ticketId }
+      where: { reference: ticketId }
     });
 
     if (!booking) {
@@ -124,8 +126,8 @@ export async function POST(req: NextRequest) {
       where: {
         date: newDate,
         timeSlot: newTimeSlot,
-        status: 'successful',
-        NOT: { ticketId } // Exclude current booking
+        ...heldBookingWhere(),
+        NOT: { reference }
       }
     });
 
@@ -154,7 +156,7 @@ export async function POST(req: NextRequest) {
 
     // Update the booking
     const updatedBooking = await prisma.booking.update({
-      where: { ticketId },
+      where: { reference },
       data: updateData
     });
 
@@ -190,7 +192,7 @@ export async function POST(req: NextRequest) {
       message: 'Booking rescheduled successfully',
       booking: {
         id: updatedBooking.id,
-        ticketId: updatedBooking.ticketId,
+        ticketId: updatedBooking.reference,
         name: updatedBooking.name,
         phone: updatedBooking.phone,
         email: updatedBooking.email,
@@ -228,7 +230,7 @@ export async function GET(req: NextRequest) {
     }
 
     const booking = await prisma.booking.findUnique({
-      where: { ticketId }
+      where: { reference: ticketId }
     });
 
     if (!booking) {
@@ -297,7 +299,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       booking: {
         id: booking.id,
-        ticketId: booking.ticketId,
+        reference: booking.reference,
+        ticketId: booking.reference,
         name: booking.name,
         phone: booking.phone,
         email: booking.email,

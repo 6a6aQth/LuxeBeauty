@@ -1,37 +1,21 @@
 import prisma from "@/lib/prisma"
 import { logPaymentEvent } from "@/lib/paymentLogger"
-import { successfulBookingsForPhone } from "@/lib/booking-phones"
 import { sendBookingSMS } from "@/lib/sms"
 import { sendStudioBookingEmail, sendTicketEmail } from "@/lib/ticket-email"
+import { FIXED_AMOUNT_MWK } from "@/lib/money"
 import { formatTime } from "@/lib/time-slots"
 
-export async function confirmPaidBooking(chargeId: string) {
-  const booking = await prisma.booking.findUnique({ where: { ticketId: chargeId } })
-  if (!booking) {
-    return { ok: false as const, reason: "missing" as const }
-  }
-  if (booking.status === "successful") {
-    return { ok: true as const, booking, alreadyConfirmed: true }
-  }
-
-  const existingCount = (await successfulBookingsForPhone(booking.phone, chargeId)).length
-  const discountApplied = (existingCount + 1) % 6 === 0
-
-  const updated = await prisma.booking.updateMany({
-    where: { ticketId: chargeId, status: { not: "successful" } },
-    data: { status: "successful", discountApplied },
-  })
-
-  const fresh = await prisma.booking.findUnique({ where: { ticketId: chargeId } })
+export async function confirmPaidBooking(bookingId: string) {
+  const fresh = await prisma.booking.findUnique({ where: { id: bookingId } })
   if (!fresh) {
     return { ok: false as const, reason: "missing" as const }
   }
-  if (updated.count === 0) {
-    return { ok: true as const, booking: fresh, alreadyConfirmed: true }
+  if (fresh.status !== "successful") {
+    return { ok: false as const, reason: "unpaid" as const }
   }
 
   await logPaymentEvent({
-    txRef: chargeId,
+    txRef: fresh.reference,
     bookingId: fresh.id,
     eventType: "booking_updated",
     status: "successful",
@@ -48,10 +32,10 @@ export async function confirmPaidBooking(chargeId: string) {
   try {
     await sendBookingSMS(
       fresh.phone,
-      `Lauryn Luxe: booking ${fresh.ticketId} is confirmed for ${when}. Services: ${serviceNames.join(", ")}.`,
+      `Lauryn Luxe: booking ${fresh.reference} is confirmed for ${when}. Services: ${serviceNames.join(", ")}.`,
     )
     await logPaymentEvent({
-      txRef: chargeId,
+      txRef: fresh.reference,
       bookingId: fresh.id,
       eventType: "sms_sent",
       status: "sent",
@@ -60,7 +44,7 @@ export async function confirmPaidBooking(chargeId: string) {
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "SMS failed"
     await logPaymentEvent({
-      txRef: chargeId,
+      txRef: fresh.reference,
       bookingId: fresh.id,
       eventType: "sms_sent",
       status: "error",
@@ -75,13 +59,13 @@ export async function confirmPaidBooking(chargeId: string) {
         name: fresh.name,
         date: fresh.date,
         timeSlot: fresh.timeSlot,
-        ticketId: fresh.ticketId,
+        ticketId: fresh.reference,
         discountApplied: fresh.discountApplied,
         serviceNames,
-        serviceTotal: fresh.serviceTotal,
+        amount: FIXED_AMOUNT_MWK,
       })
       await logPaymentEvent({
-        txRef: chargeId,
+        txRef: fresh.reference,
         bookingId: fresh.id,
         eventType: "ticket_email_sent",
         status: "sent",
@@ -90,7 +74,7 @@ export async function confirmPaidBooking(chargeId: string) {
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : "Ticket email failed"
       await logPaymentEvent({
-        txRef: chargeId,
+        txRef: fresh.reference,
         bookingId: fresh.id,
         eventType: "ticket_email_sent",
         status: "error",
@@ -106,13 +90,13 @@ export async function confirmPaidBooking(chargeId: string) {
       email: fresh.email,
       date: fresh.date,
       timeSlot: fresh.timeSlot,
-      ticketId: fresh.ticketId,
+      ticketId: fresh.reference,
       discountApplied: fresh.discountApplied,
       serviceNames,
-      serviceTotal: fresh.serviceTotal,
+      amount: FIXED_AMOUNT_MWK,
     })
     await logPaymentEvent({
-      txRef: chargeId,
+      txRef: fresh.reference,
       bookingId: fresh.id,
       eventType: "studio_email_sent",
       status: "sent",
@@ -121,7 +105,7 @@ export async function confirmPaidBooking(chargeId: string) {
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Studio email failed"
     await logPaymentEvent({
-      txRef: chargeId,
+      txRef: fresh.reference,
       bookingId: fresh.id,
       eventType: "studio_email_sent",
       status: "error",

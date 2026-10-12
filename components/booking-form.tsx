@@ -39,8 +39,31 @@ import { StudioPoliciesContent } from "@/components/studio-policies";
 import useSWR from 'swr';
 import { toast } from '@/hooks/use-toast';
 import { sanitizePhoneInput } from '@/lib/phone';
-import { bankExpiryLabel, formatMwk } from '@/lib/money';
+import { DEPOSIT_AMOUNT_MWK, formatMwk } from '@/lib/money';
+import { localMobileMoneyNumber } from '@/lib/mobile-money';
 import { BookingTicket } from '@/components/booking-ticket';
+
+function WindowCountdown({ expiresAt }: { expiresAt?: string | null }) {
+  const [label, setLabel] = useState("");
+  useEffect(() => {
+    if (!expiresAt) return;
+    const tick = () => {
+      const left = new Date(expiresAt).getTime() - Date.now();
+      if (left <= 0) {
+        setLabel("0:00");
+        return;
+      }
+      const minutes = Math.floor(left / 60000);
+      const seconds = Math.floor((left % 60000) / 1000);
+      setLabel(`${minutes}:${String(seconds).padStart(2, "0")}`);
+    };
+    tick();
+    const id = window.setInterval(tick, 1000);
+    return () => window.clearInterval(id);
+  }, [expiresAt]);
+  if (!expiresAt || !label) return null;
+  return <p className="text-sm text-gray-600">Time left {label}. This follows the studio clock, not your phone timer.</p>;
+}
 
 export function BookingForm({
   formData,
@@ -69,15 +92,14 @@ export function BookingForm({
   setPayerNumber,
   failureMessage,
   onRetry,
-  onAwaitingRetry,
   onCancelPayment,
   cancelConfirm,
   ticketDetails,
   bankDetails,
   onVerifyBank,
   verifyingBank,
-  chargedAmount,
-  onRetryBankSetup,
+  paymentExpiresAt,
+  reference,
 }: BookingFormProps) {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [showPoliciesDialog, setShowPoliciesDialog] = useState(false);
@@ -183,7 +205,16 @@ export function BookingForm({
     (sum, service) => sum + (service.price != null && service.price > 0 ? service.price : 0),
     0,
   );
-  const payAmount = chargedAmount != null && chargedAmount > 0 ? chargedAmount : runningTotal;
+  const bookingFee = formatMwk(DEPOSIT_AMOUNT_MWK);
+  const payingByBank = operator === "bank";
+  const payerReady = operator === "bank" || (operator != null && localMobileMoneyNumber(payerNumber, operator) != null);
+  const payerError = operator === "tnm" || operator === "airtel"
+    ? payerNumber.trim() && !localMobileMoneyNumber(payerNumber, operator)
+      ? operator === "tnm"
+        ? "That number is not a TNM Mpamba number. It needs to start with 08."
+        : "That number is not an Airtel Money number. It needs to start with 09."
+      : ""
+    : "";
 
   const handleChange = (e: any) => {
     const { name, value } = e.target;
@@ -293,16 +324,18 @@ export function BookingForm({
               </CardTitle>
               <CardDescription className="text-sm text-gray-500">
                 {step === "form"
-                  ? "The total of the services you choose is what you pay."
+                  ? `Service prices are a guide. The booking fee is ${bookingFee}.`
                   : step === "awaiting"
                     ? "A prompt was sent to the mobile money number. Approve it with your PIN."
                     : step === "bank"
-                      ? "Transfer the total to this account, then press Verify."
+                      ? `Transfer ${bookingFee}, then press Verify.`
                       : step === "ticket"
-                        ? "Your payment is confirmed. Download the ticket below."
+                        ? "Your booking fee is paid. Download the ticket below."
                         : step === "failed"
                           ? failureMessage || "The payment was not approved."
-                          : `Review your details and pay ${payAmount > 0 ? formatMwk(payAmount) : "the service total"}.`}
+                          : payingByBank
+                            ? `Review your details and transfer ${bookingFee}.`
+                            : `Review your details and pay the ${bookingFee} booking fee.`}
               </CardDescription>
             </CardHeader>
             <CardContent className="p-0">
@@ -586,11 +619,12 @@ export function BookingForm({
                   {formData.services.length > 0 && (
                     <div className="sticky bottom-3 z-20 rounded-2xl border border-stone-200 bg-white/95 px-4 py-3 shadow-sm backdrop-blur">
                       <div className="flex items-baseline justify-between gap-3">
-                        <span className="text-sm text-stone-600">Total</span>
+                        <span className="text-sm text-stone-600">Services</span>
                         <span className="break-words font-semibold text-stone-900">
                           {missingPrice || runningTotal <= 0 ? "—" : formatMwk(runningTotal)}
                         </span>
                       </div>
+                      <p className="mt-1 text-sm text-stone-500">For reference. The booking fee is {bookingFee}.</p>
                       {missingPrice ? (
                         <p className="mt-1 text-sm text-red-600">A selected service has no price yet.</p>
                       ) : null}
@@ -623,8 +657,9 @@ export function BookingForm({
               ) : step === "awaiting" ? (
                 <div className="space-y-4 text-center">
                   <div className="mx-auto h-8 w-8 animate-spin rounded-full border-b-2 border-brand-pink" />
-                  <p className="text-gray-700">Check your phone and approve the PIN prompt. This page will update when the payment is confirmed.</p>
-                  <p className="text-sm text-gray-500">Charge {payAmount > 0 ? formatMwk(payAmount) : "the service total"}. Stay on this page. Refreshing will not start a second charge.</p>
+                  <p className="text-gray-700">Approve the payment on your phone.</p>
+                  <p className="text-sm text-gray-500">Booking fee {bookingFee}.{reference ? ` Ticket ${reference}.` : ""} Stay on this page.</p>
+                  <WindowCountdown expiresAt={paymentExpiresAt} />
                   {failureMessage ? (
                     <p className="text-sm text-red-600">{failureMessage}</p>
                   ) : null}
@@ -644,38 +679,38 @@ export function BookingForm({
                     <div className="space-y-3 rounded-xl border border-gray-200 bg-gray-50 p-4">
                       <div>
                         <p className="text-xs uppercase tracking-[0.16em] text-gray-500">Bank</p>
-                        <p className="mt-1 break-words font-medium text-gray-900">{bankDetails.bankName}</p>
+                        <p className="mt-1 break-words font-medium text-gray-900">{bankDetails.bank}</p>
                       </div>
                       <div>
                         <p className="text-xs uppercase tracking-[0.16em] text-gray-500">Account number</p>
-                        <p className="mt-1 break-all font-mono text-lg text-gray-900">{bankDetails.accountNumber}</p>
+                        <p className="mt-1 break-all font-mono text-lg text-gray-900">{bankDetails.number}</p>
+                        <button
+                          type="button"
+                          className="mt-1 text-sm text-brand-pink underline"
+                          onClick={() => navigator.clipboard.writeText(bankDetails.number)}
+                        >
+                          Copy number
+                        </button>
                       </div>
                       <div>
                         <p className="text-xs uppercase tracking-[0.16em] text-gray-500">Account name</p>
-                        <p className="mt-1 break-words font-medium text-gray-900">{bankDetails.accountName || "LaurynStudio"}</p>
+                        <p className="mt-1 break-words font-medium text-gray-900">{bankDetails.name || "LaurynStudio"}</p>
                       </div>
                       <div>
-                        <p className="text-xs uppercase tracking-[0.16em] text-gray-500">Amount</p>
-                        <p className="mt-1 break-words font-semibold text-gray-900">
-                          {formatMwk(bankDetails.amount && bankDetails.amount > 0 ? bankDetails.amount : payAmount)}
-                        </p>
+                        <p className="text-xs uppercase tracking-[0.16em] text-gray-500">Exact amount</p>
+                        <p className="mt-1 break-words font-semibold text-gray-900">{bookingFee}</p>
                       </div>
-                      {bankExpiryLabel(bankDetails.expiresAt) ? (
+                      {reference ? (
                         <div>
-                          <p className="text-xs uppercase tracking-[0.16em] text-gray-500">Expires</p>
-                          <p className="mt-1 break-words text-gray-900">{bankExpiryLabel(bankDetails.expiresAt)}</p>
+                          <p className="text-xs uppercase tracking-[0.16em] text-gray-500">Ticket</p>
+                          <p className="mt-1 break-all font-medium text-gray-900">{reference}</p>
                         </div>
                       ) : null}
+                      <WindowCountdown expiresAt={paymentExpiresAt} />
+                      <p className="text-sm text-gray-500">Send this exact amount. A transfer after the time shown is recorded and refunded. It does not confirm the appointment.</p>
                     </div>
                   ) : (
-                    <div className="space-y-3 text-center">
-                      <p className="text-sm text-gray-600">Opening the transfer account…</p>
-                      {failureMessage ? (
-                        <Button type="button" variant="outline" onClick={onRetryBankSetup} className="w-full">
-                          Try again
-                        </Button>
-                      ) : null}
-                    </div>
+                    <p className="text-center text-sm text-gray-600">Opening the transfer account…</p>
                   )}
                   {failureMessage ? (
                     <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{failureMessage}</p>
@@ -686,9 +721,15 @@ export function BookingForm({
                     disabled={!bankDetails || verifyingBank}
                     className="w-full bg-green-500 text-white hover:bg-green-600"
                   >
-                    {verifyingBank ? "Checking…" : "Verify"}
+                    {verifyingBank ? "Checking…" : "I've paid"}
                   </Button>
-                  <p className="text-center text-sm text-gray-500">The appointment stays unpaid until this transfer is confirmed.</p>
+                  <button
+                    type="button"
+                    onClick={onCancelPayment}
+                    className="w-full text-sm text-[#6e243f] underline"
+                  >
+                    {cancelConfirm ? "Leave this payment" : "Cancel payment"}
+                  </button>
                 </div>
               ) : step === "failed" ? (
                 <div className="space-y-4 text-center">
@@ -701,7 +742,7 @@ export function BookingForm({
                 <div className="space-y-6">
                   {loyaltyDiscountEligible && (
                     <div className="rounded-lg bg-green-50 border border-green-200 p-4 text-green-800 text-center text-base mb-2">
-                      This visit is marked for the 30% loyalty note. The charge stays the full total.
+                      This visit is marked for the 30% loyalty note. The booking fee stays {bookingFee}.
                     </div>
                   )}
                   <div className="space-y-3 rounded-lg border border-gray-200 bg-gray-50 p-4">
@@ -721,10 +762,10 @@ export function BookingForm({
                       <span className="shrink-0 font-medium">Time</span>
                       <span className="font-semibold text-gray-900 sm:text-right">{formatTime(formData.timeSlot)}</span>
                     </div>
-                    {!isReschedule && payAmount > 0 ? (
+                    {!isReschedule ? (
                       <div className="flex flex-col gap-1 border-t border-gray-200 pt-3 sm:flex-row sm:justify-between sm:gap-4">
-                        <span className="shrink-0 font-medium">Total</span>
-                        <span className="break-words font-semibold text-gray-900 sm:text-right">{formatMwk(payAmount)}</span>
+                        <span className="shrink-0 font-medium">{payingByBank ? "Bank transfer" : "Booking fee"}</span>
+                        <span className="break-words font-semibold text-gray-900 sm:text-right">{payingByBank ? bookingFee : bookingFee}</span>
                       </div>
                     ) : null}
                     {formData.services && formData.services.length > 0 && (
@@ -770,7 +811,7 @@ export function BookingForm({
                     {!isReschedule ? (
                       <>
                         <p className="text-sm font-medium text-gray-900">
-                          Pay {payAmount > 0 ? formatMwk(payAmount) : "the service total"} with
+                          {payingByBank ? `Transfer ${bookingFee} with` : `Pay the ${bookingFee} booking fee with`}
                         </p>
                         <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                           <Button
@@ -811,6 +852,7 @@ export function BookingForm({
                               value={payerNumber}
                               onChange={(event) => setPayerNumber(event.target.value)}
                             />
+                            {payerError ? <p className="text-sm text-red-600">{payerError}</p> : null}
                           </div>
                         ) : null}
                       </>
@@ -860,7 +902,7 @@ export function BookingForm({
                     </Button>
                     <Button
                       onClick={isReschedule ? handleSubmit : handlePayment}
-                      disabled={isPaying || !agreedToTerms || (!isReschedule && !operator)}
+                      disabled={isPaying || !agreedToTerms || (!isReschedule && (!operator || !payerReady))}
                       className="w-full bg-green-500 text-white hover:bg-green-600"
                     >
                       {isPaying ? "Processing..." : isReschedule ? "Reschedule Appointment" : "Pay"}

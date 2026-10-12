@@ -14,7 +14,8 @@ import { LuxuryMark } from "@/components/luxury-mark"
 
 interface Booking {
   id: string;
-  ticketId: string;
+  reference?: string;
+  ticketId?: string;
   name: string;
   phone: string;
   email?: string;
@@ -103,7 +104,7 @@ export default function BookingLookupPage() {
     
     // Store booking data in sessionStorage for auto-filling the booking form
     sessionStorage.setItem('lauryn-luxe-reschedule-data', JSON.stringify({
-      ticketId: booking.ticketId,
+      ticketId: booking.reference || booking.ticketId,
       name: booking.name,
       phone: booking.phone,
       email: booking.email,
@@ -114,7 +115,7 @@ export default function BookingLookupPage() {
     }))
     
     // Redirect to booking page with reschedule flag and ticketId for refresh fallback
-    router.push(`/booking?reschedule=true&ticketId=${encodeURIComponent(booking.ticketId)}`)
+    router.push(`/booking?reschedule=true&ticketId=${encodeURIComponent(booking.reference || booking.ticketId)}`)
   }
 
   return (
@@ -167,7 +168,7 @@ export default function BookingLookupPage() {
               <Card className="bg-white border-0 shadow-xl overflow-hidden">
                 <div className="bg-zinc-950 p-6 text-center">
                   <h3 className="mb-2 font-serif text-2xl text-white">Appointment details</h3>
-                  <p className="text-sm tracking-wide text-zinc-300">Ticket ID: {booking.ticketId}</p>
+                  <p className="text-sm tracking-wide text-zinc-300">Ticket ID: {booking.reference || booking.ticketId}</p>
                 </div>
                 
                 <CardContent className="p-8">

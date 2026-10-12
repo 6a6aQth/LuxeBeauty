@@ -20,12 +20,12 @@ export async function sendTicketEmail(booking: {
   ticketId: string
   discountApplied: boolean
   serviceNames: string[]
-  serviceTotal: number | null
+  amount: number
 }) {
   const visitDate = formatVisitDate(booking.date)
   const visitTime = formatTime(booking.timeSlot)
   const services = booking.serviceNames.filter(Boolean)
-  const total = booking.serviceTotal != null && booking.serviceTotal > 0 ? formatMwk(booking.serviceTotal) : null
+  const deposit = formatMwk(booking.amount)
   const text = [
     `Hi ${booking.name},`,
     `Your Lauryn Luxe appointment is confirmed.`,
@@ -33,7 +33,7 @@ export async function sendTicketEmail(booking: {
     `Date: ${visitDate}`,
     `Time: ${visitTime}`,
     `Services: ${services.join(", ")}`,
-    total ? `Total: ${total}` : "",
+    `Booking fee: ${deposit}`,
     booking.discountApplied ? "A 30% loyalty discount is noted on this appointment." : "",
     "Show this ticket at the studio.",
     "Lauryn Luxe Beauty Studio, Blantyre",
@@ -50,7 +50,7 @@ export async function sendTicketEmail(booking: {
       visitDate,
       visitTime,
       services,
-      total,
+      deposit,
       ticketId: booking.ticketId,
       discountApplied: booking.discountApplied,
     }),
@@ -70,12 +70,12 @@ export async function sendStudioBookingEmail(booking: {
   ticketId: string
   discountApplied: boolean
   serviceNames: string[]
-  serviceTotal: number | null
+  amount: number
 }) {
   const visitDate = formatVisitDate(booking.date)
   const visitTime = formatTime(booking.timeSlot)
   const services = booking.serviceNames.filter(Boolean)
-  const total = booking.serviceTotal != null && booking.serviceTotal > 0 ? formatMwk(booking.serviceTotal) : null
+  const deposit = formatMwk(booking.amount)
   const guestEmail = booking.email || "No email on the booking"
   const text = [
     `New booking ${booking.ticketId}`,
@@ -85,7 +85,7 @@ export async function sendStudioBookingEmail(booking: {
     `Date: ${visitDate}`,
     `Time: ${visitTime}`,
     `Services: ${services.join(", ")}`,
-    total ? `Total: ${total}` : "",
+    `Booking fee: ${deposit}`,
     booking.discountApplied ? "A 30% loyalty discount is noted on this appointment." : "",
   ]
     .filter(Boolean)
@@ -101,7 +101,7 @@ export async function sendStudioBookingEmail(booking: {
       visitDate,
       visitTime,
       services,
-      total,
+      deposit,
       ticketId: booking.ticketId,
       discountApplied: booking.discountApplied,
       studio: { phone: booking.phone, email: guestEmail },
@@ -131,7 +131,7 @@ function ticketHtml(booking: {
   visitDate: string
   visitTime: string
   services: string[]
-  total: string | null
+  deposit: string
   ticketId: string
   discountApplied: boolean
   studio?: { phone: string; email: string }
@@ -223,16 +223,12 @@ function ticketHtml(booking: {
                 </table>
               </td>
             </tr>
-            ${
-              booking.total
-                ? `<tr>
+            <tr>
               <td style="padding:8px 32px 18px 32px;">
-                <p style="margin:0;font-family:Georgia,'Times New Roman',serif;font-size:10px;letter-spacing:0.2em;color:${stone};">TOTAL</p>
-                <p style="margin:8px 0 0 0;font-family:Georgia,'Times New Roman',serif;font-size:16px;color:${ink};">${escapeHtml(booking.total)}</p>
+                <p style="margin:0;font-family:Georgia,'Times New Roman',serif;font-size:10px;letter-spacing:0.2em;color:${stone};">BOOKING FEE</p>
+                <p style="margin:8px 0 0 0;font-family:Georgia,'Times New Roman',serif;font-size:16px;color:${ink};">${escapeHtml(booking.deposit)}</p>
               </td>
-            </tr>`
-                : ""
-            }
+            </tr>
             ${loyalty}
             <tr>
               <td style="padding:16px 32px 32px 32px;">
