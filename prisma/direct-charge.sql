@@ -28,3 +28,10 @@ CREATE TABLE IF NOT EXISTS "Payment" (
 
 CREATE UNIQUE INDEX IF NOT EXISTS "Payment_bookingId_key" ON "Payment"("bookingId");
 CREATE INDEX IF NOT EXISTS "Payment_status_createdAt_idx" ON "Payment"("status", "createdAt");
+
+ALTER TABLE "Booking" DROP COLUMN IF EXISTS "serviceTotal";
+ALTER TABLE "Booking" DROP COLUMN IF EXISTS "paymentMethod";
+ALTER TABLE "Booking" DROP COLUMN IF EXISTS "bankName";
+ALTER TABLE "Booking" DROP COLUMN IF EXISTS "bankAccountNumber";
+ALTER TABLE "Booking" DROP COLUMN IF EXISTS "bankAccountName";
+ALTER TABLE "Booking" DROP COLUMN IF EXISTS "bankExpiresAt";

@@ -43,6 +43,7 @@ export interface BookingFormProps {
   payerNumber: string;
   setPayerNumber: React.Dispatch<React.SetStateAction<string>>;
   failureMessage?: string;
+  allowRetry?: boolean;
   onRetry: () => void;
   onAwaitingRetry?: () => void;
   onCancelPayment?: () => void;

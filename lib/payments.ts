@@ -20,6 +20,8 @@ import {
 
 class SlotTaken extends Error {}
 
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+
 export const GENERIC_START_ERROR = "We couldn't start your payment. Please try again in a moment."
 
 export function alertOps(message: string) {
@@ -173,7 +175,6 @@ export async function startPayment(input: StartBookingInput): Promise<StartResul
             inspirationPhotos: input.inspirationPhotos ?? [],
             reference,
             status: "pending",
-            paymentMethod: input.operator,
             expiresAt: provisional,
             submitToken: input.submitToken,
           },
@@ -499,7 +500,6 @@ export async function getPaymentView(chargeId: string) {
             reference: booking.reference,
             discountApplied: booking.discountApplied,
             email: booking.email,
-            serviceTotal: booking.serviceTotal,
           }
         : undefined,
   }

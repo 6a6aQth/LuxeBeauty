@@ -91,6 +91,7 @@ export function BookingForm({
   payerNumber,
   setPayerNumber,
   failureMessage,
+  allowRetry = true,
   onRetry,
   onCancelPayment,
   cancelConfirm,
@@ -734,9 +735,11 @@ export function BookingForm({
               ) : step === "failed" ? (
                 <div className="space-y-4 text-center">
                   <p className="text-gray-700">{failureMessage || "Payment was not approved."}</p>
-                  <Button onClick={onRetry} className="w-full bg-brand-pink text-white hover:bg-brand-pink/90">
-                    Try again
-                  </Button>
+                  {allowRetry ? (
+                    <Button onClick={onRetry} className="w-full bg-brand-pink text-white hover:bg-brand-pink/90">
+                      Try again
+                    </Button>
+                  ) : null}
                 </div>
               ) : (
                 <div className="space-y-6">

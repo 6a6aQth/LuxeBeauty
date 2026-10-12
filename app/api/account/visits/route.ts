@@ -53,7 +53,6 @@ export async function GET(req: NextRequest) {
       discountApplied: booking.discountApplied,
       rescheduleCount: booking.rescheduleCount,
       originalDate: booking.originalDate,
-      paymentMethod: booking.paymentMethod,
     }
     if (isPastVisit(booking.date, booking.timeSlot)) past.push(item)
     else upcoming.push(item)

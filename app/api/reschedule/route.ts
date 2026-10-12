@@ -141,7 +141,14 @@ export async function POST(req: NextRequest) {
     const originalDate = booking.originalDate || booking.date;
 
     // Prepare update data
-    const updateData = {
+    const updateData: {
+      date: string
+      timeSlot: string
+      rescheduleCount: number
+      originalDate: string
+      updatedAt: Date
+      services?: string[]
+    } = {
       date: newDate,
       timeSlot: newTimeSlot,
       rescheduleCount: booking.rescheduleCount + 1,

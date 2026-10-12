@@ -21,12 +21,6 @@ model Booking {
   inspirationPhotos String[] @default([])
   rescheduleCount   Int      @default(0)
   originalDate      String?
-  serviceTotal      Int?
-  paymentMethod     String?
-  bankName          String?
-  bankAccountNumber String?
-  bankAccountName   String?
-  bankExpiresAt     String?
   expiresAt         DateTime?
   paidAt            DateTime?
   submitToken       String?  @unique

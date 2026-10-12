@@ -117,6 +117,7 @@ function BookingContent() {
   const [payerNumber, setPayerNumber] = useState('')
   const [chargeId, setChargeId] = useState('')
   const [failureMessage, setFailureMessage] = useState('')
+  const [allowRetry, setAllowRetry] = useState(true)
   const [cancelConfirm, setCancelConfirm] = useState(false)
   const [ticketDetails, setTicketDetails] = useState<TicketDetails | null>(null)
   const [isPaying, setIsPaying] = useState(false)
@@ -639,6 +640,7 @@ function BookingContent() {
     if (data.status && ["failed", "expired", "cancelled", "review", "refund"].includes(data.status)) {
       if (data.status !== "review" && data.status !== "refund") clearPendingCharge();
       setFailureMessage(data.message || "Payment was not completed.");
+      setAllowRetry(data.status !== "review" && data.status !== "refund");
       setStep("failed");
       setIsPaying(false);
       payLock.current = false;
@@ -789,6 +791,7 @@ function BookingContent() {
           payerNumber={payerNumber}
           setPayerNumber={setPayerNumber}
           failureMessage={failureMessage}
+          allowRetry={allowRetry}
           onRetry={handleRetryPayment}
           onCancelPayment={handleCancelPayment}
           cancelConfirm={cancelConfirm}

@@ -115,7 +115,7 @@ export default function BookingLookupPage() {
     }))
     
     // Redirect to booking page with reschedule flag and ticketId for refresh fallback
-    router.push(`/booking?reschedule=true&ticketId=${encodeURIComponent(booking.reference || booking.ticketId)}`)
+    router.push(`/booking?reschedule=true&ticketId=${encodeURIComponent(booking.reference || booking.ticketId || "")}`)
   }
 
   return (
