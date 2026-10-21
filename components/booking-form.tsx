@@ -26,7 +26,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
-import { Calendar as CalendarIcon } from "lucide-react";
+import { Calendar as CalendarIcon, Check, Copy } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Textarea } from "@/components/ui/textarea";
@@ -43,26 +43,23 @@ import { amountForMethod, formatMwk } from '@/lib/money';
 import { localMobileMoneyNumber } from '@/lib/mobile-money';
 import { BookingTicket } from '@/components/booking-ticket';
 
-function WindowCountdown({ expiresAt }: { expiresAt?: string | null }) {
-  const [label, setLabel] = useState("");
-  useEffect(() => {
-    if (!expiresAt) return;
-    const tick = () => {
-      const left = new Date(expiresAt).getTime() - Date.now();
-      if (left <= 0) {
-        setLabel("0:00");
-        return;
-      }
-      const minutes = Math.floor(left / 60000);
-      const seconds = Math.floor((left % 60000) / 1000);
-      setLabel(`${minutes}:${String(seconds).padStart(2, "0")}`);
-    };
-    tick();
-    const id = window.setInterval(tick, 1000);
-    return () => window.clearInterval(id);
-  }, [expiresAt]);
-  if (!expiresAt || !label) return null;
-  return <p className="text-sm text-gray-600">Time left {label}. This follows the studio clock, not your phone timer.</p>;
+function CopyAccountNumber({ value }: { value: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      type="button"
+      aria-label={copied ? "Copied" : "Copy account number"}
+      className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-brand-pink hover:bg-brand-pink/10"
+      onClick={() => {
+        void navigator.clipboard.writeText(value).then(() => {
+          setCopied(true);
+          window.setTimeout(() => setCopied(false), 1500);
+        });
+      }}
+    >
+      {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+    </button>
+  );
 }
 
 export function BookingForm({
@@ -98,8 +95,7 @@ export function BookingForm({
   ticketDetails,
   bankDetails,
   onVerifyBank,
-  verifyingBank,
-  paymentExpiresAt,
+  bankWatching = false,
   reference,
 }: BookingFormProps) {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -211,9 +207,7 @@ export function BookingForm({
   const payerReady = operator === "bank" || (operator != null && localMobileMoneyNumber(payerNumber, operator) != null);
   const payerError = operator === "tnm" || operator === "airtel"
     ? payerNumber.trim() && !localMobileMoneyNumber(payerNumber, operator)
-      ? operator === "tnm"
-        ? "That number is not a TNM Mpamba number. It needs to start with 08."
-        : "That number is not an Airtel Money number. It needs to start with 09."
+      ? "Invalid Phone Format"
       : ""
     : "";
 
@@ -620,12 +614,11 @@ export function BookingForm({
                   {formData.services.length > 0 && (
                     <div className="sticky bottom-3 z-20 rounded-2xl border border-stone-200 bg-white/95 px-4 py-3 shadow-sm backdrop-blur">
                       <div className="flex items-baseline justify-between gap-3">
-                        <span className="text-sm text-stone-600">Services</span>
-                        <span className="break-words font-semibold text-stone-900">
+                        <span className="text-sm font-medium text-brand-pink">Total</span>
+                        <span className="break-words font-semibold text-black">
                           {missingPrice || runningTotal <= 0 ? "—" : formatMwk(runningTotal)}
                         </span>
                       </div>
-                      <p className="mt-1 text-sm text-stone-500">For reference. The booking fee is {bookingFee}.</p>
                       {missingPrice ? (
                         <p className="mt-1 text-sm text-red-600">A selected service has no price yet.</p>
                       ) : null}
@@ -660,7 +653,6 @@ export function BookingForm({
                   <div className="mx-auto h-8 w-8 animate-spin rounded-full border-b-2 border-brand-pink" />
                   <p className="text-gray-700">Approve the payment on your phone.</p>
                   <p className="text-sm text-gray-500">Booking fee {bookingFee}.{reference ? ` Ticket ${reference}.` : ""} Stay on this page.</p>
-                  <WindowCountdown expiresAt={paymentExpiresAt} />
                   {failureMessage ? (
                     <p className="text-sm text-red-600">{failureMessage}</p>
                   ) : null}
@@ -684,14 +676,10 @@ export function BookingForm({
                       </div>
                       <div>
                         <p className="text-xs uppercase tracking-[0.16em] text-gray-500">Account number</p>
-                        <p className="mt-1 break-all font-mono text-lg text-gray-900">{bankDetails.number}</p>
-                        <button
-                          type="button"
-                          className="mt-1 text-sm text-brand-pink underline"
-                          onClick={() => navigator.clipboard.writeText(bankDetails.number)}
-                        >
-                          Copy number
-                        </button>
+                        <div className="mt-1 flex items-center gap-2">
+                          <p className="min-w-0 break-all font-mono text-lg text-gray-900">{bankDetails.number}</p>
+                          <CopyAccountNumber value={bankDetails.number} />
+                        </div>
                       </div>
                       <div>
                         <p className="text-xs uppercase tracking-[0.16em] text-gray-500">Account name</p>
@@ -707,8 +695,6 @@ export function BookingForm({
                           <p className="mt-1 break-all font-medium text-gray-900">{reference}</p>
                         </div>
                       ) : null}
-                      <WindowCountdown expiresAt={paymentExpiresAt} />
-                      <p className="text-sm text-gray-500">Send this exact amount. A transfer after the time shown is recorded and refunded. It does not confirm the appointment.</p>
                     </div>
                   ) : (
                     <p className="text-center text-sm text-gray-600">Opening the transfer account…</p>
@@ -716,14 +702,21 @@ export function BookingForm({
                   {failureMessage ? (
                     <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{failureMessage}</p>
                   ) : null}
-                  <Button
-                    type="button"
-                    onClick={onVerifyBank}
-                    disabled={!bankDetails || verifyingBank}
-                    className="w-full bg-green-500 text-white hover:bg-green-600"
-                  >
-                    {verifyingBank ? "Checking…" : "I've paid"}
-                  </Button>
+                  {bankWatching ? (
+                    <div className="flex flex-col items-center gap-3 py-2 text-center">
+                      <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-brand-pink" />
+                      <p className="text-sm text-gray-600">This might take a moment</p>
+                    </div>
+                  ) : (
+                    <Button
+                      type="button"
+                      onClick={onVerifyBank}
+                      disabled={!bankDetails}
+                      className="w-full bg-green-500 text-white hover:bg-green-600"
+                    >
+                      Verify
+                    </Button>
+                  )}
                   <button
                     type="button"
                     onClick={onCancelPayment}
@@ -736,9 +729,11 @@ export function BookingForm({
                 <div className="space-y-4 text-center">
                   <p className="text-gray-700">{failureMessage || "Payment was not approved."}</p>
                   {allowRetry ? (
-                    <Button onClick={onRetry} className="w-full bg-brand-pink text-white hover:bg-brand-pink/90">
-                      Try again
-                    </Button>
+                    <div className="flex justify-center">
+                      <Button onClick={onRetry} className="h-10 rounded-full bg-brand-pink px-8 text-white hover:bg-brand-pink/90">
+                        Try again
+                      </Button>
+                    </div>
                   ) : null}
                 </div>
               ) : (
@@ -765,12 +760,6 @@ export function BookingForm({
                       <span className="shrink-0 font-medium">Time</span>
                       <span className="font-semibold text-gray-900 sm:text-right">{formatTime(formData.timeSlot)}</span>
                     </div>
-                    {!isReschedule ? (
-                      <div className="flex flex-col gap-1 border-t border-gray-200 pt-3 sm:flex-row sm:justify-between sm:gap-4">
-                        <span className="shrink-0 font-medium">{payingByBank ? "Bank transfer" : "Booking fee"}</span>
-                        <span className="break-words font-semibold text-gray-900 sm:text-right">{payingByBank ? bookingFee : bookingFee}</span>
-                      </div>
-                    ) : null}
                     {formData.services && formData.services.length > 0 && (
                       <div>
                         <span className="font-medium">Selected Services:</span>
@@ -845,13 +834,13 @@ export function BookingForm({
                         {operator === "tnm" || operator === "airtel" ? (
                           <div className="space-y-2">
                             <Label htmlFor="payer-number">
-                              {operator === "tnm" ? "TNM number (starts with 08)" : "Airtel number (starts with 09)"}
+                              {operator === "tnm" ? "TNM number" : "Airtel number"}
                             </Label>
                             <Input
                               id="payer-number"
                               inputMode="tel"
                               autoComplete="tel"
-                              placeholder={operator === "tnm" ? "0881234567" : "0991234567"}
+                              placeholder={operator === "tnm" ? "08XXXXXXXX" : "09XXXXXXXX"}
                               value={payerNumber}
                               onChange={(event) => setPayerNumber(event.target.value)}
                             />

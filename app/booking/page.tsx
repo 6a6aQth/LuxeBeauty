@@ -110,7 +110,7 @@ function BookingContent() {
   const [step, setStep] = useState<'form' | 'payment' | 'awaiting' | 'bank' | 'failed' | 'ticket'>('form')
   const [operator, setOperator] = useState<PayMethod | null>(null)
   const [bankDetails, setBankDetails] = useState<BankDetails | null>(null)
-  const [verifyingBank, setVerifyingBank] = useState(false)
+  const [bankWatching, setBankWatching] = useState(false)
   const [paymentExpiresAt, setPaymentExpiresAt] = useState<string | null>(null)
   const [reference, setReference] = useState("")
   const submitToken = useRef("")
@@ -678,8 +678,9 @@ function BookingContent() {
       if (data.result === "cancelled") {
         clearPendingCharge();
         submitToken.current = "";
-        setFailureMessage("Payment cancelled.");
+        setFailureMessage("");
         setCancelConfirm(false);
+        setBankWatching(false);
         setIsPaying(false);
         payLock.current = false;
         setStep("payment");
@@ -691,31 +692,20 @@ function BookingContent() {
     }
   };
 
-  const handleVerifyBank = async () => {
+  useEffect(() => {
+    if (step !== "bank") setBankWatching(false);
+  }, [step]);
+
+  const handleVerifyBank = () => {
     const id = chargeId || readPendingCharge()?.chargeId || "";
-    if (!id || verifyingBank) return;
-    setVerifyingBank(true);
+    if (!id || bankWatching) return;
     setFailureMessage("");
-    try {
-      const response = await fetch("/api/verify-payment", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ chargeId: id }),
-      });
-      const data = await response.json();
-      const finished = applyPaymentView(data);
-      if (!finished) {
-        setFailureMessage(data.message || "We haven't received it yet. This can take a few minutes. Try again shortly.");
-      }
-    } catch {
-      setFailureMessage("The connection dropped. You can check again.");
-    } finally {
-      setVerifyingBank(false);
-    }
+    setBankWatching(true);
   };
 
   useEffect(() => {
-    if ((step !== "awaiting" && step !== "bank") || !chargeId) return;
+    const watching = step === "awaiting" || (step === "bank" && bankWatching);
+    if (!watching || !chargeId) return;
     let stopped = false;
     let checking = false;
     let timer = 0;
@@ -740,11 +730,11 @@ function BookingContent() {
       }
       if (stopped || finished) return;
       const elapsed = Date.now() - started;
-      const delay = step === "bank" ? 10000 : elapsed < 120000 ? 5000 : 10000;
+      const delay = elapsed < 120000 ? 5000 : 10000;
       timer = window.setTimeout(tick, delay);
     };
 
-    tick();
+    timer = window.setTimeout(tick, step === "bank" ? 3000 : 0);
     const onVisible = () => {
       if (document.visibilityState === "visible") void tick();
     };
@@ -754,7 +744,7 @@ function BookingContent() {
       window.clearTimeout(timer);
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [step, chargeId]);
+  }, [step, chargeId, bankWatching]);
 
   return (
     <div>
@@ -800,7 +790,7 @@ function BookingContent() {
           ticketDetails={ticketDetails}
           bankDetails={bankDetails}
           onVerifyBank={handleVerifyBank}
-          verifyingBank={verifyingBank}
+          bankWatching={bankWatching}
           paymentExpiresAt={paymentExpiresAt}
           reference={reference}
         />
