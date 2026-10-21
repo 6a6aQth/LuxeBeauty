@@ -2,7 +2,7 @@ import prisma from "@/lib/prisma"
 import { logPaymentEvent } from "@/lib/paymentLogger"
 import { sendBookingSMS } from "@/lib/sms"
 import { sendStudioBookingEmail, sendTicketEmail } from "@/lib/ticket-email"
-import { amountForMethod } from "@/lib/money"
+import { amountForMethod, formatMwk } from "@/lib/money"
 import { formatTime } from "@/lib/time-slots"
 
 export async function confirmPaidBooking(bookingId: string) {
@@ -31,13 +31,24 @@ export async function confirmPaidBooking(bookingId: string) {
   })
   const serviceNames = fresh.services.map((id) => services.find((service) => service.id === id)?.name ?? id)
   const amount = amountForMethod(fresh.payment?.method)
-  const when = `${fresh.date} at ${formatTime(fresh.timeSlot)}`
+  const visitDate = formatVisitDate(fresh.date)
+  const visitTime = formatTime(fresh.timeSlot)
+  const serviceList = serviceNames.filter(Boolean).join(", ")
+  const sms = [
+    "Lauryn Luxe booking confirmed.",
+    `Ticket: ${fresh.reference}`,
+    `Date: ${visitDate}`,
+    `Time: ${visitTime}`,
+    `Services: ${serviceList || "See your ticket"}`,
+    `Booking fee: ${formatMwk(amount)}`,
+    fresh.discountApplied ? "30% loyalty discount noted." : "",
+    "Show this ticket at the studio.",
+  ]
+    .filter(Boolean)
+    .join("\n")
 
   try {
-    await sendBookingSMS(
-      fresh.phone,
-      `Lauryn Luxe: booking ${fresh.reference} is confirmed for ${when}. Services: ${serviceNames.join(", ")}.`,
-    )
+    await sendBookingSMS(fresh.phone, sms)
     await logPaymentEvent({
       txRef: fresh.reference,
       bookingId: fresh.id,
@@ -118,4 +129,17 @@ export async function confirmPaidBooking(bookingId: string) {
   }
 
   return { ok: true as const, booking: fresh, alreadyConfirmed: false }
+}
+
+function formatVisitDate(isoDate: string): string {
+  const [year, month, day] = isoDate.split("-").map(Number)
+  if (!year || !month || !day) return isoDate
+  const date = new Date(Date.UTC(year, month - 1, day, 12))
+  return new Intl.DateTimeFormat("en-GB", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    timeZone: "Africa/Blantyre",
+  }).format(date)
 }
