@@ -58,6 +58,7 @@ export async function confirmPaidBooking(bookingId: string) {
     })
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "SMS failed"
+    console.error("[sms] confirmation failed", fresh.reference, message)
     await logPaymentEvent({
       txRef: fresh.reference,
       bookingId: fresh.id,
