@@ -2,11 +2,27 @@ import prisma from "@/lib/prisma"
 import { logPaymentEvent } from "@/lib/paymentLogger"
 import { sendBookingSMS } from "@/lib/sms"
 import { sendStudioBookingEmail, sendTicketEmail } from "@/lib/ticket-email"
-import { FIXED_AMOUNT_MWK } from "@/lib/money"
+import { amountForMethod, formatMwk } from "@/lib/money"
 import { formatTime } from "@/lib/time-slots"
 
+function formatVisitDate(isoDate: string): string {
+  const [year, month, day] = isoDate.split("-").map(Number)
+  if (!year || !month || !day) return isoDate
+  const date = new Date(Date.UTC(year, month - 1, day, 12))
+  return new Intl.DateTimeFormat("en-GB", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone: "Africa/Blantyre",
+  }).format(date)
+}
+
 export async function confirmPaidBooking(bookingId: string) {
-  const fresh = await prisma.booking.findUnique({ where: { id: bookingId } })
+  const fresh = await prisma.booking.findUnique({
+    where: { id: bookingId },
+    include: { payment: { select: { method: true } } },
+  })
   if (!fresh) {
     return { ok: false as const, reason: "missing" as const }
   }
@@ -72,7 +88,7 @@ export async function confirmPaidBooking(bookingId: string) {
         timeSlot: fresh.timeSlot,
         ticketId: fresh.reference,
         serviceNames,
-        amount: FIXED_AMOUNT_MWK,
+        amount,
       })
       await logPaymentEvent({
         txRef: fresh.reference,
@@ -102,7 +118,7 @@ export async function confirmPaidBooking(bookingId: string) {
       timeSlot: fresh.timeSlot,
       ticketId: fresh.reference,
       serviceNames,
-      amount: FIXED_AMOUNT_MWK,
+      amount,
     })
     await logPaymentEvent({
       txRef: fresh.reference,
