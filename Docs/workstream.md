@@ -168,6 +168,47 @@ This file combines the planned development roadmap and the reactive work log (fi
 - [x] 21.8 Remove 30% discount badge and edit-discount checkbox/label from admin dashboard in `app/admin/page.tsx`
 - [x] 21.9 Remove discount/loyalty fields from `types/types.ts` and mark `discountApplied` in `prisma/schema.prisma` as deprecated/retired
 
+22.0 Gift Voucher System (generated against SDD v8)
+ 22.1 Add `GiftVoucher` and `GiftVoucherRedemption` Prisma models with fields per SDD FR-30 and FM-12; write and run the migration
+ 22.2 Add a `voucherId` generator utility (format `LB-XXXXXX`, collision-safe, stored as unique)
+ 22.3 Add `POST /api/gift-vouchers` — initializes a Direct Charge for the purchase amount (min MWK 100,000), creates a pending `GiftVoucher` row; server enforces the minimum and ignores browser amount
+ 22.4 Add `POST /api/gift-vouchers/confirm` — called by the verify poll after payment succeeds; atomically finalises the `GiftVoucher` row (status → active, sets `paymentRef`) in the same DB transaction as confirm; on failure rolls back; logs a `PaymentEvent`
+ 22.5 Add `GET /api/gift-vouchers/[voucherId]` — public, returns voucher metadata, remaining balance, and full redemption log ordered by `redeemedAt` desc; no auth required
+ 22.6 Add `POST /api/admin/gift-vouchers/[voucherId]/redeem` — admin-only; validates `amountDeducted ≤ remainingBalance` (returns 400 otherwise); accepts either `serviceIds[]` (looks up current prices and names) or a free-form `amount` + mandatory `note`; writes `GiftVoucherRedemption` and decrements `remainingBalance`; sets status to `depleted` when balance reaches zero
+ 22.7 Add `GET /api/admin/gift-vouchers` — admin-only; returns all vouchers with `remainingBalance > 0` ordered by `createdAt` desc
+ 22.8 Build `/gift-voucher` page — two tabs: "Buy a Voucher" (purchaser details form: recipient name, recipient email, optional message, amount input with MWK 100,000 minimum; payment step reusing existing TNM/Airtel/Bank Transfer components) and "Look Up Voucher" (ID input → navigates to `/gift-voucher/[voucherId]`)
+ 22.9 Build `/gift-voucher/[voucherId]` page — public; shows original amount, remaining balance, recipient name, and a dated redemption log (service names, amount deducted, note if any); uses the luxury loading mark while fetching
+ 22.10 Generate a QR code (using `qrcode.react` or equivalent) on the voucher confirmation screen encoding the full `/gift-voucher/[voucherId]` URL; include it in the downloadable voucher ticket PNG and in the recipient email
+ 22.11 Build the downloadable voucher ticket UI (same aesthetic as the booking ticket, using `html2canvas`); show voucher ID, recipient name, original amount, QR code, and studio branding
+ 22.12 Send the voucher ticket email via Resend to `recipientEmail` with voucherId, original amount, recipient name, QR code image, and a link to the lookup page; a failed email does not undo the confirmed voucher
+ 22.13 Add "Gift Voucher" to the footer Quick Links section for all users (guest and signed-in); link to `/gift-voucher`
+ 22.14 When a customer session exists, add a "Gift Voucher" action card in the booking tab area (per the UI screenshot shared); tapping it navigates to `/gift-voucher`
+ 22.15 Add a "Gift Vouchers" section to the admin nav (between Users and Newsletter); list all active vouchers (remaining balance > 0) with voucherId, recipient name, original amount, and remaining balance; each row has an Open action
+ 22.16 Admin voucher detail view: show the full redemption log; provide a "Download Ticket" button (PNG); provide a "Redeem" action that opens a modal with two modes — (a) pick services from the catalog (shows current price, sums automatically) or (b) enter a free-form MWK amount + mandatory note; submit calls the redeem API route; block submit when amount would exceed remaining balance
+
+23.0 Admin User Moderation — Block, Unblock, Delete (generated against SDD v8)
+ 23.1 Add `blocked Boolean @default(false)` to `CustomerProfile` in the Prisma schema; write and run the migration
+ 23.2 Add `POST /api/admin/users/[id]/block` and `POST /api/admin/users/[id]/unblock` — admin-only; set `CustomerProfile.blocked` accordingly; return the updated profile
+ 23.3 Add `DELETE /api/admin/users/[id]` — admin-only; permanently removes the `CustomerProfile` row; does not touch `Booking` rows; returns 204
+ 23.4 In the admin Users section three-dot menu, replace the placeholder (currently "Opening that menu does not block, delete, or change the account") with live actions: Block, Unblock (shown when already blocked), and Delete; wire each to the corresponding API route; show a confirmation dialog before Delete
+ 23.5 In the sign-in flow, after Neon Auth authenticates the user, fetch the matching `CustomerProfile`; if `blocked === true`, do not start a session and render a full-page aesthetic block message: "You Have Been Blocked From Using Lauryn Beauty Studio" (styled on-brand, in the studio's black/pink palette with the logo mark)
+ 23.6 If a currently signed-in user's profile is blocked mid-session, detect this on the next session-guarded API call or account page load and redirect them to the block message page; sign out the session
+ 23.7 In the guest booking confirm route (`POST /api/bookings` or the charge-initialize route), canonicalize the submitted phone, query `CustomerProfile` for a row with that phone and `blocked === true`; if found, return 403 with the block message text before creating any booking or charge; display this message on the booking confirmation and payment screen
+
+24.0 Service Duration Display and Total Hours (generated against SDD v8)
+ 24.1 On the booking form service-selection step, compute the sum of `Service.duration` for all currently selected services; display it below the running cost total formatted as "X hr Y min" (or "X min" when total < 60 min); update reactively as services are toggled
+ 24.2 On the `/account` page, below the Expenditure block, add a "Total Hours at Lauryn" widget; fetch past successful bookings for that phone (Blantyre slot passed) with their `services` id list; resolve each id against the current service catalog to get `duration`; silently skip ids not found in the catalog; sum all durations; display as "X hrs Y min" with a warm aesthetic message (e.g. "You've spent X hrs Y min of luxury with us 💅")
+ 24.3 Extend `GET /api/account/visits` (or add a new endpoint) to return the computed total duration alongside the existing visit data, so the account page does not need to re-fetch the service catalog separately
+ 24.4 Ensure the duration display on the booking form is readable on a narrow phone screen without horizontal scroll (same layout constraint as FR-27 / FR-32)
+
+25.0 8AM Overflow Slot with Full-Payment Gate (generated against SDD v8)
+ 25.1 Add `"08:00"` as a defined potential overflow slot constant in `lib/time-slots.ts` for Monday–Thursday and Friday (not Saturday); do not include it in the default `getSlotsForDate` output
+ 25.2 Add a server function `isOverflowSlotAvailable(dateStr: string): Promise<boolean>` that counts successful bookings for each regular slot on that date; returns `true` only when every regular slot has at least one successful booking (i.e. all regular slots on that day are fully booked)
+ 25.3 Extend the availability API (`GET /api/unavailable-dates` or a new `GET /api/slots?date=`) to include `"08:00"` in the returned slot list for a date when `isOverflowSlotAvailable` returns true; keep it absent otherwise
+ 25.4 On the booking form slot-picker, display `"08:00"` with a distinctive "Early Access" label or badge when it appears in the slot list; it must not appear at all (not greyed out) when the condition is not met
+ 25.5 On the server checkout route, when `timeSlot === "08:00"`, re-validate that `isOverflowSlotAvailable` is still true before creating the booking; reject with a user-friendly error if the condition is no longer met (race condition guard)
+ 25.6 Confirm that the existing payment-amount enforcement (charge = stored service total, FR-01) already satisfies the "full payment required" rule for the 08:00 slot; add a code comment in the checkout route that explicitly documents this constraint for `08:00` bookings; no additional payment logic needed
+
 ## Reactive Log
 
 F1.0 — 26 Sept 2026 — After a successful PayChangu payment the ticket is shown (“Appointment confirmed”) and a destructive toast still says “Time Slot Unavailable / The time slot you selected is no longer available.”
@@ -180,6 +221,10 @@ F1.0 — 26 Sept 2026 — After a successful PayChangu payment the ticket is sho
 - Status: Resolved
 
 ## Recent Activity Index
+- 12 Nov 2026 — 25.0 8AM overflow slot with full-payment gate
+- 12 Nov 2026 — 24.0 Service duration display and Total Hours
+- 12 Nov 2026 — 23.0 Admin user moderation (block, unblock, delete)
+- 12 Nov 2026 — 22.0 Gift Voucher system
 - 12 Nov 2026 — 21.0 Removal of 30% Loyalty Discount Feature
 - 9 Oct 2026 — 20.0 Service prices, booking totals, expenditure, and bank transfer
 - 9 Oct 2026 — 20.1 Service price and stored booking total

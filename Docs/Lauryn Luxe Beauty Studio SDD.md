@@ -1,12 +1,13 @@
 # Lauryn Luxe Beauty Studio — System Design Document
 
 > **Generated via M.A.S.T.E.R. Framework Forensic Analysis**
-> Version: **7** | Date: 2026-11-12 | Status: **Current**
+> Version: **8** | Date: 2026-11-12 | Status: **Current**
 
 ## Changelog
 
 | Version | Date | Summary |
 |---------|------|---------|
+| 8 | 2026-11-12 | Add Gift Voucher system (FR-30); Admin user moderation — block, unblock, delete with blocked-user guard on login and guest booking (FR-31); Service duration display on booking form and Total Hours on account page (FR-32); 8AM overflow slot — unlocks only when all other slots on a day are fully booked, requires full payment upfront (FR-33). New GiftVoucher data model; `blocked` flag on CustomerProfile; `duration` already present on Service. |
 | 7 | 2026-11-12 | Retire 30% loyalty discount feature (FR-03, FR-21). Bookings no longer calculate or store discountApplied; tickets, emails, and SMS omit 30% loyalty discount notes; the booking form sidebar copy, eligibility preview, and discount note banner are removed; the account page loyalty widget and visit discount tags are removed; and admin booking view and edit omit discount indicators and controls. |
 | 6 | 2026-10-09 | The amount charged is the sum of the selected services' prices, stored on the booking. Admin edits each service price. The booking form shows each description and a running total, including on a phone. Account Expenditure sums successful bookings only after the Blantyre slot has passed. Bank transfer is a one-off PayChangu account named LaurynStudio, confirmed only when the details call is paid and the amount matches. The flat K10,000 deposit and the MWK 100 test charge no longer set the amount. |
 | 5 | 2026-09-25 | Booking payment leaves PayChangu hosted checkout. The booking flow collects TNM Mpamba or Airtel Money on the site, starts a Direct Charge, and confirms only after PayChangu verify succeeds. That confirm writes the booking, shows the ticket, and emails it through Resend. The webhook stays a backup and does not confirm anything until its secret exists. The studio deposit stays K10,000. This integration test charges MWK 100. |
@@ -71,6 +72,10 @@ Lauryn Luxe Beauty Studio is a **customer-facing beauty booking platform** for a
 | FR-27 | **Service total on the booking form** — Each service row shows its name, its description when one is saved, and its price in MWK. Selected prices add up to one total. On a narrow screen the row stacks (name, description, price) and the total stays on screen. The server stores that total on the booking, in whole MWK, when the charge is initialized. A later catalog edit does not change a stored total. A service with no positive price cannot be taken through to payment. Bookings that already exist with no stored total stay without one. Do not invent a total from today's catalog. | 🔲 Specified (v6) | Booking form |
 | FR-28 | **Expenditure** — On the account page, under the Newsletter block in the side card, Expenditure shows one MWK amount: the sum of stored service totals for successful bookings on that profile phone whose Africa/Blantyre date and time have already passed. Paying successfully does not add an upcoming booking to that sum. The upcoming visit still shows its own total. The sum is computed when the account page loads. There is no separate counter. A guest has no Expenditure block. | 🔲 Specified (v6) | Account page |
 | FR-29 | **Bank transfer** — The payment step offers Bank Transfer beside TNM Mpamba and Airtel Money. Choosing it does not show a mobile number. The server calls `POST https://api.paychangu.com/direct-charge/payments/initialize` with `payment_method` `mobile_bank_transfer`, `currency` `MWK`, `amount` equal to the stored service total, a new `charge_id`, and `create_permanent_account` false. It then shows the returned one-off `bank_name`, `account_number`, and `account_name`, plus the amount and, when PayChangu sends it, `account_expiration_timestamp`. The account name on these transfers is LaurynStudio; show the `account_name` PayChangu returns. Verify is a button, not a poll. It uses the details call in FR-02. Paid status plus an equal amount runs the existing confirm path and shows the ticket. The customer may press Verify again while the booking is still pending. Switching to TNM or Airtel does not confirm the bank charge. | 🔲 Specified (v6) | Bank transfer |
+| FR-30 | **Gift Voucher** — A purchaser (guest or signed-in customer) buys a prepaid credit voucher with a minimum of MWK 100,000. The purchaser enters the recipient's name, email address, and an optional personal message. Payment uses the existing TNM Mpamba / Airtel Money / Bank Transfer rails; the full purchase amount is charged via the same Direct Charge flow (FR-01). On payment confirmation, the server creates a `GiftVoucher` record with a unique `voucherId` (human-readable, e.g. `LB-XXXXXX`), stores the original balance and the current remaining balance (both initially the purchase amount), the recipient's name and email, the purchaser's name, and a `createdAt` timestamp. The system emails the voucher details (voucherId, original amount, recipient name, a QR code that encodes the public voucher-lookup URL) to the recipient's email via Resend. The voucher ticket (same aesthetic as the booking ticket) is downloadable as a PNG. **Public lookup:** Any person — logged in or not — can open `/gift-voucher/[voucherId]` or scan the QR code to view the voucher: original amount, remaining balance, and a dated log of all redemption transactions (service name, amount deducted, note if any, date). No login required to view. **Footer — non-logged-in users:** A "Gift Voucher" link appears in the Quick Links section of the footer regardless of auth state; it navigates to `/gift-voucher` where a guest can purchase a voucher or look up an existing one by ID. **Logged-in booking tab:** When a customer session exists, the booking tab area shows an additional "Gift Voucher" action card (see UI image) so signed-in users can also purchase from that surface. **Admin redemption:** Admin opens the Gift Vouchers section in the admin nav (between Users and Newsletter). The list shows all active vouchers (remaining balance > 0), displaying voucherId, recipient name, original amount, and remaining balance. Admin can: (a) open a voucher and view the full redemption log; (b) download the voucher ticket PNG; (c) redeem against the voucher by selecting one or more existing services (which deducts each service's current price) or by entering a free-form MWK amount with a mandatory reason note — both deduction types are appended to the voucher's redemption log and are visible to anyone who looks up the voucher. The balance never goes below zero; admin is blocked from deducting more than the remaining balance. | 🔲 Specified (v8) | Gift Voucher system |
+| FR-31 | **Admin user moderation** — Admin can block, unblock, or delete any `CustomerProfile` from the Users section three-dot menu. **Block:** sets `CustomerProfile.blocked = true`. A blocked user who signs in sees a full-page aesthetic message: "You Have Been Blocked From Using Lauryn Beauty Studio" and no session is started. A signed-in user whose account becomes blocked mid-session sees the same message on their next protected action and is signed out. **Guest booking guard:** When a guest reaches the booking confirmation or payment screen, the server resolves the canonical phone of the submitted number and checks whether a `CustomerProfile` with that phone exists and is blocked; if so, the booking is refused and the same block message is returned — no booking is created, no charge is initialized. **Unblock:** sets `CustomerProfile.blocked = false` and restores normal access. **Delete:** permanently removes the `CustomerProfile` row from the database. Bookings stored against that phone are not deleted (the booking record is the receipt). After deletion the phone can be used again for a new account. Admin cannot delete their own implicit admin identity (the admin login is password-based, not a CustomerProfile). | 🔲 Specified (v8) | Admin user moderation |
+| FR-32 | **Service duration display and Total Hours** — Every `Service` already has a `duration` field (integer, minutes). **Booking form:** When the customer selects services, the form shows the total estimated duration of the selected services (sum of `duration` values) alongside the running cost total. Display format: "Total duration: X hr Y min" (or "X min" when under an hour). This is informational only and does not gate payment. **Account page — Total Hours:** Below the Expenditure block on the account page, a new "Total Hours at Lauryn" widget displays the cumulative duration of all past successful bookings for that profile phone (Blantyre slot already passed). It sums `Service.duration` for every service listed on each past booking, resolved against the current service catalog by service id. If a service id no longer exists in the catalog, its duration is omitted silently. Display format: "X hrs Y min" with a short, warm, aesthetic message (e.g. "You've spent X hrs Y min of luxury with us 💅"). A guest has no Total Hours block. | 🔲 Specified (v8) | Booking form + account page |
+| FR-33 | **8AM overflow slot with full-payment gate** — A new earliest slot `08:00` is defined for Monday–Thursday and Friday (not Saturday). It is a special overflow slot that is only offered when every other regular slot on that same date is fully booked (i.e. all regular slots for that weekday each have at least one successful booking). Until that condition is true, `08:00` does not appear in the slot picker at all — not greyed out, simply absent. When the condition is met and `08:00` becomes available, it is displayed in the slot picker labelled distinctly (e.g. with a small "Early Access" badge). **Full payment gate:** A booking in the `08:00` slot always requires the customer to pay the full service total — no partial deposit, no deferred balance. The payment flow for `08:00` is otherwise identical to the existing Direct Charge flow (FR-01, FR-02). The server validates at checkout that the charge amount equals the stored service total (same rule already enforced for all bookings); no additional payment logic is needed beyond the slot condition check. Admin-blocked slots and manually unavailable dates still apply as usual. | 🔲 Specified (v8) | Time-slot availability logic |
 
 ### 1.3 Non-Functional Requirements (Inferred)
 
@@ -209,8 +214,38 @@ Lauryn Luxe Beauty Studio is a **customer-facing beauty booking platform** for a
 │ name                     │
 │ email (unique)           │
 │ phone (unique)           │  ← E.164; Malawi local forms become +265 plus 9 digits
+│ blocked (Boolean)        │  ← v8: false by default; admin sets true to block access
 │ createdAt                │
 └──────────────────────────┘
+
+┌──────────────────────────────┐
+│ GiftVoucher (v8)             │
+│──────────────────────────────│
+│ id (PK)                      │
+│ voucherId (unique)           │  ← Human-readable, e.g. LB-XXXXXX
+│ purchaserName                │
+│ purchaserEmail?              │
+│ recipientName                │
+│ recipientEmail               │  ← Voucher ticket emailed here
+│ originalAmount (Int, MWK)    │  ← Purchase amount; min 100000
+│ remainingBalance (Int, MWK)  │  ← Starts equal to originalAmount; never < 0
+│ status                       │  ← 'active' | 'depleted' | 'cancelled'
+│ paymentRef                   │  ← Booking/charge id of the purchase transaction
+│ createdAt                    │
+│ redemptions GiftVoucherRedemption[] │
+└──────────────────────────────┘
+
+┌──────────────────────────────────┐
+│ GiftVoucherRedemption (v8)       │
+│──────────────────────────────────│
+│ id (PK)                          │
+│ voucherId (FK → GiftVoucher)     │
+│ amountDeducted (Int, MWK)        │
+│ serviceNames (String[])          │  ← Names of services at time of redemption (may be empty for free-form)
+│ note?                            │  ← Admin-entered reason for free-form deductions
+│ redeemedAt                       │
+│ redeemedByAdmin (Boolean)        │  ← Always true for now (admin-only redemption)
+└──────────────────────────────────┘
 
 Bookings are not given a user foreign key. Visits select `Booking` rows by the canonical phone. Existing rows written as another form of that same number are included, and a one-time rewrite stores the canonical value on `Booking` and `CustomerProfile`. Two profiles that collapse to one number are not merged. The customer cannot edit the profile phone, because a change would split that history. A genuinely different number stays a different customer.
 ```
@@ -274,9 +309,11 @@ Signed-in booking uses this same sequence. The only difference is that name, pho
 | `/policies` | Public | Studio policies | None |
 | `/unsubscribed` | Public | Newsletter unsubscribe confirmation | None |
 | `/admin` | "Protected" | Full admin dashboard | Hardcoded password |
-| `/sign-in` | Public | Google, or email + password. A Google-only email cannot sign in with a password (FR-25). | None to view; creates a customer session |
+| `/sign-in` | Public | Google, or email + password. A Google-only email cannot sign in with a password (FR-25). Blocked users see the block message and no session is started. | None to view; creates a customer session |
 | `/sign-up` | Public | Google, or name, email, password entered twice, and phone | None to view; creates Neon Auth user + CustomerProfile |
-| `/account` | Customer | Visits (upcoming and past) and account details | Neon Auth session |
+| `/account` | Customer | Visits (upcoming and past), account details, Expenditure, Total Hours (FR-32) | Neon Auth session |
+| `/gift-voucher` | Public | Purchase a gift voucher or look up an existing one by ID | None |
+| `/gift-voucher/[voucherId]` | Public | View voucher balance, original amount, and full redemption log | None — no login required |
 
 ---
 
@@ -355,6 +392,8 @@ The admin dashboard fetches ALL bookings on load. The booking page fetches ALL s
 | TD-09 | **1-second SWR polling** for real-time availability | Ensure users see up-to-date slots | Excessive server load; unnecessary for a low-volume studio |
 | TD-10 | **Single admin page (1,597 lines)** | All management in one place | Unmaintainable; no lazy loading; full re-render on any state change |
 | TD-11 | **Optional Neon Auth; E.164 phone remains the customer key** (v4) | Guests must keep booking with no account. Visits and tickets are stored by phone, not by user id. Malawi local forms collapse to `+265` plus 9 digits. Any other country is stored only when typed with `+` and its country code, and stays a separate customer. | Email/password live in Neon Auth. The app stores name, email, and the E.164 phone on `CustomerProfile`. Visits match that phone. One stored phone, one account. The customer cannot edit it. Guest ticket lookup stays. Two profiles that canonicalize to one number are not merged. |
+| TD-14 | **Gift Voucher credit is an in-app ledger, not a PayChangu credit** (v8) | Using the existing Direct Charge rail for voucher purchase keeps the payment infrastructure consistent and avoids a new payment provider. The voucher balance is tracked purely in the `GiftVoucher` / `GiftVoucherRedemption` tables; it is not an escrow account. | Admin must be trusted not to over-redeem. No automated refund mechanism exists. A depleted voucher cannot be topped up — a new one must be purchased. |
+| TD-15 | **8AM overflow slot is computed at runtime against the live booking table, not pre-cached** (v8) | Simplest correct implementation given existing SWR polling; avoids a separate availability-event system. | Adds one additional DB query per slot-availability render to count successful bookings for all regular slots on the requested date. Acceptable at current studio volume. |
 
 ### 4.2 Missing Decisions (Gaps)
 
@@ -551,7 +590,6 @@ Bank transfer calls `POST /direct-charge/payments/initialize` with `payment_meth
 On `/account`, under Newsletter, Expenditure is the sum of `serviceTotal` for successful bookings on that phone whose Blantyre slot has passed. Each upcoming and past visit, and the ticket, show that booking's stored total.
 
 ### 5.10 Removal of 30% loyalty discount feature (SDD v7)
-
 The studio no longer offers a 30% discount on every 6th booking:
 - FR-03 (Loyalty Program) and FR-21 (Loyalty progress) are permanently retired.
 - `lib/loyalty.ts` is deleted; all loyalty progress copy and remaining visit calculations are removed.
@@ -561,6 +599,16 @@ The studio no longer offers a 30% discount on every 6th booking:
 - Booking form (`components/booking-form.tsx`, `app/booking/page.tsx`) removes the Loyalty Program sidebar copy, eligibility preview check, and loyalty note banner.
 - Customer account page (`app/account/page.tsx`, `app/api/account/visits/route.ts`) removes the Loyalty sidebar widget (progress copy, count, 6-circle progress bar) and the "30% appointment" tag on visit items.
 - Admin dashboard (`app/admin/page.tsx`, `app/api/bookings/[id]/route.ts`) removes the 30% Discount badge from booking list rows and the 30% Discount Applied checkbox from the booking edit dialog.
+
+### 5.11 Gift Voucher, User Moderation, Duration Display, and 8AM Overflow Slot (SDD v8)
+
+**Gift Voucher (FR-30):** Add `GiftVoucher` and `GiftVoucherRedemption` Prisma models. Add `/gift-voucher` (purchase + lookup) and `/gift-voucher/[voucherId]` (public balance + redemption log) pages. The purchase flow reuses the existing Direct Charge payment rail. On payment confirmation, create the `GiftVoucher` row atomically with the payment-confirm path, generate a unique `voucherId` (e.g. `LB-XXXXXX`), and email the voucher ticket (with QR code encoding the public lookup URL) to the recipient via Resend. The QR code is generated client-side (e.g. `qrcode.react`) and embedded in both the downloadable PNG and the email. Add a Gift Vouchers nav section in the admin shell, between Users and Newsletter, listing all active vouchers with their remaining balance. Admin can open a voucher, view the redemption log, download the ticket PNG, and redeem by picking services or entering a free-form amount with a mandatory note. All redemptions append a `GiftVoucherRedemption` row; the server subtracts `amountDeducted` from `remainingBalance` and returns 400 if that would go below zero. Add "Gift Voucher" to the footer Quick Links (all users). When a customer session exists, add a "Gift Voucher" action card in the booking tab surface shown in the UI image.
+
+**Admin user moderation (FR-31):** Add `blocked Boolean @default(false)` to `CustomerProfile`. Add `block`, `unblock`, and `delete` actions to the Users three-dot menu in the admin shell. The block/unblock action calls a new API route that sets the flag; delete calls a route that removes the row. The sign-in flow checks `CustomerProfile.blocked` after Neon Auth authenticates; if `true`, do not start a session and show the block message page. The guest booking confirm path resolves the submitted phone to a canonical E.164 value and queries `CustomerProfile` for a blocked match; if found, return a 403 with the block message before creating any booking or charge.
+
+**Service duration display and Total Hours (FR-32):** On the booking form service-selection step, below the running cost total, show the sum of `Service.duration` for all selected services formatted as "X hr Y min" (or "X min" when < 60). On the account page, below the Expenditure block, add a "Total Hours at Lauryn" widget. This sums the `duration` values of all services on past successful bookings for that phone (Blantyre slot already passed), resolved against the current catalog by service id; missing ids contribute 0 silently. Format: "X hrs Y min" with a warm aesthetic message.
+
+**8AM overflow slot (FR-33):** Add `"08:00"` as a potential slot for Monday–Thursday and Friday only (not Saturday). It is excluded from `getSlotsForDate` output by default. A new server function `isOverflowSlotAvailable(date)` queries the count of successful bookings for each regular slot on that date; if every regular slot has at least one successful booking, `08:00` is appended to the slot list. The booking form calls this function (or the availability API returns the full slot list including `08:00` when the condition is met). The slot appears in the picker with a distinctive "Early Access" label; the payment step for `08:00` behaves identically to any other slot — the existing rule (charge = stored service total) already enforces full payment.
 
 ---
 
@@ -581,6 +629,8 @@ The studio no longer offers a 30% discount on every 6th booking:
 | FM-09 | **Neon Auth unavailable** (v2) | Guest booking, payment, lookup, and reschedule must not call Neon Auth. Only sign-in, sign-up, and `/account` depend on it. | 🟢 Guest path stays bookable |
 | FM-10 | **Phone cannot be stored as E.164** (v4) | The phone box and the server reject it before save. A stored value that cannot be canonicalized is left unchanged and reported by the rewrite. | 🟢 Names and junk do not become a loyalty identity |
 | FM-11 | **Bank transfer amount does not match, or the details call is not paid** (v6) | The booking stays `pending`. No ticket, SMS, or ticket email. The customer can press Verify again. | 🟢 A wrong amount does not confirm |
+| FM-12 | **Gift Voucher payment succeeds but `GiftVoucher` record creation fails** (v8) | The charge is confirmed but no voucher row exists. The purchaser has paid and received nothing. | 🔴 The creation must be wrapped in the same DB transaction as the booking confirm path so a DB failure rolls back or an idempotent retry recreates the row. Without this, manual admin intervention is required. |
+| FM-13 | **Admin redeems more than the remaining voucher balance** (v8) | The API validates `amountDeducted ≤ remainingBalance` before writing any `GiftVoucherRedemption` row. The request is rejected with a clear error. | 🟢 Balance never goes negative — enforced server-side, not just UI. |
 
 ### 6.2 Recovery Recommendations
 
