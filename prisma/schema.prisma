@@ -98,5 +98,40 @@ model CustomerProfile {
   name       String
   email      String   @unique
   phone      String   @unique
+  blocked    Boolean  @default(false)
   createdAt  DateTime @default(now())
+}
+
+/// Prepaid gift voucher purchased via Direct Charge (FR-30).
+model GiftVoucher {
+  id               String                 @id @default(cuid())
+  voucherId        String                 @unique
+  status           String                 @default("pending") // pending | active | depleted
+  purchaseAmount   Int
+  remainingBalance Int
+  recipientName    String
+  recipientEmail   String
+  purchaserName    String
+  message          String?
+  chargeId         String                 @unique
+  method           String
+  paymentRef       String?
+  createdAt        DateTime               @default(now())
+  redemptions      GiftVoucherRedemption[]
+
+  @@index([status, createdAt])
+}
+
+/// One redemption event against a GiftVoucher (FR-30).
+model GiftVoucherRedemption {
+  id             String      @id @default(cuid())
+  voucherId      String
+  voucher        GiftVoucher @relation(fields: [voucherId], references: [id])
+  amountDeducted Int
+  serviceIds     String[]    @default([])
+  serviceNames   String[]    @default([])
+  note           String?
+  redeemedAt     DateTime    @default(now())
+
+  @@index([voucherId, redeemedAt])
 }

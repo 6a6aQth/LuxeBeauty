@@ -1,9 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { isOverflowSlotAvailable } from '@/lib/payments';
+import { OVERFLOW_SLOT } from '@/lib/time-slots';
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
+    const { searchParams } = new URL(req.url);
+    const dateParam = searchParams.get('date');
+
     const unavailableDates = await prisma.unavailableDate.findMany();
+
+    // 25.0 / FR-33: When a specific date is requested, check whether the
+    // 08:00 overflow slot is available for that date and append it to the
+    // returned data so the booking form can surface the slot with its
+    // "Early Access" badge. No change to the existing unavailableDate rows.
+    if (dateParam) {
+      const overflowOk = await isOverflowSlotAvailable(dateParam);
+      return NextResponse.json({ unavailableDates, overflowAvailable: overflowOk, overflowSlot: OVERFLOW_SLOT });
+    }
+
     return NextResponse.json(unavailableDates);
   } catch (error) {
     console.error('Failed to fetch unavailable dates:', error);

@@ -16,6 +16,14 @@ async function profileForSession() {
   if (!profile) {
     return { error: NextResponse.json({ error: "No studio profile for this account." }, { status: 404 }) }
   }
+  if (profile.blocked) {
+    return {
+      error: NextResponse.json(
+        { error: "You Have Been Blocked From Using Lauryn Beauty Studio", blocked: true },
+        { status: 403 }
+      ),
+    }
+  }
   return { profile }
 }
 

@@ -25,9 +25,17 @@ export async function GET(req: NextRequest) {
   if (!profile) {
     return NextResponse.json({ error: "No studio profile for this account." }, { status: 404 })
   }
+  if (profile.blocked) {
+    return NextResponse.json(
+      { error: "You Have Been Blocked From Using Lauryn Beauty Studio", blocked: true },
+      { status: 403 }
+    )
+  }
 
-  const catalog = await prisma.service.findMany({ select: { id: true, name: true } })
+  const catalog = await prisma.service.findMany({ select: { id: true, name: true, duration: true, price: true } })
   const nameById = new Map(catalog.map((service) => [service.id, service.name]))
+  const durationById = new Map(catalog.map((service) => [service.id, service.duration]))
+  const priceById = new Map(catalog.map((service) => [service.id, service.price]))
 
   function serviceNames(values: string[]) {
     const names = values
@@ -39,6 +47,9 @@ export async function GET(req: NextRequest) {
   const bookings = await successfulBookingsForPhone(profile.phone)
   const upcoming = []
   const past = []
+  let totalDurationMinutes = 0
+  let expenditure = 0
+
   for (const booking of bookings) {
     const item = {
       id: booking.id,
@@ -53,8 +64,21 @@ export async function GET(req: NextRequest) {
       originalDate: booking.originalDate,
       method: booking.payment?.method,
     }
-    if (isPastVisit(booking.date, booking.timeSlot)) past.push(item)
-    else upcoming.push(item)
+    if (isPastVisit(booking.date, booking.timeSlot)) {
+      past.push(item)
+      for (const serviceId of booking.services) {
+        const dur = durationById.get(serviceId)
+        if (typeof dur === "number") {
+          totalDurationMinutes += dur
+        }
+        const pr = priceById.get(serviceId)
+        if (typeof pr === "number") {
+          expenditure += pr
+        }
+      }
+    } else {
+      upcoming.push(item)
+    }
   }
 
   past.reverse()
@@ -73,5 +97,7 @@ export async function GET(req: NextRequest) {
     past: visiblePast,
     pastTotal: past.length,
     pastHasMore: visiblePast.length < past.length,
+    totalDurationMinutes,
+    expenditure,
   })
 }

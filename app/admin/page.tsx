@@ -36,6 +36,7 @@ import { PlusCircle, Edit, Trash2, Search } from 'lucide-react'
 import { AdminShell } from '@/components/admin/admin-shell'
 import { OverviewChart } from '@/components/admin/overview-chart'
 import { UsersPanel } from '@/components/admin/users-panel'
+import { GiftVouchersPanel } from '@/components/admin/gift-vouchers-panel'
 import type { AdminSectionId } from '@/components/admin/admin-nav'
 import {
   Select,
@@ -1200,7 +1201,11 @@ export default function AdminPage() {
         </section>
       )}
 
-      {section === 'users' && <UsersPanel />}
+      {section === 'users' && <UsersPanel adminPassword={password} />}
+
+      {section === 'gift-vouchers' && (
+        <GiftVouchersPanel adminPassword={password} services={services} />
+      )}
 
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent key={selectedDate?.toISOString() || 'default'} className="rounded-2xl border-[#f3d0db] [border-top-color:#e7b4c4]">

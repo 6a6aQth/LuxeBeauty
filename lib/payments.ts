@@ -4,6 +4,7 @@ import { confirmPaidBooking } from "@/lib/confirm-booking"
 import { amountForMethod } from "@/lib/money"
 import { localMobileMoneyNumber, type MobileOperator } from "@/lib/mobile-money"
 import { heldBookingWhere } from "@/lib/slots"
+import { getSlotsForDate, OVERFLOW_SLOT } from "@/lib/time-slots"
 import {
   TRACK_HOURS,
   getChargeStatus,
@@ -25,6 +26,37 @@ export const GENERIC_START_ERROR = "We couldn't start your payment. Please try a
 
 export function alertOps(message: string) {
   console.error("[payments]", message)
+}
+
+/**
+ * Returns true when every regular slot on `dateStr` (Mon–Thu: 4 slots, Fri: 3 slots,
+ * Sat: 4 slots) has at least one successful booking — meaning the day is fully booked
+ * and the 08:00 overflow slot may be unlocked.
+ *
+ * Saturday is excluded: OVERFLOW_SLOT is only valid on Mon–Fri.
+ */
+export async function isOverflowSlotAvailable(dateStr: string): Promise<boolean> {
+  const date = new Date(`${dateStr}T12:00:00Z`) // noon UTC avoids TZ edge cases
+  const regularSlots = getSlotsForDate(date)
+  if (regularSlots.length === 0) return false // Sunday or invalid date
+
+  // Check the weekday — Saturday does not get the overflow slot
+  const dayName = new Intl.DateTimeFormat("en-US", {
+    weekday: "long",
+    timeZone: "Africa/Blantyre",
+  }).format(date)
+  if (dayName === "Saturday" || dayName === "Sunday") return false
+
+  // For each regular slot, verify at least one successful booking exists on that date/slot
+  const checks = await Promise.all(
+    regularSlots.map((slot) =>
+      prisma.booking.count({
+        where: { date: dateStr, timeSlot: slot, status: "successful" },
+      })
+    )
+  )
+
+  return checks.every((count) => count > 0)
 }
 
 type BankJson = { bank?: string; name?: string; number?: string; receipt?: string | null }
@@ -162,6 +194,22 @@ export async function startPayment(input: StartBookingInput): Promise<StartResul
           select: { id: true },
         })
         if (clash) throw new SlotTaken()
+
+        // 25.0 / FR-33: 08:00 is an overflow slot — re-validate that all regular slots
+        // on this date still have at least one successful booking before creating a booking.
+        // This is the race-condition guard: the condition may have reversed since the
+        // customer last saw the slot picker.
+        //
+        // NOTE (FR-33 / 25.6): No additional payment logic is needed for 08:00. The existing
+        // rule (charge = stored service total, enforced by startPayment) already satisfies
+        // the "full payment required" gate for this slot — the same as every other slot.
+        if (input.timeSlot === OVERFLOW_SLOT) {
+          const overflowOk = await isOverflowSlotAvailable(input.date)
+          if (!overflowOk) {
+            throw new SlotTaken()
+          }
+        }
+
         const booking = await tx.booking.create({
           data: {
             name: input.name,

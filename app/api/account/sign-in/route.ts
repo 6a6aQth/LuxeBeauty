@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import prisma from "@/lib/prisma";
 import { getNeonAuth } from "@/lib/auth/neon";
 import { findNeonIdentityByEmail, GOOGLE_ONLY_SIGN_IN_MESSAGE, isGoogleOnly } from "@/lib/auth/one-email";
 
@@ -30,6 +31,22 @@ export async function POST(req: Request) {
   const { error } = await neon.signIn.email({ email, password });
   if (error) {
     return NextResponse.json({ error: error.message || "Sign-in failed." }, { status: 401 });
+  }
+
+  // After Neon Auth authenticates the user, check CustomerProfile for blocked status (FR-31 / Subtask 23.5)
+  const profile = await prisma.customerProfile.findUnique({
+    where: { email },
+  });
+
+  if (profile?.blocked) {
+    await neon.signOut().catch(() => {});
+    return NextResponse.json(
+      {
+        error: "You Have Been Blocked From Using Lauryn Beauty Studio",
+        blocked: true,
+      },
+      { status: 403 }
+    );
   }
 
   return NextResponse.json({ ok: true });

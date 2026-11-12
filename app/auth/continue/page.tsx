@@ -31,6 +31,14 @@ export default function ContinuePage() {
         router.replace("/account")
         return
       }
+      if (response.status === 403) {
+        const data = await response.json().catch(() => ({}))
+        if (data.blocked) {
+          await authClient.signOut().catch(() => {})
+          router.replace("/blocked")
+          return
+        }
+      }
       if (response.status === 409) {
         const data = await response.json().catch(() => ({}))
         if (data.code === EMAIL_ALREADY_HAS_ACCOUNT) {

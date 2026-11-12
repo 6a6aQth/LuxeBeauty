@@ -36,6 +36,16 @@ export async function GET() {
     );
   }
 
+  if (profile.blocked) {
+    return NextResponse.json(
+      {
+        error: "You Have Been Blocked From Using Lauryn Beauty Studio",
+        blocked: true,
+      },
+      { status: 403 },
+    );
+  }
+
   return NextResponse.json({
     name: profile.name,
     email: profile.email,

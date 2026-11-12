@@ -31,6 +31,11 @@ export default function SignInPage() {
         }),
       })
       const data = await response.json()
+      if (response.status === 403 && data.blocked) {
+        await authClient.signOut().catch(() => {})
+        router.push("/blocked")
+        return
+      }
       if (!response.ok) throw new Error(data.error || "Sign-in failed")
       await authClient.getSession()
       router.push("/auth/continue")

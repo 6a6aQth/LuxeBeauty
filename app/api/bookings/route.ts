@@ -83,6 +83,25 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  try {
+    const body = await req.json().catch(() => null);
+    const phoneInput = body?.phone || body?.formData?.phone;
+    if (phoneInput) {
+      const canonical = canonicalPhone(String(phoneInput));
+      if (canonical) {
+        const profile = await prisma.customerProfile.findUnique({
+          where: { phone: canonical },
+        });
+        if (profile?.blocked) {
+          return NextResponse.json(
+            { error: "You Have Been Blocked From Using Lauryn Beauty Studio", blocked: true },
+            { status: 403 }
+          );
+        }
+      }
+    }
+  } catch {}
+
   // Booking creation is now handled only after payment verification.
   // This endpoint is disabled to prevent duplicate or unpaid bookings.
   return NextResponse.json({ error: 'Booking creation is disabled. Use payment flow.' }, { status: 403 });

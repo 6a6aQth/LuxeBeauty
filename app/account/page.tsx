@@ -32,6 +32,16 @@ type VisitsPayload = {
   newsletter: boolean
   upcoming: Visit[]
   past: Visit[]
+  totalDurationMinutes: number
+  expenditure: number
+}
+
+function formatDuration(minutes: number): string {
+  if (minutes < 60) return `${minutes} min`
+  const hrs = Math.floor(minutes / 60)
+  const mins = minutes % 60
+  if (mins === 0) return `${hrs} hr`
+  return `${hrs} hrs ${mins} min`
 }
 
 function dayParts(date: string) {
@@ -83,6 +93,14 @@ export default function AccountPage() {
     let cancelled = false
     async function load() {
       const response = await fetch(`/api/account/visits?pastPage=${pastPage}`)
+      if (response.status === 403) {
+        const data = await response.json().catch(() => ({}))
+        if (data.blocked) {
+          await authClient.signOut().catch(() => {})
+          router.replace("/blocked")
+          return
+        }
+      }
       if (response.status === 401) {
         router.replace("/sign-in")
         return
@@ -213,6 +231,26 @@ export default function AccountPage() {
                   {payload.newsletter ? "Unsubscribe" : "Subscribe"}
                 </button>
               </div>
+              {payload.expenditure > 0 && (
+                <div className="mt-6 border-t border-pink-100 pt-5">
+                  <p className="text-[11px] uppercase tracking-[0.28em] text-brand-pink">Expenditure</p>
+                  <p className="mt-2 font-serif text-xl leading-snug text-stone-900">
+                    {formatMwk(payload.expenditure)}
+                  </p>
+                  <p className="mt-1 text-xs text-stone-500">Total spent on past visits</p>
+                </div>
+              )}
+              {payload.totalDurationMinutes > 0 && (
+                <div className="mt-6 border-t border-pink-100 pt-5">
+                  <p className="text-[11px] uppercase tracking-[0.28em] text-brand-pink">Total Hours at Lauryn</p>
+                  <p className="mt-2 font-serif text-xl leading-snug text-stone-900">
+                    {formatDuration(payload.totalDurationMinutes)}
+                  </p>
+                  <p className="mt-1 text-xs text-stone-500 leading-relaxed">
+                    You&apos;ve spent {formatDuration(payload.totalDurationMinutes)} of luxury with us 💅
+                  </p>
+                </div>
+              )}
             </aside>
 
             <div className="space-y-12">

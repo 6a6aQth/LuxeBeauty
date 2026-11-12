@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import {
   Card,
   CardContent,
@@ -26,7 +27,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
-import { Calendar as CalendarIcon, Check, Copy } from "lucide-react";
+import { Calendar as CalendarIcon, Check, Copy, Gift, Ban } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Textarea } from "@/components/ui/textarea";
@@ -41,6 +42,7 @@ import { toast } from '@/hooks/use-toast';
 import { sanitizePhoneInput } from '@/lib/phone';
 import { amountForMethod, formatMwk } from '@/lib/money';
 import { localMobileMoneyNumber } from '@/lib/mobile-money';
+import { OVERFLOW_SLOT } from "@/lib/time-slots";
 import { BookingTicket } from '@/components/booking-ticket';
 
 function CopyAccountNumber({ value }: { value: string }) {
@@ -60,6 +62,18 @@ function CopyAccountNumber({ value }: { value: string }) {
       {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
     </button>
   );
+}
+
+function formatServiceDuration(minutesTotal: number): string {
+  if (minutesTotal < 60) {
+    return `${minutesTotal} min`;
+  }
+  const hours = Math.floor(minutesTotal / 60);
+  const minutes = minutesTotal % 60;
+  if (minutes === 0) {
+    return `${hours} hr`;
+  }
+  return `${hours} hr ${minutes} min`;
 }
 
 export function BookingForm({
@@ -201,6 +215,10 @@ export function BookingForm({
     (sum, service) => sum + (service.price != null && service.price > 0 ? service.price : 0),
     0,
   );
+  const totalDuration = selectedServices.reduce(
+    (sum, service) => sum + (typeof service.duration === "number" ? service.duration : 0),
+    0,
+  );
   const payingByBank = operator === "bank";
   const bookingFee = formatMwk(amountForMethod(payingByBank ? "bank" : operator));
   const payerReady = operator === "bank" || (operator != null && localMobileMoneyNumber(payerNumber, operator) != null);
@@ -326,11 +344,39 @@ export function BookingForm({
               {step === "form" ? (
                 <form onSubmit={handleSubmit} className="space-y-6">
                   {accountBooking ? (
-                    <div className="rounded-md border border-stone-200 bg-stone-950 px-4 py-3 text-sm text-white">
-                      <p className="text-[11px] uppercase tracking-[0.18em] text-brand-pink">Booking as</p>
-                      <p className="mt-1 font-medium">{formData.name}</p>
-                      <p className="text-white/70">{formData.email}</p>
-                      <p className="text-white/70">{formData.phone}</p>
+                    <div className="space-y-3">
+                      <div className="rounded-md border border-stone-200 bg-stone-950 px-4 py-3 text-sm text-white">
+                        <p className="text-[11px] uppercase tracking-[0.18em] text-brand-pink">Booking as</p>
+                        <p className="mt-1 font-medium">{formData.name}</p>
+                        <p className="text-white/70">{formData.email}</p>
+                        <p className="text-white/70">{formData.phone}</p>
+                      </div>
+
+                      {/* Gift Voucher Action Card for logged-in sessions (FR-30 / SDD 22.14) */}
+                      <Link
+                        href="/gift-voucher"
+                        className="flex items-center justify-between p-3.5 rounded-xl border border-pink-200/80 bg-gradient-to-r from-pink-50/80 via-white to-pink-50/40 hover:border-pink-300 transition group shadow-xs"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-pink-100 flex items-center justify-center text-pink-700 group-hover:scale-105 transition">
+                            <Gift className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <p className="text-xs font-semibold text-stone-900 flex items-center gap-1.5">
+                              Buy a Gift Voucher
+                              <span className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded-full bg-pink-200/60 text-pink-800">
+                                New
+                              </span>
+                            </p>
+                            <p className="text-[11px] text-stone-500">
+                              Gift luxury appointments to friends and loved ones
+                            </p>
+                          </div>
+                        </div>
+                        <span className="text-xs text-pink-700 font-medium group-hover:translate-x-0.5 transition">
+                          Explore →
+                        </span>
+                      </Link>
                     </div>
                   ) : (
                     <>
@@ -559,7 +605,14 @@ export function BookingForm({
                                 value={slot}
                                 className="focus:bg-brand-pink/10"
                               >
-                                {formatTime(slot)}
+                                <span className="flex items-center gap-2">
+                                  <span>{formatTime(slot)}</span>
+                                  {slot === OVERFLOW_SLOT && (
+                                    <Badge className="bg-brand-pink/20 text-brand-pink border border-brand-pink/30 text-xs px-1.5 py-0 rounded-full font-medium">
+                                      Early Access
+                                    </Badge>
+                                  )}
+                                </span>
                               </SelectItem>
                             ))
                           ) : (
@@ -606,6 +659,12 @@ export function BookingForm({
                         <span className="text-sm font-medium text-brand-pink">Total</span>
                         <span className="break-words font-semibold text-black">
                           {missingPrice || runningTotal <= 0 ? "—" : formatMwk(runningTotal)}
+                        </span>
+                      </div>
+                      <div className="mt-1 flex items-baseline justify-between gap-3 text-xs text-stone-600">
+                        <span className="text-stone-500">Total duration</span>
+                        <span className="shrink-0 font-medium text-stone-900">
+                          {formatServiceDuration(totalDuration)}
                         </span>
                       </div>
                       {missingPrice ? (
@@ -782,7 +841,21 @@ export function BookingForm({
 
                   <div className="space-y-3">
                     {failureMessage ? (
-                      <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{failureMessage}</p>
+                      <div className={`rounded-xl border p-4 text-sm ${
+                        failureMessage.toLowerCase().includes("blocked")
+                          ? "border-red-300 bg-red-50 text-red-900 shadow-sm"
+                          : "border-red-200 bg-red-50 text-red-700"
+                      }`}>
+                        <div className="flex items-center gap-2 font-medium">
+                          <Ban className="h-4 w-4 text-red-600 shrink-0" />
+                          <span>{failureMessage}</span>
+                        </div>
+                        {failureMessage.toLowerCase().includes("blocked") ? (
+                          <p className="mt-1 text-xs text-red-700 pl-6">
+                            Appointments cannot be scheduled for this profile or phone number.
+                          </p>
+                        ) : null}
+                      </div>
                     ) : null}
                     {!isReschedule ? (
                       <>

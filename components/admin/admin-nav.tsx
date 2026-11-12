@@ -1,6 +1,6 @@
 "use client"
 
-import { CalendarClock, CalendarDays, Home, LogOut, Mail, Scissors, Tag, Users, type LucideIcon } from "lucide-react"
+import { CalendarClock, CalendarDays, Gift, Home, LogOut, Mail, Scissors, Tag, Users, type LucideIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 export const adminSections = [
@@ -9,6 +9,7 @@ export const adminSections = [
   { id: "availability", label: "Availability", icon: CalendarClock },
   { id: "services", label: "Services", icon: Scissors },
   { id: "users", label: "Users", icon: Users },
+  { id: "gift-vouchers", label: "Gift Vouchers", icon: Gift },
   { id: "newsletter", label: "Newsletter", icon: Mail },
   { id: "price-list", label: "Price list", icon: Tag },
 ] as const

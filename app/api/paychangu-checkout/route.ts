@@ -52,6 +52,17 @@ export async function POST(req: Request) {
       if (!profile) {
         return NextResponse.json({ ok: false, message: "Finish your account details before booking." }, { status: 409 })
       }
+      if (profile.blocked) {
+        return NextResponse.json(
+          {
+            ok: false,
+            blocked: true,
+            error: "You Have Been Blocked From Using Lauryn Beauty Studio",
+            message: "You Have Been Blocked From Using Lauryn Beauty Studio",
+          },
+          { status: 403 }
+        )
+      }
       formData.name = profile.name
       formData.email = profile.email
       formData.phone = profile.phone
@@ -60,6 +71,22 @@ export async function POST(req: Request) {
     const phone = canonicalPhone(String(formData.phone ?? ""))
     if (!phone) {
       return NextResponse.json({ ok: false, message: "That phone number format is not okay." }, { status: 400 })
+    }
+
+    // Guest booking guard (FR-31 / Subtask 23.7)
+    const customerProfile = await prisma.customerProfile.findUnique({
+      where: { phone },
+    })
+    if (customerProfile?.blocked) {
+      return NextResponse.json(
+        {
+          ok: false,
+          blocked: true,
+          error: "You Have Been Blocked From Using Lauryn Beauty Studio",
+          message: "You Have Been Blocked From Using Lauryn Beauty Studio",
+        },
+        { status: 403 }
+      )
     }
 
     const date = String(formData.date ?? "")

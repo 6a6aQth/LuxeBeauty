@@ -10,7 +10,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { toast } from "@/hooks/use-toast"
 import { canonicalPhone } from "@/lib/phone"
 import { parseISO, format, isValid } from "date-fns"
-import { getSlotsForDate, formatTime } from "@/lib/time-slots"
+import { getSlotsForDate, formatTime, OVERFLOW_SLOT } from "@/lib/time-slots"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { PageHeader } from "@/components/page-header"
 import { MultiStepLoader } from "@/components/ui/multi-step-loader"
@@ -283,10 +283,31 @@ function BookingContent() {
     const unavailableSlotsForDate = unavailableSlots[dateStr] || [];
 
     // Return only slots that are not booked and not manually unavailable
-    return allPossibleSlots.filter(slot =>
+    const regularAvailable = allPossibleSlots.filter(slot =>
       !bookedSlotsForDate.includes(slot) &&
       !unavailableSlotsForDate.includes(slot)
     );
+
+    // 25.0 / FR-33: Overflow slot 08:00 is available only when EVERY regular slot
+    // on that weekday is fully booked (booked or manually unavailable).
+    // It is valid for Mon–Fri only (not Saturday).
+    const dayName = new Intl.DateTimeFormat("en-US", {
+      weekday: "long",
+      timeZone: "Africa/Blantyre",
+    }).format(date);
+
+    const isMonToFri = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"].includes(dayName);
+    const allRegularSlotsBooked = allPossibleSlots.length > 0 && allPossibleSlots.every(slot =>
+      bookedSlotsForDate.includes(slot)
+    );
+
+    const overflowNotBlocked = !bookedSlotsForDate.includes(OVERFLOW_SLOT) && !unavailableSlotsForDate.includes(OVERFLOW_SLOT);
+
+    if (isMonToFri && allRegularSlotsBooked && overflowNotBlocked) {
+      return [OVERFLOW_SLOT, ...regularAvailable];
+    }
+
+    return regularAvailable;
   }, [date, bookedSlots, unavailableSlots]);
 
   const allUnavailableSlotsForDate = useMemo(() => {
@@ -303,7 +324,9 @@ function BookingContent() {
     const fullyBlockedDates: Date[] = [];
 
     for (const dateStr of allDates) {
-      const allPossibleSlots = getSlotsForDate(parseISO(dateStr));
+      const d = parseISO(dateStr);
+      if (!isValid(d)) continue;
+      const allPossibleSlots = getSlotsForDate(d);
       if (allPossibleSlots.length === 0) continue;
 
       const isMorningBlocked = allPossibleSlots.every(slot =>
@@ -311,8 +334,18 @@ function BookingContent() {
       );
 
       if (isMorningBlocked) {
-        const d = parseISO(dateStr);
-        if (isValid(d)) {
+        // If it's Mon-Fri and overflow slot 08:00 is not yet booked/blocked,
+        // then the date is NOT fully booked yet!
+        const dayName = new Intl.DateTimeFormat("en-US", {
+          weekday: "long",
+          timeZone: "Africa/Blantyre",
+        }).format(d);
+        const isMonToFri = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"].includes(dayName);
+        const overflowAvailable = isMonToFri &&
+          !bookedSlots[dateStr]?.includes(OVERFLOW_SLOT) &&
+          !unavailableSlots[dateStr]?.includes(OVERFLOW_SLOT);
+
+        if (!overflowAvailable) {
           fullyBlockedDates.push(d);
         }
       }
@@ -529,6 +562,18 @@ function BookingContent() {
       const data = await response.json();
       if (!response.ok || !data.ok || !data.chargeId) {
         submitToken.current = "";
+        if (response.status === 403 && (data.blocked || String(data.error || data.message).includes("Blocked"))) {
+          const blockedMsg = data.error || data.message || "You Have Been Blocked From Using Lauryn Beauty Studio";
+          setFailureMessage(blockedMsg);
+          toast({
+            title: "Access Restricted",
+            description: blockedMsg,
+            variant: "destructive",
+          });
+          setIsPaying(false);
+          payLock.current = false;
+          return;
+        }
         throw new Error(data.message || 'Failed to start the payment.');
       }
       const details: BankDetails | null = data.account?.number

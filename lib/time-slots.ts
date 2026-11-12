@@ -1,3 +1,11 @@
+/**
+ * The 8AM early-access overflow slot (Mon–Fri only, not Saturday).
+ * This slot is NOT included in getSlotsForDate() output by default.
+ * It is surfaced only when isOverflowSlotAvailable() returns true —
+ * i.e. every regular slot on that date has at least one successful booking.
+ */
+export const OVERFLOW_SLOT = "08:00";
+
 export const timeSlots = {
   monday_thursday: [
     "10:00",
