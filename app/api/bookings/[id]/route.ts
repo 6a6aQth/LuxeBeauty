@@ -19,7 +19,6 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       timeSlot,
       services,
       notes,
-      discountApplied,
       inspirationPhotos,
       status
     } = body;
@@ -72,7 +71,6 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     // Add optional fields if provided
     if (email !== undefined) updateData.email = email;
     if (notes !== undefined) updateData.notes = notes;
-    if (discountApplied !== undefined) updateData.discountApplied = discountApplied;
     if (Array.isArray(inspirationPhotos)) updateData.inspirationPhotos = inspirationPhotos;
     if (status) updateData.status = status;
 

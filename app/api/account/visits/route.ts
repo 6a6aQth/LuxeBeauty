@@ -3,7 +3,6 @@ import prisma from "@/lib/prisma"
 import { getSessionUser } from "@/lib/auth/session"
 import { successfulBookingsForPhone } from "@/lib/booking-phones"
 import { isPastVisit } from "@/lib/visit-time"
-import { loyaltyProgressCopy, nextVisitIsDiscount, visitsUntilDiscount } from "@/lib/loyalty"
 
 const PAST_PAGE_SIZE = 6
 
@@ -50,7 +49,6 @@ export async function GET(req: NextRequest) {
       timeSlot: booking.timeSlot,
       services: booking.services,
       serviceNames: serviceNames(booking.services),
-      discountApplied: booking.discountApplied,
       rescheduleCount: booking.rescheduleCount,
       originalDate: booking.originalDate,
     }
@@ -61,7 +59,6 @@ export async function GET(req: NextRequest) {
   past.reverse()
   const page = Math.max(1, Number(new URL(req.url).searchParams.get("pastPage") || "1") || 1)
   const visiblePast = past.slice(0, page * PAST_PAGE_SIZE)
-  const count = bookings.length
   const subscription = await prisma.newsletterSubscription.findFirst({
     where: { email: { equals: profile.email, mode: "insensitive" } },
     select: { id: true },
@@ -75,11 +72,5 @@ export async function GET(req: NextRequest) {
     past: visiblePast,
     pastTotal: past.length,
     pastHasMore: visiblePast.length < past.length,
-    loyalty: {
-      successfulCount: count,
-      visitsUntilDiscount: visitsUntilDiscount(count),
-      nextVisitIsDiscount: nextVisitIsDiscount(count),
-      copy: loyaltyProgressCopy(count),
-    },
   })
 }

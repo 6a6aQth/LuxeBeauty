@@ -3,7 +3,6 @@ import prisma from "@/lib/prisma"
 import { confirmPaidBooking } from "@/lib/confirm-booking"
 import { FIXED_AMOUNT_MWK } from "@/lib/money"
 import { localMobileMoneyNumber, type MobileOperator } from "@/lib/mobile-money"
-import { successfulBookingsForPhone } from "@/lib/booking-phones"
 import { heldBookingWhere } from "@/lib/slots"
 import {
   TRACK_HOURS,
@@ -18,7 +17,7 @@ import {
   type Method,
 } from "@/lib/paychangu-direct"
 
-class SlotTaken extends Error {}
+class SlotTaken extends Error { }
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
@@ -72,14 +71,14 @@ export interface StartBookingInput {
 
 export type StartResult =
   | {
-      ok: true
-      chargeId: string
-      reference: string
-      method: Method
-      expiresAt: string
-      amount: number
-      account?: { bank: string; name: string; number: string }
-    }
+    ok: true
+    chargeId: string
+    reference: string
+    method: Method
+    expiresAt: string
+    amount: number
+    account?: { bank: string; name: string; number: string }
+  }
   | { ok: false; message: string }
 
 type PaymentWithBooking = Prisma.PaymentGetPayload<{ include: { booking: true } }>
@@ -226,12 +225,12 @@ export async function startPayment(input: StartBookingInput): Promise<StartResul
     isBank(method)
       ? initiateBankTransfer({ chargeId, amount, ...customer })
       : initiateMobileMoney({
-          chargeId,
-          mobileLocal: local!,
-          operatorRefId: operatorRefId!,
-          amount,
-          ...customer,
-        })
+        chargeId,
+        mobileLocal: local!,
+        operatorRefId: operatorRefId!,
+        amount,
+        ...customer,
+      })
 
   let result = await initiate()
   if (result.outcome === "rate_limited") {
@@ -391,8 +390,6 @@ export async function settle(paymentId: string): Promise<void> {
   }
 
   const completed = asDate(status.completedAt) ?? new Date()
-  const priorCount = (await successfulBookingsForPhone(payment.booking.phone, payment.booking.reference)).length
-  const discountApplied = (priorCount + 1) % 6 === 0
 
   const won = await prisma.$transaction(async (tx) => {
     const hit = await tx.payment.updateMany({
@@ -416,7 +413,6 @@ export async function settle(paymentId: string): Promise<void> {
       data: {
         status: next,
         paidAt: next === "successful" && booking.status !== "successful" ? new Date() : booking.paidAt,
-        discountApplied: next === "successful" && booking.status === "pending" ? discountApplied : booking.discountApplied,
       },
     })
     return { status: next, becameSuccessful: booking.status === "pending" && next === "successful" }
@@ -492,15 +488,15 @@ export async function getPaymentView(chargeId: string) {
     booking:
       booking.status === "successful"
         ? {
-            id: booking.id,
-            name: booking.name,
-            date: booking.date,
-            timeSlot: booking.timeSlot,
-            services: booking.services,
-            reference: booking.reference,
-            discountApplied: booking.discountApplied,
-            email: booking.email,
-          }
+          id: booking.id,
+          name: booking.name,
+          date: booking.date,
+          timeSlot: booking.timeSlot,
+          services: booking.services,
+          reference: booking.reference,
+          method: payment.method,
+          email: booking.email,
+        }
         : undefined,
   }
 }

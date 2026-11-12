@@ -86,7 +86,6 @@ interface Booking {
   services: string[];
   phone: string;
   email?: string;
-  discountApplied?: boolean;
   inspirationPhotos?: string[];
   notes?: string;
   status?: string; // Add status field for filtering
@@ -843,9 +842,6 @@ export default function AdminPage() {
                         <div>
                           <p className="font-serif text-xl text-stone-900">{booking.name}</p>
                           <div className="flex gap-2 mt-1 flex-wrap">
-                            {booking.discountApplied && (
-                              <Badge variant="secondary" className="bg-pink-100 text-pink-700 border-pink-200">30% Discount</Badge>
-                            )}
                             {(booking.rescheduleCount ?? 0) > 0 && (
                               <Badge variant="outline" className="bg-blue-100 text-blue-700 border-blue-200">
                                 Rescheduled
@@ -1587,15 +1583,6 @@ export default function AdminPage() {
                   placeholder="One URL per line (optional)"
                   rows={3}
                 />
-              </div>
-
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="edit-discount"
-                  checked={editingBookingData.discountApplied || false}
-                  onCheckedChange={(checked) => setEditingBookingData(prev => prev ? { ...prev, discountApplied: !!checked } : null)}
-                />
-                <Label htmlFor="edit-discount">30% Discount Applied</Label>
               </div>
             </div>
           )}

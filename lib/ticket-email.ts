@@ -18,7 +18,6 @@ export async function sendTicketEmail(booking: {
   date: string
   timeSlot: string
   ticketId: string
-  discountApplied: boolean
   serviceNames: string[]
   amount: number
 }) {
@@ -34,7 +33,6 @@ export async function sendTicketEmail(booking: {
     `Time: ${visitTime}`,
     `Services: ${services.join(", ")}`,
     `Booking fee: ${deposit}`,
-    booking.discountApplied ? "A 30% loyalty discount is noted on this appointment." : "",
     "Show this ticket at the studio.",
     "Lauryn Luxe Beauty Studio, Blantyre",
   ]
@@ -52,7 +50,6 @@ export async function sendTicketEmail(booking: {
       services,
       deposit,
       ticketId: booking.ticketId,
-      discountApplied: booking.discountApplied,
     }),
     text,
   })
@@ -68,7 +65,6 @@ export async function sendStudioBookingEmail(booking: {
   date: string
   timeSlot: string
   ticketId: string
-  discountApplied: boolean
   serviceNames: string[]
   amount: number
 }) {
@@ -86,7 +82,6 @@ export async function sendStudioBookingEmail(booking: {
     `Time: ${visitTime}`,
     `Services: ${services.join(", ")}`,
     `Booking fee: ${deposit}`,
-    booking.discountApplied ? "A 30% loyalty discount is noted on this appointment." : "",
   ]
     .filter(Boolean)
     .join("\n")
@@ -103,7 +98,6 @@ export async function sendStudioBookingEmail(booking: {
       services,
       deposit,
       ticketId: booking.ticketId,
-      discountApplied: booking.discountApplied,
       studio: { phone: booking.phone, email: guestEmail },
     }),
     text,
@@ -133,7 +127,6 @@ function ticketHtml(booking: {
   services: string[]
   deposit: string
   ticketId: string
-  discountApplied: boolean
   studio?: { phone: string; email: string }
 }): string {
   const serviceRows = booking.services
@@ -146,21 +139,6 @@ function ticketHtml(booking: {
         </tr>`,
     )
     .join("")
-
-  const loyalty = booking.discountApplied
-    ? `
-      <tr>
-        <td style="padding:0 32px 8px 32px;">
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${blush};border-radius:16px;">
-            <tr>
-              <td style="padding:14px 18px;font-family:Georgia,'Times New Roman',serif;font-size:14px;line-height:1.5;color:${blushInk};">
-                A 30% loyalty discount is noted on this appointment.
-              </td>
-            </tr>
-          </table>
-        </td>
-      </tr>`
-    : ""
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -229,7 +207,6 @@ function ticketHtml(booking: {
                 <p style="margin:8px 0 0 0;font-family:Georgia,'Times New Roman',serif;font-size:16px;color:${ink};">${escapeHtml(booking.deposit)}</p>
               </td>
             </tr>
-            ${loyalty}
             <tr>
               <td style="padding:16px 32px 32px 32px;">
                 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0c0c0c;border-radius:20px;">

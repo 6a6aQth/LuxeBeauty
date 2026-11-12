@@ -27,13 +27,24 @@ export async function confirmPaidBooking(bookingId: string) {
     select: { id: true, name: true },
   })
   const serviceNames = fresh.services.map((id) => services.find((service) => service.id === id)?.name ?? id)
-  const when = `${fresh.date} at ${formatTime(fresh.timeSlot)}`
+  const amount = amountForMethod(fresh.payment?.method)
+  const visitDate = formatVisitDate(fresh.date)
+  const visitTime = formatTime(fresh.timeSlot)
+  const serviceList = serviceNames.filter(Boolean).join(", ")
+  const sms = [
+    "Lauryn Luxe booking confirmed.",
+    `Ticket: ${fresh.reference}`,
+    `Date: ${visitDate}`,
+    `Time: ${visitTime}`,
+    `Services: ${serviceList || "See your ticket"}`,
+    `Booking fee: ${formatMwk(amount)}`,
+    "Show this ticket at the studio.",
+  ]
+    .filter(Boolean)
+    .join("\n")
 
   try {
-    await sendBookingSMS(
-      fresh.phone,
-      `Lauryn Luxe: booking ${fresh.reference} is confirmed for ${when}. Services: ${serviceNames.join(", ")}.`,
-    )
+    await sendBookingSMS(fresh.phone, sms)
     await logPaymentEvent({
       txRef: fresh.reference,
       bookingId: fresh.id,
@@ -60,7 +71,6 @@ export async function confirmPaidBooking(bookingId: string) {
         date: fresh.date,
         timeSlot: fresh.timeSlot,
         ticketId: fresh.reference,
-        discountApplied: fresh.discountApplied,
         serviceNames,
         amount: FIXED_AMOUNT_MWK,
       })
@@ -91,7 +101,6 @@ export async function confirmPaidBooking(bookingId: string) {
       date: fresh.date,
       timeSlot: fresh.timeSlot,
       ticketId: fresh.reference,
-      discountApplied: fresh.discountApplied,
       serviceNames,
       amount: FIXED_AMOUNT_MWK,
     })

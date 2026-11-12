@@ -26,7 +26,6 @@ export interface BookingFormProps {
   setAgreedToTerms: React.Dispatch<React.SetStateAction<boolean>>;
   handlePayment: () => Promise<void>;
   setStep: React.Dispatch<React.SetStateAction<'form' | 'payment' | 'awaiting' | 'bank' | 'failed' | 'ticket'>>;
-  loyaltyDiscountEligible?: boolean;
   isReschedule?: boolean;
   accountBooking?: boolean;
   operator: 'tnm' | 'airtel' | 'bank' | null;
@@ -55,7 +54,6 @@ export interface BookingFormProps {
     services: string[];
     fee: string;
     ticketId: string;
-    discountApplied?: boolean;
   } | null;
   serviceNames?: string[];
 } 

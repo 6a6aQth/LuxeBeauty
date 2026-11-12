@@ -1,12 +1,13 @@
 # Lauryn Luxe Beauty Studio — System Design Document
 
 > **Generated via M.A.S.T.E.R. Framework Forensic Analysis**
-> Version: **6** | Date: 2026-10-09 | Status: **Current**
+> Version: **7** | Date: 2026-11-12 | Status: **Current**
 
 ## Changelog
 
 | Version | Date | Summary |
 |---------|------|---------|
+| 7 | 2026-11-12 | Retire 30% loyalty discount feature (FR-03, FR-21). Bookings no longer calculate or store discountApplied; tickets, emails, and SMS omit 30% loyalty discount notes; the booking form sidebar copy, eligibility preview, and discount note banner are removed; the account page loyalty widget and visit discount tags are removed; and admin booking view and edit omit discount indicators and controls. |
 | 6 | 2026-10-09 | The amount charged is the sum of the selected services' prices, stored on the booking. Admin edits each service price. The booking form shows each description and a running total, including on a phone. Account Expenditure sums successful bookings only after the Blantyre slot has passed. Bank transfer is a one-off PayChangu account named LaurynStudio, confirmed only when the details call is paid and the amount matches. The flat K10,000 deposit and the MWK 100 test charge no longer set the amount. |
 | 5 | 2026-09-25 | Booking payment leaves PayChangu hosted checkout. The booking flow collects TNM Mpamba or Airtel Money on the site, starts a Direct Charge, and confirms only after PayChangu verify succeeds. That confirm writes the booking, shows the ticket, and emails it through Resend. The webhook stays a backup and does not confirm anything until its secret exists. The studio deposit stays K10,000. This integration test charges MWK 100. |
 | 5 addendum | 2026-09-26 | FR-24. Waiting states use one luxury mark, `/Llogo.png`. A full-page wait is a black field with the mark and at most one quiet line. An in-page wait uses the same mark smaller and keeps the header and footer. |
@@ -43,10 +44,10 @@ Lauryn Luxe Beauty Studio is a **customer-facing beauty booking platform** for a
 |----|-------------|--------|--------|
 | FR-01 | **Booking Creation** — Customers create bookings by paying the total of the services they selected, on the site, through PayChangu. There is no hosted checkout page and no redirect. The booking is created `pending` when the charge is initialized and becomes `successful` only after PayChangu reports that charge paid and the amount equals the total stored on that booking. The server prices the charge from the current catalog and ignores any amount sent by the browser. The flat K10,000 deposit and the MWK 100 test charge no longer set this amount. | 🔲 Specified (v6) | Service total, booking flow |
 | FR-02 | **Payment Verification** — For TNM Mpamba and Airtel Money, the page the customer is on polls the server, and the server calls PayChangu `GET /mobile-money/payments/{chargeId}/verify`. For bank transfer, the customer presses Verify and the server calls `GET /direct-charge/transactions/{charge_id}/details` (FR-29). Either call updates the booking, shows the ticket, and sends the ticket email only when PayChangu reports the charge paid and the amount equals the total stored on that booking. A different amount, or any other status, leaves the booking `pending` and does not show a ticket. The PayChangu webhook remains a backup: it must re-check that same paid status and that same stored amount before it changes a booking, and it must reject the request when `PAYCHANGU_WEBHOOK_SECRET` is missing. An unsigned webhook never confirms a payment. | 🔲 Specified (v6) | Verify poll, bank-transfer details, webhook |
-| FR-03 | **Loyalty Program** — Every 6th successful booking for one stored phone receives a 30% discount, stored as `discountApplied`. The stored phone is E.164 (`+` and digits only). A Malawi local number (`0999123456`, `999123456`, `265999123456`, `+265 999 123 456`, or `+2650999123456`) is stored as `+265` plus 9 digits and those forms count together. An international number is accepted only when it already starts with `+` and a country code, for example `+256772123456`, and it does not count with a Malawi number. PayChangu is charged the service total stored on that booking. The 30% is a studio flag, not a smaller charge. The flag is also sent to PayChangu as metadata. Verification counts the phone stored on the booking. | 🔲 Specified (v6) | Loyalty, checkout, verification |
+| FR-03 | **Loyalty Program** — [RETIRED / SUPERSEDED BY v7] Previously: every 6th successful booking received a 30% discount flag (`discountApplied`). This feature is permanently retired. No loyalty discounts are calculated, stored, or displayed. The phone number remains the canonical identifier for customer profile and visit history lookup. | ❌ Retired (v7) | Formerly Loyalty, checkout, verification |
 | FR-04 | **Rescheduling** — Confirmed bookings can be rescheduled once, with 24-hour notice before appointment, no payment required. Conflict checking against existing bookings. | ✅ Implemented | `reschedule/route.ts` |
 | FR-05 | **Booking Lookup** — Customers retrieve booking details via Ticket ID and initiate reschedule if eligible. | ✅ Implemented | `lookup/page.tsx` |
-| FR-06 | **SMS Confirmation** — Twilio sends booking confirmation SMS with ticket ID, date, time, and services. The recipient is the stored E.164 phone from FR-03. | 🔲 Specified (v4) | `lib/sms.ts` |
+| FR-06 | **SMS Confirmation** — Twilio sends booking confirmation SMS with ticket ID, date, time, and services. The recipient is the stored canonical E.164 phone. | 🔲 Specified (v4) | `lib/sms.ts` |
 | FR-07 | **Newsletter System** — Email subscription, unsubscription, and batch sending via Resend API with React email templates. | ✅ Implemented | `newsletter/*.ts` |
 | FR-08 | **Service & Category Management** — CRUD for services and categories. Services linked to categories by name string. Category deletion blocked if services reference it. Each service has a price in whole MWK, edited from the admin Services section. The price is required and must be greater than zero before that service can be booked. Description stays optional. | 🔲 Specified (v6) | `services/route.ts`, admin Services |
 | FR-09 | **Date/Time Availability Management** — Admin can block specific time slots on specific dates. Fully booked dates are auto-detected and disabled in the calendar. | ✅ Implemented | `unavailable-dates/route.ts` |
@@ -57,12 +58,12 @@ Lauryn Luxe Beauty Studio is a **customer-facing beauty booking platform** for a
 | FR-14 | **Ticket Download** — Confirmation page renders a ticket UI and allows PNG download via `html2canvas`. | ✅ Implemented | `booking/confirmation/page.tsx` |
 | FR-15 | **Admin Manual Payment Verification** — Admin can manually verify a pending payment by transaction reference. | ✅ Implemented | `admin/verify-payment/route.ts` |
 | FR-16 | **Optional customer account** — A customer may sign up and sign in with Neon Auth using email and password, or continue with Google. Sign-in is optional. A guest with no session books exactly as today: same form, service total, payment, ticket, lookup, and reschedule. The same email is one account (FR-25). | 🔲 Specified (v6) | Neon Auth |
-| FR-17 | **Signup profile** — Signup collects name, email, password, and phone. Email is the Neon Auth login. Phone is required, stored as the E.164 value from FR-03, and unique on that value. Password is held by Neon Auth, not by the app database. The phone field rejects letters and any value that does not canonicalize. On sign-up the password is entered twice and the two values must match before the account is created. Sign-up and sign-in can show or hide the password. Neon Auth still receives one password. The app does not store it. | 🔲 Specified (v5 addendum) | Customer profile |
+| FR-17 | **Signup profile** — Signup collects name, email, password, and phone. Email is the Neon Auth login. Phone is required, stored as the canonical E.164 value, and unique on that value. Password is held by Neon Auth, not by the app database. The phone field rejects letters and any value that does not canonicalize. On sign-up the password is entered twice and the two values must match before the account is created. Sign-up and sign-in can show or hide the password. Neon Auth still receives one password. The app does not store it. | 🔲 Specified (v5 addendum) | Customer profile |
 | FR-18 | **Signed-in booking** — When a session exists, the booking form does not ask for name, phone, or email. Those values come from the profile and are written onto the booking the same way a guest would have typed them. Services, date, time, notes, and inspiration photos are unchanged. | 🔲 Specified (v2) | Booking form |
 | FR-19 | **Account visits** — A signed-in customer has an account page with a **Visits** section: **Upcoming** and **Past**, listing successful bookings whose canonical phone equals the profile phone. No ticket-id search. Opening an upcoming visit shows the same downloadable ticket as `/booking/confirmation`. Past visits are appointments whose Blantyre date/time is already over. Each upcoming visit, each past visit, and that ticket show the service total stored on the booking. A booking with no stored total shows no amount. | 🔲 Specified (v6) | Account page |
 | FR-20 | **Reschedule from a visit** — Reschedule started from an upcoming visit uses the existing rules (FR-04): once, at least 24 hours before the appointment, no extra payment, conflict check unchanged. The server accepts it only when that booking's phone is the session phone. | 🔲 Specified (v2) | Reschedule |
-| FR-21 | **Loyalty progress** — The 30% rule is unchanged (FR-03): every 6th successful booking for that canonical phone. The account only displays progress from that count, for example "two visits until the 30% visit" when four successful bookings already exist (`6 - (count % 6)` visits remaining; `0` means the next booking is the discounted one). | 🔲 Specified (v3) | Account page |
-| FR-22 | **On-site mobile money** — After the existing booking details, the customer picks TNM Mpamba or Airtel Money on the studio booking flow. TNM Mpamba accepts a Malawi number that starts with `08`. Airtel Money accepts a Malawi number that starts with `09`. That number is sent to PayChangu as the local mobile-money number. It does not replace the stored loyalty phone from FR-03. The operator id comes from PayChangu's operator list. The charge id is generated by the server, stored as `Booking` payment reference (`txRef` on `PaymentEvent`), and is new on every attempt. The screen stays on the site and tells the customer to approve the PIN prompt on their phone. The sample checkout screen in the Direct Charge guide is not used. The mobile-number field stays hidden until the customer chooses TNM Mpamba or Airtel Money. Bank transfer is FR-29 and does not use this number. | 🔲 Specified (v6) | Booking payment step |
+| FR-21 | **Loyalty progress** — [RETIRED / SUPERSEDED BY v7] Previously: the account page showed progress toward the next 30% discount visit (`6 - (count % 6)`). This feature is permanently retired. The loyalty progress card, progress circle gauge, and visit discount tags are removed from `/account`. | ❌ Retired (v7) | Formerly Account page |
+| FR-22 | **On-site mobile money** — After the existing booking details, the customer picks TNM Mpamba or Airtel Money on the studio booking flow. TNM Mpamba accepts a Malawi number that starts with `08`. Airtel Money accepts a Malawi number that starts with `09`. That number is sent to PayChangu as the local mobile-money number. It does not replace the stored canonical booking phone. The operator id comes from PayChangu's operator list. The charge id is generated by the server, stored as `Booking` payment reference (`txRef` on `PaymentEvent`), and is new on every attempt. The screen stays on the site and tells the customer to approve the PIN prompt on their phone. The sample checkout screen in the Direct Charge guide is not used. The mobile-number field stays hidden until the customer chooses TNM Mpamba or Airtel Money. Bank transfer is FR-29 and does not use this number. | 🔲 Specified (v6) | Booking payment step |
 | FR-23 | **Ticket email** — When verify marks a booking successful and that booking has an email, Resend sends the ticket details to that address. The on-screen ticket and PNG download stay. A failed email does not undo the successful booking, same as a failed SMS. | 🔲 Specified (v5) | Resend, confirmation |
 | FR-24 | **Luxury loading mark** — Any customer-facing wait uses `/Llogo.png` (`public/Llogo.png`) and no other spinner, skeleton, or bare “Loading...” line. A wait that blocks the whole view (first paint, route suspense, account visits, finishing sign-in) is a black field, the mark centered with a soft glow, and at most one quiet line such as “Loading your visits”. A wait inside a page that is already on screen (services, prices, booking categories, lookup, sign-in and sign-up buttons, earlier visits) uses the same mark smaller and leaves the header and footer in place. Button labels stay; the mark sits with them. The payment step may keep its existing step copy. The loading mark does not change how a charge is confirmed. Charge amounts follow FR-01. | 🔲 Specified (v6) | Loading mark |
 | FR-25 | **One email, one account** — Google and email/password are two ways into one Neon user and one CustomerProfile. A person who first continues with Google has no password. Signing in later with that email and a password does not create a second account, does not save that password, and does not start a session. The sign-in page tells them to continue with Google. Signing up with an email that already belongs to an account, including a Google sign-in that has not saved a phone yet, is refused. A person who first creates a password account and later continues with Google for that same verified email stays on that same Neon user and that same CustomerProfile, and is not asked to create a second profile. This does not add a forgot-password or set-password email. | 🔲 Specified (v5 addendum) | Neon Auth |
@@ -186,7 +187,7 @@ Lauryn Luxe Beauty Studio is a **customer-facing beauty booking platform** for a
 │ notes?             │
 │ ticketId (unique)  │     ┌───────────────────┐
 │ status             │     │  UnavailableDate  │
-│ discountApplied    │     │───────────────────│
+│ discountApplied (retired v7) │ │───────────────────│
 │ inspirationPhotos[]│     │ id (PK)           │
 │ rescheduleCount    │     │ date (unique)     │
 │ originalDate?      │     │ timeSlots (String[])│
@@ -211,7 +212,7 @@ Lauryn Luxe Beauty Studio is a **customer-facing beauty booking platform** for a
 │ createdAt                │
 └──────────────────────────┘
 
-Bookings are not given a user foreign key. Visits and loyalty both select `Booking` rows by the canonical phone from FR-03. Existing rows written as another form of that same number are included, and a one-time rewrite stores the canonical value on `Booking` and `CustomerProfile`. Two profiles that collapse to one number are not merged. The customer cannot edit the profile phone, because a change would split that history. A genuinely different number stays a different customer.
+Bookings are not given a user foreign key. Visits select `Booking` rows by the canonical phone. Existing rows written as another form of that same number are included, and a one-time rewrite stores the canonical value on `Booking` and `CustomerProfile`. Two profiles that collapse to one number are not merged. The customer cannot edit the profile phone, because a change would split that history. A genuinely different number stays a different customer.
 ```
 
 ### 2.4 Critical Flow: Booking + Payment Sequence
@@ -236,7 +237,7 @@ sequenceDiagram
         BF->>API: Verify this charge id
         API->>PC: GET /mobile-money/payments/{chargeId}/verify
         alt Verify status is success
-            API->>DB: Update booking → successful, loyalty flag
+            API->>DB: Update booking → successful
             API->>TW: Send SMS confirmation
             API->>API: Email ticket through Resend when email exists
             API-->>BF: Show downloadable ticket
@@ -253,7 +254,7 @@ sequenceDiagram
     API->>PC: Verify the charge again before any database write
 ```
 
-Signed-in booking uses this same sequence. The only difference is that name, phone, and email are taken from `CustomerProfile` instead of form fields. The mobile-money number on the payment step is still entered for the selected operator. Guest and signed-in booking store the canonical phone from FR-03. Loyalty counts successful bookings by the phone stored on the booking. Hosted checkout (`checkout_url`, return redirect, and the PayChangu public key) is removed from this flow.
+Signed-in booking uses this same sequence. The only difference is that name, phone, and email are taken from `CustomerProfile` instead of form fields. The mobile-money number on the payment step is still entered for the selected operator. Guest and signed-in booking store the canonical phone. Hosted checkout (`checkout_url`, return redirect, and the PayChangu public key) is removed from this flow.
 
 ### 2.5 Page Routing Map
 
@@ -275,7 +276,7 @@ Signed-in booking uses this same sequence. The only difference is that name, pho
 | `/admin` | "Protected" | Full admin dashboard | Hardcoded password |
 | `/sign-in` | Public | Google, or email + password. A Google-only email cannot sign in with a password (FR-25). | None to view; creates a customer session |
 | `/sign-up` | Public | Google, or name, email, password entered twice, and phone | None to view; creates Neon Auth user + CustomerProfile |
-| `/account` | Customer | Visits (upcoming and past) and loyalty progress | Neon Auth session |
+| `/account` | Customer | Visits (upcoming and past) and account details | Neon Auth session |
 
 ---
 
@@ -342,18 +343,18 @@ The admin dashboard fetches ALL bookings on load. The booking page fetches ALL s
 | ID | Decision | Rationale (Inferred) | Consequence |
 |----|----------|---------------------|-------------|
 | TD-01 | **All pages are client-rendered** (`"use client"`) | Simplicity; avoid RSC complexity | No SSR/SEO benefits; larger JS bundles; all data fetching happens client-side |
-| TD-02 | **No service/repository layer** — API routes call Prisma directly | Speed of development | Business logic scattered across routes; loyalty logic duplicated in 2 places |
+| TD-02 | **No service/repository layer** — API routes call Prisma directly | Speed of development | Business logic scattered across routes. [Loyalty logic duplication retired in v7] |
 | TD-03 | **Service-Category link via string** instead of FK | Avoid Prisma relation complexity | Orphaned references possible; no cascade behavior; integrity depends on application-level checks |
 | TD-04 | **Hardcoded admin password** in client bundle | MVP speed | Anyone can inspect source and retrieve password; no session management |
 | TD-05 | **Payment deposit hardcoded** at K10,000 | Fixed pricing model | Cannot adjust without code change; no admin UI for deposit amount. [SUPERSEDED BY TD-13] |
 | TD-06 | **sessionStorage for page-to-page state transfer** | Avoid server-side sessions | State lost on browser restart; fragile — depends on exact navigation flow |
 | TD-07 | **Disabled ESLint and TypeScript checks** in production builds | Bypass build errors | Type errors and linting issues ship to production undetected |
-| TD-08 | **Dual verification: polling + webhook** | Redundancy for payment reliability | Good pattern, but loyalty logic is duplicated between both paths. [SUPERSEDED BY TD-12] |
+| TD-08 | **Dual verification: polling + webhook** | Redundancy for payment reliability | Good pattern. [Loyalty logic duplication retired in v7; superseded by TD-12] |
 | TD-12 | **Direct Charge on the studio booking flow** (v5) | Hosted checkout's redirect can show a wrong result after a real debit. The site collects TNM Mpamba (`08`) or Airtel Money (`09`), initializes the charge, and trusts only a later verify call. The guide's sample checkout UI is not used. The webhook cannot confirm a booking until its secret is set. MWK 100 is the test charge only; the studio deposit stays K10,000. The flat amount in this row is [SUPERSEDED BY TD-13]. | The customer must stay for the PIN prompt. A closed tab leaves the booking `pending` until a later verify or a signed webhook runs the same confirm path. |
-| TD-13 | **Charge the stored service total; bank transfer is a second rail** (v6) | The studio price is the sum of the services on that booking, not a flat deposit. Each service price is edited in admin. The total is stored on the booking so a later price edit does not rewrite old visits. Bank transfer uses a one-off account (`create_permanent_account` false), account name LaurynStudio, and confirms only when the customer presses Verify and the details call is paid for that same amount. Expenditure counts a successful booking only after its Blantyre slot has passed, because the account page already splits visits that way. The 30% loyalty flag still does not reduce the charge. | A service with no positive price cannot be booked. Old bookings with no stored total show no amount and add nothing to Expenditure. A wrong transfer amount does not issue a ticket. |
+| TD-13 | **Charge the stored service total; bank transfer is a second rail** (v6) | The studio price is the sum of the services on that booking, not a flat deposit. Each service price is edited in admin. The total is stored on the booking so a later price edit does not rewrite old visits. Bank transfer uses a one-off account (`create_permanent_account` false), account name LaurynStudio, and confirms only when the customer presses Verify and the details call is paid for that same amount. Expenditure counts a successful booking only after its Blantyre slot has passed, because the account page already splits visits that way. | A service with no positive price cannot be booked. Old bookings with no stored total show no amount and add nothing to Expenditure. A wrong transfer amount does not issue a ticket. |
 | TD-09 | **1-second SWR polling** for real-time availability | Ensure users see up-to-date slots | Excessive server load; unnecessary for a low-volume studio |
 | TD-10 | **Single admin page (1,597 lines)** | All management in one place | Unmaintainable; no lazy loading; full re-render on any state change |
-| TD-11 | **Optional Neon Auth; E.164 phone remains the customer key** (v4) | Guests must keep booking with no account. Loyalty and tickets are stored by phone, not by user id. Malawi local forms collapse to `+265` plus 9 digits. Any other country is stored only when typed with `+` and its country code, and stays a separate customer. | Email/password live in Neon Auth. The app stores name, email, and the E.164 phone on `CustomerProfile`. Visits match that phone. One stored phone, one account. The customer cannot edit it. Guest ticket lookup stays. Two profiles that canonicalize to one number are not merged. |
+| TD-11 | **Optional Neon Auth; E.164 phone remains the customer key** (v4) | Guests must keep booking with no account. Visits and tickets are stored by phone, not by user id. Malawi local forms collapse to `+265` plus 9 digits. Any other country is stored only when typed with `+` and its country code, and stays a separate customer. | Email/password live in Neon Auth. The app stores name, email, and the E.164 phone on `CustomerProfile`. Visits match that phone. One stored phone, one account. The customer cannot edit it. Guest ticket lookup stays. Two profiles that canonicalize to one number are not merged. |
 
 ### 4.2 Missing Decisions (Gaps)
 
@@ -382,7 +383,7 @@ Issues are ranked by **severity × effort** to produce a recommended execution o
 | 🔴 P0 | No API route authorization (NFR-02) | Critical | Medium | 1 |
 | 🟠 P1 | Bug #2: Price list upload failures | High | Low | 0 |
 | 🟠 P1 | Bug #4: Poor PayChangu recovery UI | High | Medium | 0 |
-| 🟠 P1 | Duplicated loyalty logic (FR-03) | High | Low | 1 |
+| ⚪ Retired | Duplicated loyalty logic (FR-03) [RETIRED v7] | - | - | - |
 | 🟠 P1 | Re-enable ESLint/TypeScript checks (TD-07) | High | Medium | 1 |
 | 🟡 P2 | Add FK relation: Service → Category (TD-03) | Medium | Medium | 2 |
 | 🟡 P2 | Reduce SWR polling frequency (B-01) | Medium | Low | 2 |
@@ -425,16 +426,14 @@ Issues are ranked by **severity × effort** to produce a recommended execution o
 
 #### 5.2.2 Extract Shared Business Logic
 
-**Current:** Loyalty discount calculation is duplicated in:
-1. `verify-payment/route.ts` (lines 138-181)
-2. `webhook/paychangu/route.ts` (lines 111-155)
+**Current:** Booking confirmation is unified in `lib/confirm-booking.ts` and `lib/payments.ts`. Loyalty logic is retired in v7.
 
 **Target:**
 ```
 lib/
-├── loyalty.ts        ← Extract: calculateLoyaltyDiscount(phone)
-├── booking-service.ts ← Extract: confirmBooking(bookingId, txRef)
-└── sms.ts            ← Already extracted
+├── confirm-booking.ts ← Shared: confirmPaidBooking(bookingId)
+├── payments.ts       ← Direct Charge initialize, verify, settle
+└── sms.ts            ← Shared SMS sending
 ```
 
 #### 5.2.3 Re-enable Build Checks
@@ -517,17 +516,17 @@ Add cursor-based pagination to `GET /api/bookings` with `take`, `skip`, and `cur
 
 ### 5.5 Customer accounts (SDD v2)
 
-Not part of the forensic hotfix phases above. Implement optional Neon Auth sign-up and sign-in, a `CustomerProfile` keyed by phone, a signed-in booking path that skips name/phone/email, and an account Visits page (upcoming, past, existing ticket, existing reschedule rules, loyalty progress). Guest booking is unchanged. Admin authentication stays on the existing password until its own security work.
+Not part of the forensic hotfix phases above. Implement optional Neon Auth sign-up and sign-in, a `CustomerProfile` keyed by phone, a signed-in booking path that skips name/phone/email, and an account Visits page (upcoming, past, existing ticket, existing reschedule rules). Guest booking is unchanged. Admin authentication stays on the existing password until its own security work.
 
 ### 5.6 Stored phone and input check (SDD v4)
 
-Loyalty, visits, signup uniqueness, and account reschedule compare one stored phone: `+` followed by digits only, at most 15 digits.
+Visits, signup uniqueness, and account reschedule compare one stored phone: `+` followed by digits only, at most 15 digits.
 
 Malawi entry, with or without spaces, dashes, or brackets: leading `0` plus 9 digits, 9 digits alone, `265` plus 9 digits, or `+265` plus 9 digits. `+265` followed by an extra `0` and then 9 digits drops that `0`. All of these save as `+265` plus 9 digits. A leading letter `O` used in place of `0` on an otherwise numeric Malawi number is treated as `0`.
 
 International entry must already start with `+` and a country code, for example `+256772123456` or `+44 7471 224556`. Strip spaces, dashes, and brackets, then save `+` plus the digits. Do not invent a country code. `07740971277` is not rewritten to `+44`.
 
-The booking, signup, and admin phone boxes accept only characters that can become one of those forms, and they refuse submit until the value canonicalizes. The server applies the same rule and rejects names and other junk. Rewrite existing `Booking.phone` values that canonicalize, including international numbers that already start with `+`. Leave names, junk, and country-less non-Malawi numbers unchanged. `CustomerProfile` has no rows yet. If two profiles ever collapse to one number, stop and report them; do not merge the accounts. SMS uses the stored value. The 30% rule stays as it is. The flat deposit named in this section is superseded by section 5.9.
+The booking, signup, and admin phone boxes accept only characters that can become one of those forms, and they refuse submit until the value canonicalizes. The server applies the same rule and rejects names and other junk. Rewrite existing `Booking.phone` values that canonicalize, including international numbers that already start with `+`. Leave names, junk, and country-less non-Malawi numbers unchanged. `CustomerProfile` has no rows yet. If two profiles ever collapse to one number, stop and report them; do not merge the accounts. SMS uses the stored value. The 30% loyalty discount rule is retired in v7. The flat deposit named in this section is superseded by section 5.9.
 
 ### 5.7 Direct Charge instead of hosted checkout (SDD v5)
 
@@ -535,7 +534,7 @@ Remove PayChangu hosted checkout from booking. Keep the existing `Booking` and `
 
 On the booking payment step the customer chooses TNM Mpamba or Airtel Money and enters the payer number (`08…` or `09…`). The server creates a pending booking, generates a new charge id, and calls `POST /mobile-money/payments/initialize` for MWK 100. The browser never leaves the site. It polls until verify returns success, failed, or the customer retries with a new charge id.
 
-One shared confirm path, used by the poll and later by the webhook, marks the booking successful, applies loyalty, sends the SMS, emails the ticket through Resend when `email` is present, and returns the ticket for display and PNG download. If `PAYCHANGU_WEBHOOK_SECRET` is unset, the webhook returns 401 and writes nothing. `PAYCHANGU_PUBLIC_KEY` is not used. The flat MWK 100 test charge and the K10,000 deposit in this section are superseded by section 5.9.
+One shared confirm path, used by the poll and later by the webhook, marks the booking successful, sends the SMS, emails the ticket through Resend when `email` is present, and returns the ticket for display and PNG download. If `PAYCHANGU_WEBHOOK_SECRET` is unset, the webhook returns 401 and writes nothing. `PAYCHANGU_PUBLIC_KEY` is not used. The flat MWK 100 test charge and the K10,000 deposit in this section are superseded by section 5.9.
 
 ### 5.8 Admin phone shell (SDD v5 addendum)
 
@@ -550,6 +549,18 @@ On the booking form, show name, description when present, and price. Stack those
 Bank transfer calls `POST /direct-charge/payments/initialize` with `payment_method` `mobile_bank_transfer`, `currency` `MWK`, the stored total as `amount`, a new `charge_id`, and `create_permanent_account` false. Show `payment_account_details.bank_name`, `account_number`, and `account_name` (LaurynStudio), the amount, and `account_expiration_timestamp` when present. Verify calls `GET /direct-charge/transactions/{charge_id}/details`. Confirm only when `data.transaction.status` is `success` and `data.transaction.amount` equals `serviceTotal`. Then use the existing confirm path. Mobile-money verify and the webhook use that same stored total, not K10,000 and not MWK 100.
 
 On `/account`, under Newsletter, Expenditure is the sum of `serviceTotal` for successful bookings on that phone whose Blantyre slot has passed. Each upcoming and past visit, and the ticket, show that booking's stored total.
+
+### 5.10 Removal of 30% loyalty discount feature (SDD v7)
+
+The studio no longer offers a 30% discount on every 6th booking:
+- FR-03 (Loyalty Program) and FR-21 (Loyalty progress) are permanently retired.
+- `lib/loyalty.ts` is deleted; all loyalty progress copy and remaining visit calculations are removed.
+- Booking confirmation (`lib/payments.ts`) no longer counts prior visits or sets `discountApplied`.
+- Confirmation SMS (`lib/confirm-booking.ts`) and email notifications (`lib/ticket-email.ts`) omit all 30% loyalty discount lines and badges.
+- Confirmation ticket display (`components/booking-ticket.tsx`, `app/booking/confirmation/page.tsx`) removes the 30% Loyalty Discount Applied badge.
+- Booking form (`components/booking-form.tsx`, `app/booking/page.tsx`) removes the Loyalty Program sidebar copy, eligibility preview check, and loyalty note banner.
+- Customer account page (`app/account/page.tsx`, `app/api/account/visits/route.ts`) removes the Loyalty sidebar widget (progress copy, count, 6-circle progress bar) and the "30% appointment" tag on visit items.
+- Admin dashboard (`app/admin/page.tsx`, `app/api/bookings/[id]/route.ts`) removes the 30% Discount badge from booking list rows and the 30% Discount Applied checkbox from the booking edit dialog.
 
 ---
 
