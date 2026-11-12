@@ -56,10 +56,10 @@ This file combines the planned development roadmap and the reactive work log (fi
 - [ ] 6.7 Store the deposit amount in SiteSettings and enforce that amount on the server during checkout and verification
 
 7.0 Loyalty and SMS (generated against SDD v1)
-- [x] 7.1 Apply a 30% discount on every 6th successful booking for a phone number during verification and on the webhook
-- [x] 7.2 Preview loyalty eligibility on the booking form before payment
+- [x] 7.1 Apply a 30% discount on every 6th successful booking for a phone number during verification and on the webhook [SUPERSEDED BY 21.0]
+- [x] 7.2 Preview loyalty eligibility on the booking form before payment [SUPERSEDED BY 21.0]
 - [x] 7.3 Send a Twilio confirmation SMS with ticket id, date, time, and services, using Malawi +265 numbers
-- [ ] 7.4 Move loyalty calculation and booking confirmation into one shared module, and run that same path from admin verification
+- [ ] 7.4 Move loyalty calculation and booking confirmation into one shared module, and run that same path from admin verification [SUPERSEDED BY 21.0]
 
 8.0 Newsletter (generated against SDD v1)
 - [x] 8.1 Subscribe an email address and ignore duplicates
@@ -103,13 +103,13 @@ This file combines the planned development roadmap and the reactive work log (fi
 - [x] 14.6 Add `/account` with a Visits section split into Upcoming and Past: successful bookings whose phone equals the profile phone, using Africa/Blantyre for the split. Require a session. Do not offer ticket-id search on this page.
 - [x] 14.7 Opening an upcoming visit shows the same downloadable ticket the confirmation page already renders.
 - [x] 14.8 Reschedule from that upcoming visit uses the existing once / 24-hour notice / no extra payment rules, and the server rejects the request unless the booking phone is the session phone.
-- [x] 14.9 On the account page, show loyalty progress from the count of successful bookings for that phone. The discount rule stays every 6th booking at 30%. Example copy: "two visits until the 30% visit".
+- [x] 14.9 On the account page, show loyalty progress from the count of successful bookings for that phone. The discount rule stays every 6th booking at 30%. Example copy: "two visits until the 30% visit". [SUPERSEDED BY 21.0]
 - [x] 14.10 After signup, bookings already stored under that phone appear in Visits. Do not move bookings that use a different phone. [SUPERSEDED BY 15.0]
 
 15.0 Canonical Malawi phone for loyalty and visits (generated against SDD v3)
 - [ ] 15.1 Add one normalizer: strip spaces and dashes; accept `0` plus 9 digits, 9 digits, `265` plus 9 digits, or `+265` plus 9 digits; reject anything else; return `+265` plus 9 digits. [SUPERSEDED BY 15.8]
 - [x] 15.2 Save that value on guest checkout, signed-in checkout, signup, and admin phone edit. Signup uniqueness uses the canonical value.
-- [x] 15.3 Loyalty preview, payment verification, and the PayChangu webhook count successful bookings for that phone, including rows still stored in an equivalent form. Verification uses the phone stored on the booking.
+- [x] 15.3 Loyalty preview, payment verification, and the PayChangu webhook count successful bookings for that phone, including rows still stored in an equivalent form. Verification uses the phone stored on the booking. [SUPERSEDED BY 21.0]
 - [x] 15.4 Account visits and account reschedule compare canonical phones.
 - [x] 15.5 Rewrite existing `Booking.phone` and `CustomerProfile.phone` values that canonicalize. If two profiles collapse to one number, stop and report them; do not merge accounts.
 - [x] 15.6 Send confirmation SMS to that same canonical number.
@@ -122,7 +122,7 @@ This file combines the planned development roadmap and the reactive work log (fi
 - [x] 16.1 Remove hosted PayChangu checkout from the booking flow: no checkout URL, no redirect, and no use of the public key
 - [x] 16.2 Add a booking payment step that offers TNM Mpamba (`08`) and Airtel Money (`09`), in the studio UI, and stays on the site
 - [x] 16.3 Initialize a Direct Charge for MWK 100 with a new server-generated charge id, create the booking as pending, and ignore any amount from the browser [SUPERSEDED BY 20.0]
-- [x] 16.4 Poll PayChangu verify from that same page. On success, mark the booking successful, apply loyalty, send the SMS, show the ticket, and allow the PNG download
+- [x] 16.4 Poll PayChangu verify from that same page. On success, mark the booking successful, apply loyalty, send the SMS, show the ticket, and allow the PNG download [SUPERSEDED BY 21.0]
 - [x] 16.5 Email the ticket through Resend when the booking has an email. A failed send does not undo the booking
 - [x] 16.6 Keep the webhook route, reject it while `PAYCHANGU_WEBHOOK_SECRET` is missing, and when the secret exists require a valid `Signature` plus a fresh verify before the shared confirm path runs
 - [x] 16.7 Log initialize, verify, confirm, ticket email, and webhook attempts on `PaymentEvent`
@@ -150,12 +150,23 @@ This file combines the planned development roadmap and the reactive work log (fi
 20.0 Service prices, booking totals, expenditure, and bank transfer (generated against SDD v6)
 - [x] 20.1 Add a whole-MWK `price` on Service, required and greater than zero before that service can be booked, and edit it from the admin Services section. Add a nullable whole-MWK `serviceTotal` on Booking. Leave existing services unpriced until an admin sets a price. Do not backfill old bookings.
 - [x] 20.2 On the booking service step, show each service name, its description when one is saved, and its price. On a narrow screen, stack name, description, and price, and keep the running total of the selected prices on screen. Do not continue to payment when a selected service has no positive price.
-- [x] 20.3 When a charge is initialized, the server sums the current prices of the selected service ids, stores that sum on the pending booking, and sends that sum to PayChangu. Ignore any amount from the browser. TNM and Airtel verify, and the webhook, confirm only when PayChangu's amount equals that stored total. The 30% loyalty flag does not reduce the charge.
+- [x] 20.3 When a charge is initialized, the server sums the current prices of the selected service ids, stores that sum on the pending booking, and sends that sum to PayChangu. Ignore any amount from the browser. TNM and Airtel verify, and the webhook, confirm only when PayChangu's amount equals that stored total. The 30% loyalty flag does not reduce the charge. [SUPERSEDED BY 21.0]
 - [x] 20.4 On the payment step, hide the mobile-number field until TNM Mpamba or Airtel Money is selected. TNM still requires a number starting with 08. Airtel still requires a number starting with 09.
 - [x] 20.5 Add Bank Transfer beside those two. Choosing it calls PayChangu `POST /direct-charge/payments/initialize` with `payment_method` `mobile_bank_transfer`, currency MWK, the stored total, a new charge id, and `create_permanent_account` false. Show the returned bank name, account number, and account name (LaurynStudio), the amount, and the expiration when PayChangu sends one. Do not show a mobile number.
 - [x] 20.6 Verify is a button, not a poll. It calls `GET /direct-charge/transactions/{charge_id}/details`. Confirm only when `data.transaction.status` is `success` and the amount equals the stored total, then run the existing confirm path and show the ticket. A mismatch or any other status stays pending, tells the customer, and allows another press. A webhook for this charge uses the same status and amount check.
 - [x] 20.7 On the account page, under Newsletter, show Expenditure: the sum of stored totals for successful bookings on that phone whose Blantyre slot has passed. Each upcoming visit, each past visit, and the confirmation ticket show that booking's stored total. A booking with no stored total adds nothing and shows no amount.
 - [x] 20.8 Keep the booking picker, the running total, the payment methods, the bank details, Expenditure, and the visit totals readable on a phone without a horizontal page scroll.
+
+21.0 Removal of 30% Loyalty Discount Feature (generated against SDD v7)
+- [x] 21.1 Delete `lib/loyalty.ts` and remove all imports of `visitsUntilDiscount`, `nextVisitIsDiscount`, and `loyaltyProgressCopy`
+- [x] 21.2 Remove loyalty discount calculation, `discountApplied` flag computation, and prior-count check from `lib/payments.ts` and `app/api/bookings/[id]/route.ts`
+- [x] 21.3 Remove 30% discount line from confirmation SMS in `lib/confirm-booking.ts`
+- [x] 21.4 Remove 30% discount text, HTML table row, and `discountApplied` parameter from customer and studio emails in `lib/ticket-email.ts`
+- [x] 21.5 Remove 30% Loyalty Discount Applied badge from confirmation tickets in `components/booking-ticket.tsx` and `app/booking/confirmation/page.tsx`
+- [x] 21.6 Remove Loyalty Program sidebar copy, eligibility check effect, and discount note banner from `components/booking-form.tsx` and `app/booking/page.tsx`
+- [x] 21.7 Remove Loyalty aside block (copy, count, 6-circle progress tracker) and visit discount tags from `/account` in `app/account/page.tsx` and `app/api/account/visits/route.ts`
+- [x] 21.8 Remove 30% discount badge and edit-discount checkbox/label from admin dashboard in `app/admin/page.tsx`
+- [x] 21.9 Remove discount/loyalty fields from `types/types.ts` and mark `discountApplied` in `prisma/schema.prisma` as deprecated/retired
 
 ## Reactive Log
 
@@ -169,6 +180,7 @@ F1.0 — 26 Sept 2026 — After a successful PayChangu payment the ticket is sho
 - Status: Resolved
 
 ## Recent Activity Index
+- 12 Nov 2026 — 21.0 Removal of 30% Loyalty Discount Feature
 - 9 Oct 2026 — 20.0 Service prices, booking totals, expenditure, and bank transfer
 - 9 Oct 2026 — 20.1 Service price and stored booking total
 - 9 Oct 2026 — 20.2 Booking rows show description, price, and a running total

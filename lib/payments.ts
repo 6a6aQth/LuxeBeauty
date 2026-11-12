@@ -3,7 +3,6 @@ import prisma from "@/lib/prisma"
 import { confirmPaidBooking } from "@/lib/confirm-booking"
 import { amountForMethod } from "@/lib/money"
 import { localMobileMoneyNumber, type MobileOperator } from "@/lib/mobile-money"
-import { successfulBookingsForPhone } from "@/lib/booking-phones"
 import { heldBookingWhere } from "@/lib/slots"
 import {
   TRACK_HOURS,
@@ -392,8 +391,6 @@ export async function settle(paymentId: string): Promise<void> {
   }
 
   const completed = asDate(status.completedAt) ?? new Date()
-  const priorCount = (await successfulBookingsForPhone(payment.booking.phone, payment.booking.reference)).length
-  const discountApplied = (priorCount + 1) % 6 === 0
 
   const won = await prisma.$transaction(async (tx) => {
     const hit = await tx.payment.updateMany({
@@ -417,7 +414,6 @@ export async function settle(paymentId: string): Promise<void> {
       data: {
         status: next,
         paidAt: next === "successful" && booking.status !== "successful" ? new Date() : booking.paidAt,
-        discountApplied: next === "successful" && booking.status === "pending" ? discountApplied : booking.discountApplied,
       },
     })
     return { status: next, becameSuccessful: booking.status === "pending" && next === "successful" }
@@ -500,7 +496,6 @@ export async function getPaymentView(chargeId: string) {
             services: booking.services,
             reference: booking.reference,
             method: payment.method,
-            discountApplied: booking.discountApplied,
             email: booking.email,
           }
         : undefined,

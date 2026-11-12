@@ -23,7 +23,6 @@ interface BookingDetails {
   fee: string
   ticketId: string
   email?: string
-  discountApplied: boolean
   isReschedule?: boolean
   originalTicketId?: string
   rescheduleCount?: number
@@ -91,7 +90,6 @@ export default function BookingConfirmationPage() {
           fee: feeString,
           ticketId: b.reference || b.ticketId,
           email: b.email,
-          discountApplied: !!b.discountApplied,
           isReschedule,
           rescheduleCount: b.rescheduleCount,
           originalDate: b.originalDate,
@@ -223,11 +221,6 @@ export default function BookingConfirmationPage() {
               <div className="text-center mb-8">
                 <Logo />
               </div>
-              {bookingDetails.discountApplied && (
-                <div className="inline-block mb-4 px-4 py-2 rounded-full bg-green-100 text-green-800 font-semibold text-sm border border-green-300">
-                  30% Loyalty Discount Applied
-                </div>
-              )}
               {bookingDetails.isReschedule && (
                 <div className="inline-block mb-4 px-4 py-2 rounded-full bg-blue-100 text-blue-800 font-semibold text-sm border border-blue-300">
                   Rescheduled Appointment

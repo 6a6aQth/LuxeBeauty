@@ -13,7 +13,6 @@ export type TicketDetails = {
   services: string[]
   fee: string
   ticketId: string
-  discountApplied?: boolean
   isReschedule?: boolean
   originalDate?: string | null
 }
@@ -27,11 +26,6 @@ export const TicketFace = forwardRef<HTMLDivElement, { details: TicketDetails; s
           <div className="mb-6 flex justify-center">
             <Logo />
           </div>
-          {details.discountApplied && (
-            <div className="mb-4 inline-block rounded-full border border-green-300 bg-green-100 px-4 py-2 text-sm font-semibold text-green-800">
-              30% Loyalty Discount Applied
-            </div>
-          )}
           {details.isReschedule && (
             <div className="mb-4 inline-block rounded-full border border-blue-300 bg-blue-100 px-4 py-2 text-sm font-semibold text-blue-800">
               Rescheduled Appointment

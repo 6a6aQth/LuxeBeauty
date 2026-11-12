@@ -80,7 +80,6 @@ export function BookingForm({
   setAgreedToTerms,
   handlePayment,
   setStep,
-  loyaltyDiscountEligible,
   isReschedule,
   accountBooking,
   operator,
@@ -288,16 +287,6 @@ export function BookingForm({
                   <span>Sunday</span>
                   <span>Closed</span>
                 </div>
-              </div>
-              <div className="mt-8">
-                <h4 className="text-2xl font-serif mb-4">Loyalty Program</h4>
-                <p className="text-gray-200">
-                  Your{" "}
-                  <span className="font-semibold text-white">
-                    6th booking comes with a 30% discount
-                  </span>{" "}
-                  as a thank you for your continued trust in us.
-                </p>
               </div>
             </div>
           </div>
@@ -738,11 +727,6 @@ export function BookingForm({
                 </div>
               ) : (
                 <div className="space-y-6">
-                  {loyaltyDiscountEligible && (
-                    <div className="rounded-lg bg-green-50 border border-green-200 p-4 text-green-800 text-center text-base mb-2">
-                      This visit is marked for the 30% loyalty note. The booking fee stays {bookingFee}.
-                    </div>
-                  )}
                   <div className="space-y-3 rounded-lg border border-gray-200 bg-gray-50 p-4">
                     <div className="flex flex-col gap-1 sm:flex-row sm:justify-between sm:gap-4">
                       <span className="shrink-0 font-medium">Full Name</span>

@@ -19,7 +19,6 @@ type Visit = {
   timeSlot: string
   services: string[]
   serviceNames: string[]
-  discountApplied: boolean
   rescheduleCount: number
   originalDate: string | null
   method?: string
@@ -29,13 +28,8 @@ type VisitsPayload = {
   name: string
   phone: string
   pastTotal: number
-    pastHasMore: boolean
-    newsletter: boolean
-    loyalty: {
-    copy: string
-    successfulCount: number
-    visitsUntilDiscount: number
-  }
+  pastHasMore: boolean
+  newsletter: boolean
   upcoming: Visit[]
   past: Visit[]
 }
@@ -67,14 +61,6 @@ function TicketStub({ visit }: { visit: Visit }) {
         <p className="mt-1 truncate text-[11px] uppercase tracking-[0.16em] text-white/45">{visit.ticketId}</p>
       </div>
     </div>
-  )
-}
-
-function DiscountTag() {
-  return (
-    <span className="inline-flex shrink-0 items-center rounded-full border border-pink-200 bg-pink-50 px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.14em] text-brand-pink">
-      30% appointment
-    </span>
   )
 }
 
@@ -129,7 +115,6 @@ export default function AccountPage() {
         ? "Rescheduled - No Additional Charge"
         : `${formatMwk(amountForMethod(visit.method))} (Paid)`,
       ticketId: visit.ticketId,
-      discountApplied: visit.discountApplied,
       isReschedule: visit.rescheduleCount > 0,
       originalDate: visit.originalDate,
     }
@@ -146,7 +131,6 @@ export default function AccountPage() {
     }
   }
   const firstName = payload?.name.split(" ")[0] || ""
-  const filled = payload ? 6 - payload.loyalty.visitsUntilDiscount : 0
 
   async function toggleNewsletter() {
     if (!payload || newsletterBusy) return
@@ -212,34 +196,9 @@ export default function AccountPage() {
           <>
           <div className="grid gap-10 lg:grid-cols-[260px_1fr]">
             <aside className="h-fit rounded-2xl border border-pink-100 bg-white p-6 shadow-sm">
-              <p className="text-[11px] uppercase tracking-[0.28em] text-brand-pink">Loyalty</p>
-              <p className="mt-4 font-serif text-[1.65rem] leading-snug text-stone-900">{payload.loyalty.copy}</p>
-              <p className="mt-3 text-sm text-stone-500">
-                {payload.loyalty.successfulCount} successful {payload.loyalty.successfulCount === 1 ? "appointment" : "appointments"}
-              </p>
-              <div className="mt-6 grid grid-cols-6 gap-2">
-                {Array.from({ length: 6 }, (_, index) => {
-                  const done = index < filled
-                  const reward = index === 5
-                  return (
-                    <div key={index} className="flex flex-col items-center gap-1">
-                      <span
-                        className={`h-8 w-8 rounded-full border ${
-                          done
-                            ? "border-brand-pink bg-brand-pink"
-                            : reward
-                              ? "border-brand-pink bg-pink-50"
-                              : "border-pink-200 bg-white"
-                        }`}
-                      />
-                      {reward && <span className="text-[10px] font-medium text-brand-pink">30%</span>}
-                    </div>
-                  )
-                })}
-              </div>
               <Link
                 href="/booking"
-                className="mx-auto mt-6 flex w-fit rounded-full bg-[#f4c6d4] px-5 py-2.5 text-sm text-[#6e243f] hover:bg-[#e7b4c4] lg:mx-0"
+                className="mx-auto flex w-fit rounded-full bg-[#f4c6d4] px-5 py-2.5 text-sm text-[#6e243f] hover:bg-[#e7b4c4] lg:mx-0"
               >
                 Book an appointment
               </Link>
@@ -288,7 +247,6 @@ export default function AccountPage() {
                                 <p className="font-serif text-lg text-stone-900">
                                   {dayParts(visit.date).weekday}, {dayParts(visit.date).full}
                                 </p>
-                                {visit.discountApplied && <DiscountTag />}
                               </div>
                               <p className="text-sm text-stone-500">{formatTime(visit.timeSlot)}</p>
                             </div>
@@ -347,7 +305,6 @@ export default function AccountPage() {
                           <div className="flex items-center justify-between gap-3">
                             <div className="flex min-w-0 flex-wrap items-center gap-2">
                               <p className="font-serif text-lg text-stone-900">{when.weekday}</p>
-                              {visit.discountApplied && <DiscountTag />}
                             </div>
                             <p className="shrink-0 text-sm text-stone-500">{formatTime(visit.timeSlot)}</p>
                           </div>

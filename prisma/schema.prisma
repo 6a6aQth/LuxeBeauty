@@ -17,6 +17,7 @@ model Booking {
   services          String[]
   notes             String?
   reference         String   @unique
+  /// Deprecated/retired in SDD v7 (FR-03). Retained for historical schema compatibility.
   discountApplied   Boolean  @default(false)
   inspirationPhotos String[] @default([])
   rescheduleCount   Int      @default(0)

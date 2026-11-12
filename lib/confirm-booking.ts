@@ -41,7 +41,6 @@ export async function confirmPaidBooking(bookingId: string) {
     `Time: ${visitTime}`,
     `Services: ${serviceList || "See your ticket"}`,
     `Booking fee: ${formatMwk(amount)}`,
-    fresh.discountApplied ? "30% loyalty discount noted." : "",
     "Show this ticket at the studio.",
   ]
     .filter(Boolean)
@@ -76,7 +75,6 @@ export async function confirmPaidBooking(bookingId: string) {
         date: fresh.date,
         timeSlot: fresh.timeSlot,
         ticketId: fresh.reference,
-        discountApplied: fresh.discountApplied,
         serviceNames,
         amount,
       })
@@ -107,7 +105,6 @@ export async function confirmPaidBooking(bookingId: string) {
       date: fresh.date,
       timeSlot: fresh.timeSlot,
       ticketId: fresh.reference,
-      discountApplied: fresh.discountApplied,
       serviceNames,
       amount,
     })

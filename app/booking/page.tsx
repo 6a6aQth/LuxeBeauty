@@ -125,7 +125,6 @@ function BookingContent() {
   const [loading, setLoading] = useState(false)
   const bookingFormRef = useRef<HTMLDivElement>(null);
   const skipAccountFill = useRef(false);
-  const [loyaltyDiscountEligible, setLoyaltyDiscountEligible] = useState(false);
   const [isReschedule, setIsReschedule] = useState(false);
   const [rescheduleTicketId, setRescheduleTicketId] = useState('');
   const [accountBooking, setAccountBooking] = useState(false);
@@ -322,35 +321,6 @@ function BookingContent() {
     return fullyBlockedDates;
   }, [bookedSlots, unavailableSlots]);
 
-  // Check loyalty eligibility when phone or step changes to 'payment'
-  useEffect(() => {
-    const checkLoyalty = async () => {
-      if (step === 'payment' && formData.phone) {
-        try {
-          // Get the user's successful bookings count from backend
-          const res = await fetch(`/api/bookings?phone=${encodeURIComponent(formData.phone)}&status=successful`);
-          if (res.ok) {
-            const bookings = await res.json();
-            const count = Array.isArray(bookings) ? bookings.length : 0;
-            // Calculate if the next booking (current booking + 1) would be eligible
-            if ((count + 1) % 6 === 0) {
-              setLoyaltyDiscountEligible(true);
-            } else {
-              setLoyaltyDiscountEligible(false);
-            }
-          } else {
-            setLoyaltyDiscountEligible(false);
-          }
-        } catch {
-          setLoyaltyDiscountEligible(false);
-        }
-      } else {
-        setLoyaltyDiscountEligible(false);
-      }
-    };
-    checkLoyalty();
-  }, [step, formData.phone]);
-
   const handleSelectChange = (name: string, value: string) => {
     setFormData((prev) => ({ ...prev, [name]: value }))
   }
@@ -466,7 +436,6 @@ function BookingContent() {
     services: string[]
     reference?: string
     ticketId?: string
-    discountApplied?: boolean
     method?: string
   }) => {
     clearPendingCharge();
@@ -485,7 +454,6 @@ function BookingContent() {
       services: booking.services,
       fee,
       ticketId: ticket,
-      discountApplied: booking.discountApplied,
     });
     setFailureMessage('');
     setStep('ticket');
@@ -620,7 +588,6 @@ function BookingContent() {
       timeSlot: string
       services: string[]
       reference?: string
-      discountApplied?: boolean
       method?: string
     }
   }) => {
@@ -775,7 +742,6 @@ function BookingContent() {
           setAgreedToTerms={setAgreedToTerms}
           handlePayment={handlePayment}
           setStep={setStep}
-          loyaltyDiscountEligible={loyaltyDiscountEligible}
           isReschedule={isReschedule}
           accountBooking={accountBooking}
           operator={operator}
