@@ -2,7 +2,7 @@ import prisma from "@/lib/prisma"
 import { logPaymentEvent } from "@/lib/paymentLogger"
 import { sendBookingSMS } from "@/lib/sms"
 import { sendStudioBookingEmail, sendTicketEmail } from "@/lib/ticket-email"
-import { amountForMethod, formatMwk } from "@/lib/money"
+import { FIXED_AMOUNT_MWK, formatMwk } from "@/lib/money"
 import { formatTime } from "@/lib/time-slots"
 
 function formatVisitDate(isoDate: string): string {
@@ -19,10 +19,7 @@ function formatVisitDate(isoDate: string): string {
 }
 
 export async function confirmPaidBooking(bookingId: string) {
-  const fresh = await prisma.booking.findUnique({
-    where: { id: bookingId },
-    include: { payment: { select: { method: true } } },
-  })
+  const fresh = await prisma.booking.findUnique({ where: { id: bookingId } })
   if (!fresh) {
     return { ok: false as const, reason: "missing" as const }
   }
@@ -43,7 +40,7 @@ export async function confirmPaidBooking(bookingId: string) {
     select: { id: true, name: true },
   })
   const serviceNames = fresh.services.map((id) => services.find((service) => service.id === id)?.name ?? id)
-  const amount = amountForMethod(fresh.payment?.method)
+  const amount = FIXED_AMOUNT_MWK
   const visitDate = formatVisitDate(fresh.date)
   const visitTime = formatTime(fresh.timeSlot)
   const serviceList = serviceNames.filter(Boolean).join(", ")
