@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createHmac, timingSafeEqual } from "crypto"
 import { settle } from "@/lib/payments"
+import { settleGiftVoucher } from "@/lib/settle-voucher"
 
 function signaturesMatch(payload: string, signature: string | null, secret: string) {
   if (!signature) return false
@@ -42,6 +43,7 @@ export async function POST(req: NextRequest) {
   if (chargeId) {
     try {
       await settle(chargeId)
+      await settleGiftVoucher(chargeId)
     } catch (error: unknown) {
       console.error("[payments] webhook settle", error)
     }

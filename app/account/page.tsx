@@ -231,15 +231,6 @@ export default function AccountPage() {
                   {payload.newsletter ? "Unsubscribe" : "Subscribe"}
                 </button>
               </div>
-              {payload.expenditure > 0 && (
-                <div className="mt-6 border-t border-pink-100 pt-5">
-                  <p className="text-[11px] uppercase tracking-[0.28em] text-brand-pink">Expenditure</p>
-                  <p className="mt-2 font-serif text-xl leading-snug text-stone-900">
-                    {formatMwk(payload.expenditure)}
-                  </p>
-                  <p className="mt-1 text-xs text-stone-500">Total spent on past visits</p>
-                </div>
-              )}
               {payload.totalDurationMinutes > 0 && (
                 <div className="mt-6 border-t border-pink-100 pt-5">
                   <p className="text-[11px] uppercase tracking-[0.28em] text-brand-pink">Total Hours at Lauryn</p>
@@ -247,7 +238,7 @@ export default function AccountPage() {
                     {formatDuration(payload.totalDurationMinutes)}
                   </p>
                   <p className="mt-1 text-xs text-stone-500 leading-relaxed">
-                    You&apos;ve spent {formatDuration(payload.totalDurationMinutes)} of luxury with us 💅
+                    You&apos;ve spent {formatDuration(payload.totalDurationMinutes)} of luxury with us
                   </p>
                 </div>
               )}

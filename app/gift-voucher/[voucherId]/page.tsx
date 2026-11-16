@@ -6,9 +6,10 @@ import { LuxuryMark } from "@/components/luxury-mark"
 import { VoucherTicket } from "@/components/voucher-ticket"
 import { formatMwk } from "@/lib/money"
 import { format, parseISO } from "date-fns"
-import { ArrowLeft, Gift, ShieldCheck, Clock } from "lucide-react"
+import { ArrowLeft, Gift, ShieldCheck, Clock, CalendarClock, Phone, Mail, CheckCircle2, RefreshCw } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 
 interface RedemptionItem {
   id: string
@@ -24,6 +25,7 @@ interface VoucherData {
   purchaseAmount: number
   remainingBalance: number
   recipientName: string
+  recipientEmail?: string
   purchaserName: string
   message?: string | null
   createdAt: string
@@ -41,6 +43,10 @@ export default function VoucherDetailsPage({
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [data, setData] = useState<VoucherData | null>(null)
+
+  // Resend email state
+  const [resending, setResending] = useState(false)
+  const [resendFeedback, setResendFeedback] = useState<{ ok: boolean; msg: string } | null>(null)
 
   useEffect(() => {
     async function fetchVoucher() {
@@ -64,6 +70,24 @@ export default function VoucherDetailsPage({
       fetchVoucher()
     }
   }, [voucherId])
+
+  const handleResendEmail = async () => {
+    if (!data?.voucherId) return
+    setResending(true)
+    setResendFeedback(null)
+    try {
+      const res = await fetch(`/api/gift-vouchers/${data.voucherId}/resend`, {
+        method: "POST",
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || "Failed to resend email")
+      setResendFeedback({ ok: true, msg: json.message || "Voucher email sent to recipient!" })
+    } catch (err: any) {
+      setResendFeedback({ ok: false, msg: err.message || "Failed to deliver email" })
+    } finally {
+      setResending(false)
+    }
+  }
 
   if (loading) {
     return (
@@ -127,9 +151,47 @@ export default function VoucherDetailsPage({
           </div>
         </div>
 
+        {/* Notice for Appointment Booking (at least 24 hours prior) */}
+        <div className="rounded-2xl border border-pink-400/30 bg-gradient-to-r from-pink-950/40 via-neutral-900 to-neutral-900 p-5 sm:p-6 shadow-xl">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 justify-between">
+            <div className="flex items-start gap-3.5">
+              <div className="p-2.5 rounded-xl bg-pink-500/20 text-pink-300 border border-pink-500/30 shrink-0 mt-0.5">
+                <CalendarClock className="w-5 h-5" />
+              </div>
+              <div className="space-y-1">
+                <h2 className="text-base sm:text-lg font-semibold text-white">
+                  Important: Book Your Studio Appointment in Advance
+                </h2>
+                <p className="text-xs sm:text-sm text-neutral-300 leading-relaxed max-w-2xl">
+                  To redeem your gift voucher, please contact the studio at least{" "}
+                  <strong className="text-pink-300 font-semibold">24 hours in advance</strong> to reserve your appointment slot.
+                  Quote your Voucher ID (<span className="font-mono text-white font-medium">{data.voucherId}</span>) when reserving.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2.5 w-full sm:w-auto shrink-0 pt-2 sm:pt-0">
+              <a
+                href="tel:0997940419"
+                className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-full bg-pink-500/20 hover:bg-pink-500/30 text-pink-200 border border-pink-500/30 text-xs font-semibold tracking-wider transition"
+              >
+                <Phone className="w-3.5 h-3.5" />
+                Call Studio
+              </a>
+              <a
+                href="https://wa.me/265997940419"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-full bg-white text-black hover:bg-neutral-200 text-xs font-semibold tracking-wider transition"
+              >
+                WhatsApp
+              </a>
+            </div>
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-start">
           {/* Left Column: Digital Voucher Card / Ticket */}
-          <div className="md:col-span-5 flex justify-center">
+          <div className="md:col-span-5 flex flex-col items-center">
             <VoucherTicket
               details={{
                 voucherId: data.voucherId,
@@ -141,6 +203,24 @@ export default function VoucherDetailsPage({
                 createdAt: data.createdAt,
               }}
             />
+
+            {/* Quick Resend Email Action */}
+            <div className="mt-4 w-full max-w-[340px] text-center">
+              <button
+                type="button"
+                disabled={resending}
+                onClick={handleResendEmail}
+                className="inline-flex items-center gap-2 text-xs text-neutral-400 hover:text-pink-300 transition py-1 disabled:opacity-50"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${resending ? "animate-spin" : ""}`} />
+                {resending ? "Dispatching email..." : "Resend voucher email to recipient"}
+              </button>
+              {resendFeedback && (
+                <p className={`text-xs mt-1.5 ${resendFeedback.ok ? "text-emerald-400" : "text-red-400"}`}>
+                  {resendFeedback.msg}
+                </p>
+              )}
+            </div>
           </div>
 
           {/* Right Column: Balance Overview & Redemption History */}
@@ -242,4 +322,3 @@ export default function VoucherDetailsPage({
     </div>
   )
 }
-

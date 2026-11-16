@@ -48,7 +48,7 @@ export default function Footer() {
               </a>
               <div className="flex items-center justify-center md:justify-start space-x-2">
                  <PhoneIcon className="h-5 w-5" />
-                 <span>0997940419 / 0890000069</span>
+                 <span>0997940419</span>
               </div>
             </div>
           </div>

@@ -18,7 +18,8 @@ import {
 import { formatMwk } from "@/lib/money"
 import { format, parseISO } from "date-fns"
 import { VoucherTicketFace, downloadVoucherTicketPng } from "@/components/voucher-ticket"
-import { Gift, Search, Download, Clock, CheckCircle2, AlertCircle } from "lucide-react"
+import { Gift, Search, Download, Clock, CheckCircle2, AlertCircle, Mail, Loader2 } from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
 
 interface ServiceItem {
   id: string
@@ -73,7 +74,33 @@ export function GiftVouchersPanel({
   const [isRedeeming, setIsRedeeming] = useState(false)
   const [redeemError, setRedeemError] = useState<string | null>(null)
 
+  const { toast } = useToast()
+  const [resendingEmail, setResendingEmail] = useState(false)
   const ticketFaceRef = useRef<HTMLDivElement>(null)
+
+  const handleResendRecipientEmail = async () => {
+    if (!selectedVoucher) return
+    setResendingEmail(true)
+    try {
+      const res = await fetch(`/api/gift-vouchers/${selectedVoucher.voucherId}/resend`, {
+        method: "POST",
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || "Failed to resend email")
+      toast({
+        title: "Email Dispatched",
+        description: json.message || "Voucher details sent to recipient.",
+      })
+    } catch (err: any) {
+      toast({
+        title: "Dispatch Failed",
+        description: err.message || "Could not send email to recipient.",
+        variant: "destructive",
+      })
+    } finally {
+      setResendingEmail(false)
+    }
+  }
 
   const fetchVouchers = async () => {
     try {
@@ -370,6 +397,20 @@ export function GiftVouchersPanel({
                   <Download className="w-3.5 h-3.5" />
                   Download Ticket PNG
                 </Button>
+
+                <Button
+                  variant="outline"
+                  disabled={resendingEmail}
+                  onClick={handleResendRecipientEmail}
+                  className="border-stone-300 text-stone-700 hover:bg-stone-100 text-xs h-9 flex items-center gap-1.5"
+                >
+                  {resendingEmail ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Mail className="w-3.5 h-3.5" />
+                  )}
+                  {resendingEmail ? "Sending..." : "Resend Email to Recipient"}
+                </Button>
               </div>
 
               {/* Hidden Ticket for PNG rendering */}
@@ -452,22 +493,20 @@ export function GiftVouchersPanel({
               <button
                 type="button"
                 onClick={() => setRedeemMode("services")}
-                className={`text-xs py-2 rounded-lg font-medium transition ${
-                  redeemMode === "services"
-                    ? "bg-white text-stone-900 shadow-sm"
-                    : "text-stone-500 hover:text-stone-900"
-                }`}
+                className={`text-xs py-2 rounded-lg font-medium transition ${redeemMode === "services"
+                  ? "bg-white text-stone-900 shadow-sm"
+                  : "text-stone-500 hover:text-stone-900"
+                  }`}
               >
                 Pick Services
               </button>
               <button
                 type="button"
                 onClick={() => setRedeemMode("amount")}
-                className={`text-xs py-2 rounded-lg font-medium transition ${
-                  redeemMode === "amount"
-                    ? "bg-white text-stone-900 shadow-sm"
-                    : "text-stone-500 hover:text-stone-900"
-                }`}
+                className={`text-xs py-2 rounded-lg font-medium transition ${redeemMode === "amount"
+                  ? "bg-white text-stone-900 shadow-sm"
+                  : "text-stone-500 hover:text-stone-900"
+                  }`}
               >
                 Custom Amount
               </button>

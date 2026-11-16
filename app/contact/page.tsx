@@ -31,7 +31,6 @@ export default function Contact() {
                     <div>
                       <h3 className="font-medium mb-1">Phone</h3>
                       <p className="text-gray-700">0997940419</p>
-                      <p className="text-gray-700">0890000069</p>
                     </div>
                   </div>
 

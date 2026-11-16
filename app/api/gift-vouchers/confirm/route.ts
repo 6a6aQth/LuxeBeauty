@@ -22,8 +22,22 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Voucher not found for charge" }, { status: 404 })
     }
 
-    // If already active or depleted, return current voucher state
+    // If already active or depleted, return current voucher state (or resend email if explicitly requested)
     if (voucher.status === "active" || voucher.status === "depleted") {
+      if (body.resend) {
+        try {
+          await sendVoucherEmail({
+            voucherId: voucher.voucherId,
+            originalAmount: voucher.purchaseAmount,
+            recipientName: voucher.recipientName,
+            recipientEmail: voucher.recipientEmail,
+            purchaserName: voucher.purchaserName,
+            message: voucher.message,
+          })
+        } catch (e) {
+          console.error("[api/gift-vouchers/confirm] Resend email failed:", e)
+        }
+      }
       return NextResponse.json({
         ok: true,
         status: voucher.status,
@@ -85,15 +99,19 @@ export async function POST(req: NextRequest) {
       message: `Voucher ${voucher.voucherId} confirmed and activated`,
     })
 
-    // Send recipient email asynchronously
-    sendVoucherEmail({
-      voucherId: voucher.voucherId,
-      originalAmount: voucher.purchaseAmount,
-      recipientName: voucher.recipientName,
-      recipientEmail: voucher.recipientEmail,
-      purchaserName: voucher.purchaserName,
-      message: voucher.message,
-    }).catch((e) => console.error("[api/gift-vouchers/confirm] email failed:", e))
+    // Send recipient email
+    try {
+      await sendVoucherEmail({
+        voucherId: voucher.voucherId,
+        originalAmount: voucher.purchaseAmount,
+        recipientName: voucher.recipientName,
+        recipientEmail: voucher.recipientEmail,
+        purchaserName: voucher.purchaserName,
+        message: voucher.message,
+      })
+    } catch (e) {
+      console.error("[api/gift-vouchers/confirm] email failed:", e)
+    }
 
     return NextResponse.json({
       ok: true,

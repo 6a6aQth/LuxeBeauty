@@ -173,6 +173,9 @@ export default function GiftVoucherHubPage() {
                   We have dispatched the official voucher details and QR code to{" "}
                   <span className="text-white font-medium">{confirmedVoucher.recipientEmail}</span>.
                 </p>
+                <div className="mx-auto mt-4 max-w-md rounded-xl bg-pink-500/10 border border-pink-500/25 p-3.5 text-xs text-pink-200 text-center leading-relaxed">
+                  <strong>Notice:</strong> The recipient should contact the studio at least <strong>24 hours in advance</strong> (Phone: 0997940419) to reserve their appointment slot.
+                </div>
               </div>
 
               <div className="flex justify-center pt-2">
