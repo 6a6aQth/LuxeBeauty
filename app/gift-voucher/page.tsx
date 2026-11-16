@@ -13,7 +13,7 @@ import { VoucherTicket } from "@/components/voucher-ticket"
 import { formatMwk } from "@/lib/money"
 import { Gift, Search, CreditCard, Building2, Smartphone, CheckCircle2, AlertCircle } from "lucide-react"
 
-const MIN_AMOUNT = 100_000
+const MIN_AMOUNT = 1_000
 
 export default function GiftVoucherHubPage() {
   const router = useRouter()
@@ -319,14 +319,14 @@ export default function GiftVoucherHubPage() {
                         id="amount"
                         type="number"
                         min={MIN_AMOUNT}
-                        step={5000}
+                        step={1000}
                         value={amount}
                         onChange={(e) => setAmount(Number(e.target.value))}
                         required
                         className="bg-neutral-950 border-neutral-800 text-white text-lg font-semibold"
                       />
-                      <div className="flex gap-2 pt-1">
-                        {[100_000, 150_000, 200_000, 300_000].map((preset) => (
+                      <div className="flex flex-wrap gap-2 pt-1">
+                        {[1_000, 5_000, 10_000, 50_000, 100_000].map((preset) => (
                           <button
                             key={preset}
                             type="button"

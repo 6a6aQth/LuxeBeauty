@@ -12,7 +12,7 @@ import {
 } from "@/lib/paychangu-direct"
 import { logPaymentEvent } from "@/lib/paymentLogger"
 
-export const MIN_VOUCHER_AMOUNT_MWK = 100_000
+export const MIN_VOUCHER_AMOUNT_MWK = 1_000
 
 function methodFor(operator: string): Method {
   if (operator === "bank") return "bank_transfer"
