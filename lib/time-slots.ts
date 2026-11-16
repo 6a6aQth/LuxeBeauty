@@ -6,6 +6,12 @@
  */
 export const OVERFLOW_SLOT = "08:00";
 
+/**
+ * Early Access surcharge (MWK) for the 08:00 slot.
+ * Customers booking this slot pay the full service total plus this surcharge upfront.
+ */
+export const EARLY_ACCESS_FEE_MWK = 25_000;
+
 export const timeSlots = {
   monday_thursday: [
     "10:00",

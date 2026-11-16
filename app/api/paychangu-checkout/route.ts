@@ -4,7 +4,7 @@ import { getSessionUser } from "@/lib/auth/session"
 import { canonicalPhone } from "@/lib/phone"
 import { reconcile, startPayment } from "@/lib/payments"
 import { sumServicePrices } from "@/lib/service-total"
-import { getSlotsForDate } from "@/lib/time-slots"
+import { getSlotsForDate, OVERFLOW_SLOT } from "@/lib/time-slots"
 import type { MobileOperator } from "@/lib/mobile-money"
 
 export const maxDuration = 60
@@ -93,7 +93,7 @@ export async function POST(req: Request) {
     const timeSlot = String(formData.timeSlot ?? "")
     if (date && timeSlot) {
       const possibleSlots = getSlotsForDate(new Date(date))
-      if (!possibleSlots.includes(timeSlot)) {
+      if (!possibleSlots.includes(timeSlot) && timeSlot !== OVERFLOW_SLOT) {
         return NextResponse.json(
           { ok: false, message: `The time slot ${timeSlot} is not available for ${date}.` },
           { status: 400 },

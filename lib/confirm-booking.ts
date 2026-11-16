@@ -3,12 +3,13 @@ import { logPaymentEvent } from "@/lib/paymentLogger"
 import { sendBookingSMS } from "@/lib/sms"
 import { sendStudioBookingEmail, sendTicketEmail } from "@/lib/ticket-email"
 import { amountForMethod, formatMwk } from "@/lib/money"
-import { formatTime } from "@/lib/time-slots"
+import { formatTime, OVERFLOW_SLOT } from "@/lib/time-slots"
+import { getExpectedPaymentAmount } from "@/lib/payments"
 
 export async function confirmPaidBooking(bookingId: string) {
   const fresh = await prisma.booking.findUnique({
     where: { id: bookingId },
-    include: { payment: { select: { method: true } } },
+    include: { payment: { select: { method: true, ids: true } } },
   })
   if (!fresh) {
     return { ok: false as const, reason: "missing" as const }
@@ -30,17 +31,28 @@ export async function confirmPaidBooking(bookingId: string) {
     select: { id: true, name: true },
   })
   const serviceNames = fresh.services.map((id) => services.find((service) => service.id === id)?.name ?? id)
-  const amount = amountForMethod(fresh.payment?.method)
+  const isEarlyAccess = fresh.timeSlot === OVERFLOW_SLOT
+  const amount = await getExpectedPaymentAmount({
+    method: fresh.payment?.method ?? "mobile",
+    booking: {
+      timeSlot: fresh.timeSlot,
+      services: fresh.services,
+    },
+    ids: fresh.payment?.ids,
+  })
   const visitDate = formatVisitDate(fresh.date)
   const visitTime = formatTime(fresh.timeSlot)
   const serviceList = serviceNames.filter(Boolean).join(", ")
+  const feeLabel = isEarlyAccess
+    ? `${formatMwk(amount)} (Paid in full - Early Access)`
+    : `${formatMwk(amount)} (Paid)`
   const sms = [
     "Lauryn Luxe booking confirmed.",
     `Ticket: ${fresh.reference}`,
     `Date: ${visitDate}`,
-    `Time: ${visitTime}`,
+    `Time: ${visitTime}${isEarlyAccess ? " (Early Access)" : ""}`,
     `Services: ${serviceList || "See your ticket"}`,
-    `Booking fee: ${formatMwk(amount)}`,
+    `Payment: ${feeLabel}`,
     "Show this ticket at the studio.",
   ]
     .filter(Boolean)

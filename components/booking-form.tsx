@@ -42,7 +42,7 @@ import { toast } from '@/hooks/use-toast';
 import { sanitizePhoneInput } from '@/lib/phone';
 import { amountForMethod, formatMwk } from '@/lib/money';
 import { localMobileMoneyNumber } from '@/lib/mobile-money';
-import { OVERFLOW_SLOT } from "@/lib/time-slots";
+import { OVERFLOW_SLOT, EARLY_ACCESS_FEE_MWK } from "@/lib/time-slots";
 import { BookingTicket } from '@/components/booking-ticket';
 
 function CopyAccountNumber({ value }: { value: string }) {
@@ -219,8 +219,13 @@ export function BookingForm({
     (sum, service) => sum + (typeof service.duration === "number" ? service.duration : 0),
     0,
   );
+  const isEarlyAccess = formData.timeSlot === OVERFLOW_SLOT;
+  const earlyAccessFee = isEarlyAccess ? EARLY_ACCESS_FEE_MWK : 0;
+  const fullAmount = runningTotal + earlyAccessFee;
   const payingByBank = operator === "bank";
-  const bookingFee = formatMwk(amountForMethod(payingByBank ? "bank" : operator));
+  const standardDeposit = amountForMethod(payingByBank ? "bank" : operator);
+  const amountDueNow = isEarlyAccess ? fullAmount : standardDeposit;
+  const bookingFee = formatMwk(amountDueNow);
   const payerReady = operator === "bank" || (operator != null && localMobileMoneyNumber(payerNumber, operator) != null);
   const payerError = operator === "tnm" || operator === "airtel"
     ? payerNumber.trim() && !localMobileMoneyNumber(payerNumber, operator)
@@ -608,8 +613,8 @@ export function BookingForm({
                                 <span className="flex items-center gap-2">
                                   <span>{formatTime(slot)}</span>
                                   {slot === OVERFLOW_SLOT && (
-                                    <Badge className="bg-brand-pink/20 text-brand-pink border border-brand-pink/30 text-xs px-1.5 py-0 rounded-full font-medium">
-                                      Early Access
+                                    <Badge className="bg-brand-pink/20 text-[#6e243f] border border-brand-pink/30 text-xs px-2 py-0.5 rounded-full font-semibold">
+                                      Early Access (+K25,000)
                                     </Badge>
                                   )}
                                 </span>

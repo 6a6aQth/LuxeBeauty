@@ -4,7 +4,8 @@ import { confirmPaidBooking } from "@/lib/confirm-booking"
 import { amountForMethod } from "@/lib/money"
 import { localMobileMoneyNumber, type MobileOperator } from "@/lib/mobile-money"
 import { heldBookingWhere } from "@/lib/slots"
-import { getSlotsForDate, OVERFLOW_SLOT } from "@/lib/time-slots"
+import { getSlotsForDate, OVERFLOW_SLOT, EARLY_ACCESS_FEE_MWK } from "@/lib/time-slots"
+import { sumServicePrices } from "@/lib/service-total"
 import {
   TRACK_HOURS,
   getChargeStatus,
@@ -122,14 +123,35 @@ function accountFrom(payment: { method: string; bankDetails: unknown }) {
   return { bank: details.bank ?? "", name: details.name ?? "", number: details.number }
 }
 
+export async function getExpectedPaymentAmount(payment: {
+  method: string
+  booking: {
+    timeSlot: string
+    services: string[]
+  }
+  ids?: any
+}): Promise<number> {
+  if (payment.ids && typeof payment.ids === "object" && typeof payment.ids.amount === "number") {
+    return payment.ids.amount
+  }
+  if (payment.booking.timeSlot === OVERFLOW_SLOT) {
+    const priced = await sumServicePrices(payment.booking.services)
+    if ("total" in priced) {
+      return priced.total + EARLY_ACCESS_FEE_MWK
+    }
+  }
+  return amountForMethod(payment.method)
+}
+
 async function openView(payment: PaymentWithBooking): Promise<StartResult> {
+  const amount = await getExpectedPaymentAmount(payment)
   return {
     ok: true,
     chargeId: payment.id,
     reference: payment.booking.reference,
     method: payment.method as Method,
     expiresAt: (payment.booking.expiresAt ?? payment.createdAt).toISOString(),
-    amount: amountForMethod(payment.method),
+    amount,
     account: accountFrom(payment),
   }
 }
@@ -158,9 +180,20 @@ export async function startPayment(input: StartBookingInput): Promise<StartResul
     }
   }
 
-  const amount = amountForMethod(method)
+  let amount = amountForMethod(method)
+  let serviceTotal = 0
+  const isEarlyAccess = input.timeSlot === OVERFLOW_SLOT
+  if (isEarlyAccess) {
+    const priced = await sumServicePrices(input.services)
+    if ("message" in priced) {
+      return { ok: false, message: priced.message }
+    }
+    serviceTotal = priced.total
+    amount = serviceTotal + EARLY_ACCESS_FEE_MWK
+  }
+
   if (!Number.isInteger(amount) || amount <= 0) {
-    alertOps("Test amount is not a positive integer")
+    alertOps("Calculated amount is not a positive integer")
     return { ok: false, message: GENERIC_START_ERROR }
   }
 
@@ -235,6 +268,11 @@ export async function startPayment(input: StartBookingInput): Promise<StartResul
             method,
             mobile: local,
             status: "pending",
+            ids: {
+              amount,
+              serviceTotal,
+              earlyAccessFee: isEarlyAccess ? EARLY_ACCESS_FEE_MWK : 0,
+            },
           },
         })
         return { booking, payment }
@@ -303,7 +341,13 @@ export async function startPayment(input: StartBookingInput): Promise<StartResul
     await prisma.payment.update({
       where: { id: chargeId },
       data: {
-        ids: { ref: result.refId, trace: result.traceId },
+        ids: {
+          ref: result.refId,
+          trace: result.traceId,
+          amount,
+          serviceTotal,
+          earlyAccessFee: isEarlyAccess ? EARLY_ACCESS_FEE_MWK : 0,
+        },
         bankDetails: result.account
           ? { bank: result.account.bank, name: result.account.name, number: result.account.number }
           : undefined,
@@ -415,7 +459,7 @@ export async function settle(paymentId: string): Promise<void> {
   }
 
   const received = status.amount
-  const expected = amountForMethod(payment.method)
+  const expected = await getExpectedPaymentAmount(payment)
   if (received !== expected) {
     const detail = `Expected ${expected}, got ${received}`
     await prisma.$transaction(async (tx) => {
@@ -524,10 +568,12 @@ export async function getPaymentView(chargeId: string) {
   if (!payment) return null
 
   const booking = payment.booking
+  const amount = await getExpectedPaymentAmount(payment)
   return {
     status: booking.status,
     paymentStatus: payment.status,
     method: payment.method as Method,
+    amount,
     reference: booking.reference,
     chargeId: payment.id,
     expiresAt: booking.expiresAt?.toISOString() ?? null,
